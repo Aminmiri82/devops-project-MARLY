@@ -86,8 +86,8 @@ public class Journey {
     @OrderColumn(name = "sequence_index")
     private List<Leg> legs = new ArrayList<>();
 
-   @OneToMany(mappedBy = "journey", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-   @JoinTable(name = "journey_point_of_interest", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
+    @OneToMany(mappedBy = "journey", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JoinTable(name = "journey_point_of_interest", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
     private List<PointOfInterest> pointOfInterests = new ArrayList<>();
 
     protected Journey() {
