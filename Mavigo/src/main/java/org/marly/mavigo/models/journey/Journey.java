@@ -25,9 +25,8 @@ import java.util.UUID;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.models.poi.PointOfInterest;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.JoinTable;
-import jakarta.persistence.CascadeType;
 
 @Entity
 @Table(name = "journey")
@@ -86,8 +85,10 @@ public class Journey {
     @OrderColumn(name = "sequence_index")
     private List<Leg> legs = new ArrayList<>();
 
-    @OneToMany(mappedBy = "journey", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JoinTable(name = "journey_point_of_interest", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "journey_point_of_interest", 
+               joinColumns = @JoinColumn(name = "journey_id"), 
+               inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
     private List<PointOfInterest> pointOfInterests = new ArrayList<>();
 
     protected Journey() {
