@@ -6,6 +6,7 @@ import org.marly.mavigo.client.prim.PrimPlace;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.stoparea.StopArea;
 import org.marly.mavigo.repository.StopAreaRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +34,7 @@ public class StopAreaServiceImpl implements StopAreaService {
         Optional<StopArea> existing = stopAreaRepository.findByNameIgnoreCase(query.trim());
         if (existing.isPresent()) {
             return existing.get();
-        }
+        }// early return if the stop area already exists
 
         List<PrimPlace> places = primApiClient.searchPlaces(query);
         
@@ -48,14 +49,22 @@ public class StopAreaServiceImpl implements StopAreaService {
 
         String stopAreaId = firstPlace.stopArea().id();
         
+        // checks if the stop area already exists by id
         Optional<StopArea> existingById = stopAreaRepository.findByExternalId(stopAreaId);
         if (existingById.isPresent()) {
             return existingById.get();
         }
 
-        saveStopAreas(places);
-        return stopAreaRepository.findByExternalId(stopAreaId)
-                .orElseThrow(() -> new IllegalStateException("Stop area not saved: " + stopAreaId));
+        // Save the first place we need and return it, then save the rest
+        StopArea saved = saveStopAreaIfNotExists(firstPlace);
+        // Save remaining places (skip first since it's already saved)
+        for (int i = 1; i < places.size(); i++) {
+            PrimPlace place = places.get(i);
+            if (place.stopArea() != null && place.stopArea().id() != null) {
+                saveStopAreaIfNotExists(place);
+            }
+        }
+        return saved;
     }
 
     @Override
@@ -67,27 +76,70 @@ public class StopAreaServiceImpl implements StopAreaService {
         }
 
         List<PrimPlace> places = primApiClient.searchPlaces(externalId);
-        saveStopAreas(places);
         
+        // Find and save the matching place first, then save the rest
+        PrimPlace matchingPlace = null;
         for (PrimPlace place : places) {
             if (place.stopArea() != null && externalId.equals(place.stopArea().id())) {
-                return stopAreaRepository.findByExternalId(externalId)
-                        .orElseThrow(() -> new IllegalStateException("Stop area not saved: " + externalId));
+                matchingPlace = place;
+                break;
             }
         }
-
-        throw new IllegalArgumentException("Stop area not found: " + externalId);
+        
+        if (matchingPlace == null) {
+            throw new IllegalArgumentException("Stop area not found: " + externalId);
+        }
+        
+        // Save the matching place and return it
+        StopArea saved = saveStopAreaIfNotExists(matchingPlace);
+        
+        // Save remaining places
+        for (PrimPlace place : places) {
+            if (place != matchingPlace && place.stopArea() != null && place.stopArea().id() != null) {
+                saveStopAreaIfNotExists(place);
+            }
+        }
+        
+        return saved;
     }
 
     @Transactional
     public void saveStopAreas(List<PrimPlace> places) {
         for (PrimPlace place : places) {
             if (place.stopArea() != null && place.stopArea().id() != null) {
-                String stopAreaId = place.stopArea().id();
-                if (stopAreaRepository.findByExternalId(stopAreaId).isEmpty()) {
-                    saveStopArea(place);
-                }
+                saveStopAreaIfNotExists(place);
             }
+        }
+    }
+
+    /**
+     * Saves a stop area if it doesn't exist, handling concurrent save attempts gracefully.
+     * Returns the saved or existing stop area.
+     * 
+     * @param place The PrimPlace containing stop area information
+     * @return The saved or existing StopArea
+     */
+    private StopArea saveStopAreaIfNotExists(PrimPlace place) {
+        if (place.stopArea() == null || place.stopArea().id() == null) {
+            throw new IllegalArgumentException("Place must have a valid stop area with ID");
+        }
+        
+        String stopAreaId = place.stopArea().id();
+        
+        // Check if it already exists
+        Optional<StopArea> existing = stopAreaRepository.findByExternalId(stopAreaId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        
+        // Try to save, handling potential concurrent saves
+        try {
+            return saveStopArea(place);
+        } catch (DataIntegrityViolationException e) {
+            // Another thread may have inserted it concurrently, fetch it
+            return stopAreaRepository.findByExternalId(stopAreaId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Stop area was not saved and could not be found: " + stopAreaId, e));
         }
     }
 
