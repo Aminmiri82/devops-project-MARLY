@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.time.LocalDateTime;
 
 @SpringBootApplication
+ Updated upstream
 public class MavigoApplication implements CommandLineRunner {
 
 	private static final Logger logger = LoggerFactory.getLogger(MavigoApplication.class);
@@ -24,6 +25,9 @@ public class MavigoApplication implements CommandLineRunner {
 
 	@Autowired
 	private PrimApiClient primApiClient;
+@EnableScheduling
+public class MavigoApplication {
+ Stashed changes
 
 	public static void main(String[] args) {
 		SpringApplication.run(MavigoApplication.class, args);
