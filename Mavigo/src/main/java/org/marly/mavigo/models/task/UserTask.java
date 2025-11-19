@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.user.User;
 

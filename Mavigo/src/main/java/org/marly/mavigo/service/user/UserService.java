@@ -1,7 +1,8 @@
 package org.marly.mavigo.service.user;
 
-import org.marly.mavigo.models.user.User;
 import java.util.UUID;
+
+import org.marly.mavigo.models.user.User;
 
 public interface UserService {
 

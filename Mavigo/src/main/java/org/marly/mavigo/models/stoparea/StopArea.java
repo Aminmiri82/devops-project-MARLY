@@ -10,6 +10,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+
 import org.marly.mavigo.models.shared.GeoPoint;
 
 @Entity

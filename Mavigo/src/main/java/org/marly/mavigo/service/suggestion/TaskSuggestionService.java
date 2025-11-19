@@ -1,6 +1,7 @@
 package org.marly.mavigo.service.suggestion;
 
 import java.util.List;
+
 import org.marly.mavigo.service.suggestion.dto.TaskSuggestion;
 import org.marly.mavigo.service.suggestion.dto.TaskSuggestionContext;
 

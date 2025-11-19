@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.marly.mavigo.models.alert.TrafficAlert;
 import org.springframework.data.jpa.repository.JpaRepository;
 

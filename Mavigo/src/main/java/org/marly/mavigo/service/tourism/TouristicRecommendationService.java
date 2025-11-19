@@ -1,6 +1,7 @@
 package org.marly.mavigo.service.tourism;
 
 import java.util.List;
+
 import org.marly.mavigo.models.poi.PointOfInterest;
 import org.marly.mavigo.service.tourism.dto.TouristicContext;
 
