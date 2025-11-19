@@ -3,9 +3,10 @@ package org.marly.mavigo.client.prim;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import org.marly.mavigo.client.prim.deserializer.NavitiaDateTimeDeserializer;
 
 import java.time.LocalDateTime;
+
+import org.marly.mavigo.client.prim.deserializer.NavitiaDateTimeDeserializer;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PrimSection(

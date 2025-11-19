@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mavigo Journeys</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input, button { margin: 5px; }
+        .journey { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+        .section { margin-left: 20px; }
+    </style>
+</head>
+<body>
+
+<h1>Mavigo Journeys</h1>
+
+<form id="journeyForm">
+    From Stop Area: <input type="text" id="from" placeholder="e.g., stop_area:OIF:8775800" required><br>
+    To Stop Area: <input type="text" id="to" placeholder="e.g., stop_area:OIF:8775860" required><br>
+    <button type="submit">Get Journeys</button>
+</form>
+
+<div id="results"></div>
+
+<!-- Include your JS file -->
+<script src="app.js"></script>
+
+</body>
+</html>
