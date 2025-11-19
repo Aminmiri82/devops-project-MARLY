@@ -1,0 +1,13 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 2em;
+}
+
+form label {
+    display: block;
+    margin-bottom: 1em;
+}
+
+.journey {
+    margin-bottom: 1em;
+}

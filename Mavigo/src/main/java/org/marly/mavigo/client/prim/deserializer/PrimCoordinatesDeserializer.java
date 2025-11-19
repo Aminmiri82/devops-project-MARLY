@@ -4,9 +4,10 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.marly.mavigo.client.prim.PrimCoordinates;
 
 import java.io.IOException;
+
+import org.marly.mavigo.client.prim.PrimCoordinates;
 
 public class PrimCoordinatesDeserializer extends JsonDeserializer<PrimCoordinates> {
 
@@ -31,7 +32,7 @@ public class PrimCoordinatesDeserializer extends JsonDeserializer<PrimCoordinate
         
         if (coordNode.isTextual()) {
             try {
-                return Double.parseDouble(coordNode.asText());
+                return Double.valueOf(coordNode.asText());
             } catch (NumberFormatException e) {
                 return null;
             }
