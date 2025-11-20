@@ -1,13 +1,37 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Mavigo Journeys</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        input, button { margin: 5px; }
-        .journey { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
-        .section { margin-left: 20px; }
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f9f9f9;
+        }
+        h1 { color: #333; }
+        form { 
+            margin-bottom: 20px; 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 10px;
+            align-items: center;
+        }
+        input { padding: 5px; font-size: 1rem; }
+        button { padding: 5px 10px; font-size: 1rem; cursor: pointer; }
+        #results { max-height: 70vh; overflow-y: auto; }
+        .journey { 
+            background: #fff; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            padding: 15px; 
+            margin-bottom: 15px; 
+        }
+        .journey h3 { margin: 0 0 10px; color: #0066cc; }
+        .journey p { margin: 0 0 10px; font-weight: bold; }
+        .sections { margin-left: 15px; list-style-type: disc; }
+        hr { border: none; border-top: 1px solid #eee; margin: 15px 0; }
     </style>
 </head>
 <body>
@@ -15,14 +39,17 @@
 <h1>Mavigo Journeys</h1>
 
 <form id="journeyForm">
-    From Stop Area: <input type="text" id="from" placeholder="e.g., stop_area:OIF:8775800" required><br>
-    To Stop Area: <input type="text" id="to" placeholder="e.g., stop_area:OIF:8775860" required><br>
+    <label>
+        From Stop Area: <input type="text" id="from" required>
+    </label>
+    <label>
+        To Stop Area: <input type="text" id="to" required>
+    </label>
     <button type="submit">Get Journeys</button>
 </form>
 
 <div id="results"></div>
 
-<!-- Include your JS file -->
 <script src="app.js"></script>
 
 </body>
