@@ -9,11 +9,11 @@ form.addEventListener('submit', async (e) => {
     const to = document.getElementById('to').value;
 
     try {
-        const response = await fetch(`http://localhost:8080/api/journeys?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+        const response = await fetch(`/api/journeys?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const data = await response.json();
-        displayJourneys(data.journeys);
+        const journeys = await response.json();
+        displayJourneys(journeys);
     } catch (err) {
         resultsDiv.innerHTML = `<p style="color:red">Error fetching journeys: ${err}</p>`;
         console.error(err);
@@ -21,20 +21,65 @@ form.addEventListener('submit', async (e) => {
 });
 
 function displayJourneys(journeys) {
-    if (!journeys || journeys.length === 0) {
-        resultsDiv.innerHTML = '<p>No journeys found</p>';
-        return;
-    }
-
     resultsDiv.innerHTML = journeys.map(j => {
-        const sections = j.sections.map(s =>
-            `<li>${s.displayInformations?.commercialMode || s.type} from ${s.from.name} to ${s.to.name} (${s.duration}s)</li>`
-        ).join('');
+        const realSections = j.sections?.filter(s => s.type !== 'crow_fly') || [];
+
+        if (realSections.length === 0) return '<p>No valid sections</p>';
+
+        // Get departure and arrival from first and last real section
+        const first = realSections[0];
+        const last = realSections[realSections.length - 1];
+
+        const dep = first?.from?.departureDateTime 
+            ? new Date(first.from.departureDateTime).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) 
+            : 'Unknown';
+        const arr = last?.to?.arrivalDateTime 
+            ? new Date(last.to.arrivalDateTime).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) 
+            : 'Unknown';
+
+        // Duration in h:m from total journey seconds
+        let duration = '?';
+        if (j.duration) {
+            const hours = Math.floor(j.duration / 3600);
+            const minutes = Math.floor((j.duration % 3600) / 60);
+            duration = `${hours}h${minutes}m`;
+        }
+
+        const transfers = j.nbTransfers !== undefined ? j.nbTransfers : '?';
+
+        const sectionsHtml = realSections.map(s => {
+            const mode = s.displayInformations?.commercialMode || s.type || 'Unknown';
+            const fromName = s.from?.name || 'Unknown';
+            const toName = s.to?.name || 'Unknown';
+            let sectionDuration = '?';
+            if (s.duration) {
+                const h = Math.floor(s.duration / 3600);
+                const m = Math.floor((s.duration % 3600) / 60);
+                sectionDuration = `${h}h${m}m`;
+            }
+            return `<li>${mode} from ${fromName} to ${toName} (${sectionDuration})</li>`;
+        }).join('');
+
         return `
             <div class="journey">
-                <h3>${j.departureDateTime} → ${j.arrivalDateTime} | Duration: ${j.duration}s | Transfers: ${j.nbTransfers}</h3>
-                <ul>${sections}</ul>
+                <h3>${dep} → ${arr} | Duration: ${duration} | Transfers: ${transfers}</h3>
+                <ul>${sectionsHtml}</ul>
             </div>
         `;
     }).join('<hr>');
+}
+
+
+
+// Helper to format duration in seconds to "hh:mm"
+function formatDuration(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h}h${m}m`;
+}
+
+// Helper to format ISO datetime string
+function formatDateTime(dt) {
+    const date = new Date(dt);
+    return date.toLocaleString();
 }
