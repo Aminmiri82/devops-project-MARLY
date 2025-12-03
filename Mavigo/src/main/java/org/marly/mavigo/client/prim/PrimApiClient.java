@@ -10,5 +10,8 @@ public interface PrimApiClient {
 
     List<PrimPlace> searchPlaces(String query);
 
+
     PrimJourneyResponse getJourney(PrimJourneyRequest request);
+
+    List<PrimDisruption> getDisruptions();
 }
