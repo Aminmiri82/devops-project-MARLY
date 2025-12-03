@@ -1,7 +1,9 @@
 package org.marly.mavigo.controller;
 
 import org.marly.mavigo.client.prim.PrimDisruption;
-import org.marly.mavigo.service.PerturbationService;
+import org.marly.mavigo.service.perturbation.PerturbationService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -12,12 +14,18 @@ public class PerturbationController {
 
     private final PerturbationService perturbationService;
 
-    public PerturbationController(PerturbationService service) {
-        this.perturbationService = service;
+    @Autowired
+    public PerturbationController(PerturbationService perturbationService) {
+        this.perturbationService = perturbationService;
     }
 
     @GetMapping("/perturbations")
-    public List<PrimDisruption> getPerturbations() {
-        return perturbationService.getPerturbations();
+    public ResponseEntity<List<PrimDisruption>> getPerturbations() {
+        try {
+            List<PrimDisruption> disruptions = perturbationService.getPerturbations();
+            return ResponseEntity.ok(disruptions);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
