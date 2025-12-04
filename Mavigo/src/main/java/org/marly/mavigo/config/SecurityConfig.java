@@ -9,7 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -23,9 +22,6 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-
-    @Value("${app.frontend.base-url:http://localhost:5173}")
-    private String frontendBaseUrl;
 
     @Bean
     public OAuth2AuthorizationRequestResolver googleAuthRequestResolver(ClientRegistrationRepository clientRepo) {
@@ -48,9 +44,7 @@ public class SecurityConfig {
         return new OAuth2AuthorizationRequestResolver() {
             @Override
             public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
-                OAuth2AuthorizationRequest resolved = base.resolve(request);
-                if (resolved == null) resolved = base.resolve(request, "google");
-                return resolved;
+                return base.resolve(request);
             }
             @Override
             public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String clientRegistrationId) {
@@ -64,8 +58,8 @@ public class SecurityConfig {
                                     OAuth2AuthorizationRequestResolver googleAuthRequestResolver) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
+
                         .requestMatchers("/api/google/**").authenticated()
-                        // Everything else is public
                         .anyRequest().permitAll()
                 )
                 .oauth2Login(oauth -> oauth
