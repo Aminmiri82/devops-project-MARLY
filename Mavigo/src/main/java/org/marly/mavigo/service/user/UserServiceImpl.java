@@ -75,6 +75,12 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = getUser(userId);
+        
+        // If this user already has this Google account linked, just return (idempotent)
+        if (subject.equals(user.getGoogleAccountSubject())) {
+            return user;
+        }
+        
         ensureGoogleSubjectAvailable(subject, userId);
 
         user.setGoogleAccountSubject(subject);
