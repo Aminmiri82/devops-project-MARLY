@@ -104,7 +104,6 @@ public class PrimApiClientImpl implements PrimApiClient {
                     .queryParam("datetime", formatDateTime(request.getDatetime()))
                     .queryParam("datetime_represents", request.getDatetimeRepresents());
 
-            // place holder params
             request.getMaxDuration().ifPresent(duration -> uriBuilder.queryParam("max_duration", duration));
             request.getMaxNbTransfers().ifPresent(transfers -> uriBuilder.queryParam("max_nb_transfers", transfers));
             request.getWheelchair().ifPresent(wheelchair -> uriBuilder.queryParam("wheelchair", wheelchair));
