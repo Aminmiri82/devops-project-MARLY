@@ -19,7 +19,6 @@ public class ComfortModeJourneyStrategy implements JourneyPreferenceStrategy {
 
     @Override
     public void apply(JourneyPlanningContext context, PrimJourneyRequest request) {
-        LOGGER.debug("Applying comfort mode for user {}", context.user() != null ? context.user().getId() : "unknown");
         // TODO: Use user's comfort profile to fine tune PrimJourneyRequest (e.g. no buses, limit transfers)
     }
 }

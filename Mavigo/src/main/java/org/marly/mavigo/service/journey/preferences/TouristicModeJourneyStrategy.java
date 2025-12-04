@@ -19,7 +19,6 @@ public class TouristicModeJourneyStrategy implements JourneyPreferenceStrategy {
 
     @Override
     public void apply(JourneyPlanningContext context, PrimJourneyRequest request) {
-        LOGGER.debug("Applying touristic mode for user {}", context.user() != null ? context.user().getId() : "unknown");
         // TODO
     }
 }
