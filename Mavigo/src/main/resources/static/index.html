@@ -40,12 +40,24 @@
 
 <form id="journeyForm">
     <label>
+        User ID: <input type="text" id="userId" placeholder="UUID" required>
+    </label>
+    <label>
         From Stop Area: <input type="text" id="from" required>
     </label>
     <label>
         To Stop Area: <input type="text" id="to" required>
     </label>
-    <button type="submit">Get Journeys</button>
+    <label>
+        Departure: <input type="datetime-local" id="departure" required>
+    </label>
+    <label>
+        Comfort Mode <input type="checkbox" id="comfort">
+    </label>
+    <label>
+        Touristic Mode <input type="checkbox" id="touristic">
+    </label>
+    <button type="submit">Plan Journey</button>
 </form>
 
 <div id="results"></div>
