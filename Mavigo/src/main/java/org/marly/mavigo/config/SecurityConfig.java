@@ -64,7 +64,6 @@ public class SecurityConfig {
                                     OAuth2AuthorizationRequestResolver googleAuthRequestResolver) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        // Only /api/google/** endpoints require authentication
                         .requestMatchers("/api/google/**").authenticated()
                         // Everything else is public
                         .anyRequest().permitAll()
