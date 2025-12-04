@@ -6,8 +6,6 @@ import org.marly.mavigo.client.prim.dto.PrimJourneyPlanDto;
 
 public interface PrimApiClient {
 
-    List<PrimDisruption> fetchRealtimeDisruptions();
-
     List<PrimPlace> searchPlaces(String query);
 
 
