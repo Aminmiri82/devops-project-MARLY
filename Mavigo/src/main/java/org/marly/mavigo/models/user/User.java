@@ -47,6 +47,15 @@ public class User {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
+    @Column(name = "google_account_subject", unique = true)
+    private String googleAccountSubject;
+
+    @Column(name = "google_account_email")
+    private String googleAccountEmail;
+
+    @Column(name = "google_linked_at")
+    private OffsetDateTime googleLinkedAt;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Journey> journeys = new ArrayList<>();
 
@@ -118,6 +127,30 @@ public class User {
 
     public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getGoogleAccountSubject() {
+        return googleAccountSubject;
+    }
+
+    public void setGoogleAccountSubject(String googleAccountSubject) {
+        this.googleAccountSubject = googleAccountSubject;
+    }
+
+    public String getGoogleAccountEmail() {
+        return googleAccountEmail;
+    }
+
+    public void setGoogleAccountEmail(String googleAccountEmail) {
+        this.googleAccountEmail = googleAccountEmail;
+    }
+
+    public OffsetDateTime getGoogleLinkedAt() {
+        return googleLinkedAt;
+    }
+
+    public void setGoogleLinkedAt(OffsetDateTime googleLinkedAt) {
+        this.googleLinkedAt = googleLinkedAt;
     }
 
     public List<Journey> getJourneys() {
