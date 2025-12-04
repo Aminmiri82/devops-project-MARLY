@@ -4,8 +4,7 @@ import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import org.marly.mavigo.client.prim.PrimJourney;
-import org.marly.mavigo.client.prim.PrimSection;
+import org.marly.mavigo.client.prim.dto.PrimJourneyPlanDto;
 import org.marly.mavigo.models.stoparea.StopArea;
 
 public class ConsolePrinter {
@@ -31,44 +30,45 @@ public class ConsolePrinter {
     private static final String PURPLE = "\u001B[35m";
     private static final String CYAN = "\u001B[36m";
 
-    public static void printJourneys(List<PrimJourney> journeys) {
+    public static void printJourneys(List<PrimJourneyPlanDto> journeys) {
         if (journeys == null || journeys.isEmpty()) {
             System.out.println("No journeys found.");
             return;
         }
 
         for (int i = 0; i < journeys.size(); i++) {
-            PrimJourney journey = journeys.get(i);
+            PrimJourneyPlanDto journey = journeys.get(i);
 
             System.out.printf("Journey %d: from %s to %s | Duration: %s | Transfers: %d%n",
                     i + 1,
-                    journey.departureDateTime().format(timeFormatter),
-                    journey.arrivalDateTime().format(timeFormatter),
-                    formatDuration(journey.duration()),
-                    journey.nbTransfers());
+                    journey.departureDateTime() != null ? journey.departureDateTime().format(timeFormatter) : "N/A",
+                    journey.arrivalDateTime() != null ? journey.arrivalDateTime().format(timeFormatter) : "N/A",
+                    formatDuration(journey.durationSeconds()),
+                    journey.transfers());
 
-            for (PrimSection section : journey.sections()) {
-                String mode = section.displayInformations() != null
-                        ? section.displayInformations().commercialMode()
-                        : "UNKNOWN";
+            List<PrimJourneyPlanDto.LegDto> legs = journey.legs();
+            if (legs == null || legs.isEmpty()) {
+                System.out.println("  (no sections returned)");
+                continue;
+            }
+
+            for (PrimJourneyPlanDto.LegDto leg : legs) {
+                String mode = leg.commercialMode() != null ? leg.commercialMode() : leg.sectionType();
 
                 String color = getColorForMode(mode);
-
-                var fromCoords = section.from().coordinates();
-                var toCoords = section.to().coordinates();
 
                 System.out.printf(
                         "  Section: %s%s%s from %s (%s, %s) to %s (%s, %s) | Duration: %s%n",
                         color,
                         mode,
                         RESET,
-                        section.from().name(),
-                        fromCoords != null ? fromCoords.latitude() : "N/A",
-                        fromCoords != null ? fromCoords.longitude() : "N/A",
-                        section.to().name(),
-                        toCoords != null ? toCoords.latitude() : "N/A",
-                        toCoords != null ? toCoords.longitude() : "N/A",
-                        formatDuration(section.duration()));
+                        leg.originLabel(),
+                        leg.originLatitude() != null ? leg.originLatitude() : "N/A",
+                        leg.originLongitude() != null ? leg.originLongitude() : "N/A",
+                        leg.destinationLabel(),
+                        leg.destinationLatitude() != null ? leg.destinationLatitude() : "N/A",
+                        leg.destinationLongitude() != null ? leg.destinationLongitude() : "N/A",
+                        formatDuration(leg.durationSeconds()));
 
             }
 

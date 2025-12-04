@@ -11,6 +11,7 @@ import org.marly.mavigo.client.prim.deserializer.NavitiaDateTimeDeserializer;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PrimJourney(
+        @JsonProperty("id") String id,
         @JsonProperty("duration") Integer duration,
         @JsonProperty("nb_transfers") Integer nbTransfers,
         @JsonProperty("departure_date_time")
