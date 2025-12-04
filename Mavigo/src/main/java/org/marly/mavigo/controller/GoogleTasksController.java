@@ -186,12 +186,19 @@ public class GoogleTasksController {
         }
 
         String email = principal.getAttribute("email");
-        User linkedUser = userService.linkGoogleAccount(userId, new GoogleAccountLink(subject, email));
-        String html = buildLinkSuccessHtml(linkedUser.getDisplayName(), linkedUser.getGoogleAccountEmail());
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.TEXT_HTML)
-                .body(html);
+        
+        try {
+            User linkedUser = userService.linkGoogleAccount(userId, new GoogleAccountLink(subject, email));
+            String html = buildLinkSuccessHtml(linkedUser.getDisplayName(), linkedUser.getGoogleAccountEmail());
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } catch (Exception e) {
+            String html = buildLinkErrorHtml(e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        }
     }
 
     @PostMapping("/lists/{listId}/tasks")
@@ -343,6 +350,34 @@ public class GoogleTasksController {
             return "";
         }
         return value.replace("\\", "\\\\").replace("'", "\\'");
+    }
+
+    private String buildLinkErrorHtml(String errorMessage) {
+        String escapedError = HtmlUtils.htmlEscape(errorMessage == null ? "Unknown error" : errorMessage);
+
+        return """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8" />
+                    <title>Google Tasks Link Failed</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7; }
+                        .card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+                        .error { color: #c0392b; }
+                        button { padding: 8px 16px; font-size: 1rem; cursor: pointer; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h2 class="error">Link Failed</h2>
+                        <p>%s</p>
+                        <p>This Google account may already be linked to another user.</p>
+                        <button onclick="window.close()">Close</button>
+                    </div>
+                </body>
+                </html>
+                """.formatted(escapedError);
     }
 }
 
