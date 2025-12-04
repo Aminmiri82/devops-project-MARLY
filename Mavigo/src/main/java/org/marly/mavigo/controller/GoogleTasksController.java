@@ -28,6 +28,8 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -191,6 +193,98 @@ public class GoogleTasksController {
                 .contentType(MediaType.TEXT_HTML)
                 .body(html);
     }
+
+    @PostMapping("/lists/{listId}/tasks")
+    public Map<String, Object> createTask(
+            @RegisteredOAuth2AuthorizedClient("google") OAuth2AuthorizedClient authorizedClient,
+            @PathVariable String listId,
+            @RequestBody CreateTaskRequest request) {
+
+        try {
+            Map<String, Object> taskBody = new java.util.HashMap<>();
+            taskBody.put("title", request.title());
+            if (request.notes() != null) {
+                taskBody.put("notes", request.notes());
+            }
+            if (request.due() != null) {
+                taskBody.put("due", request.due().atStartOfDay(ZoneOffset.UTC).toInstant().toString());
+            }
+
+            var response = googleApiWebClient.post()
+                    .uri(b -> b.path("/lists/{taskListId}/tasks").build(listId))
+                    .attributes(oauth2AuthorizedClient(authorizedClient))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(taskBody)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+
+            return response != null ? response : Map.of("status", "created");
+
+        } catch (WebClientResponseException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.valueOf(e.getStatusCode().value()),
+                    "Google Tasks API error: " + e.getResponseBodyAsString(),
+                    e
+            );
+        }
+    }
+
+    @GetMapping("/test/all-tasks")
+    public Map<String, Object> getAllTasksForTesting(
+            @RegisteredOAuth2AuthorizedClient("google") OAuth2AuthorizedClient authorizedClient) {
+
+        try {
+            // First get all task lists
+            var listsResp = googleApiWebClient.get()
+                    .uri(uri -> uri.path("/users/@me/lists").queryParam("maxResults", 10).build())
+                    .attributes(oauth2AuthorizedClient(authorizedClient))
+                    .retrieve()
+                    .bodyToMono(TasksListsResponse.class)
+                    .block();
+
+            var lists = (listsResp == null || listsResp.items() == null) ? List.<TaskListDto>of() : listsResp.items();
+
+            // For each list, get tasks
+            Map<String, Object> result = new java.util.LinkedHashMap<>();
+            for (TaskListDto list : lists) {
+                var tasksResp = googleApiWebClient.get()
+                        .uri(b -> b.path("/lists/{taskListId}/tasks")
+                                .queryParam("maxResults", 20)
+                                .queryParam("showCompleted", true)
+                                .build(list.id()))
+                        .attributes(oauth2AuthorizedClient(authorizedClient))
+                        .retrieve()
+                        .bodyToMono(TasksPage.class)
+                        .block();
+
+                var tasks = (tasksResp == null || tasksResp.items() == null) ? List.<TaskDto>of() : tasksResp.items();
+                result.put(list.title(), Map.of(
+                        "listId", list.id(),
+                        "taskCount", tasks.size(),
+                        "tasks", tasks
+                ));
+            }
+
+            return result;
+
+        } catch (WebClientResponseException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.valueOf(e.getStatusCode().value()),
+                    "Google Tasks API error: " + e.getResponseBodyAsString(),
+                    e
+            );
+        }
+    }
+
+    /**
+     * DTO for creating a task
+     */
+    public record CreateTaskRequest(
+            String title,
+            String notes,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate due
+    ) {}
 
     private boolean isDueOnDate(String due, LocalDate target) {
         if (due == null || due.isBlank()) {
