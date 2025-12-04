@@ -12,9 +12,13 @@ public record UserResponse(
         String displayName,
         String homeStationId,
         String workStationId,
-        OffsetDateTime createdAt) {
+        OffsetDateTime createdAt,
+        boolean googleAccountLinked,
+        String googleAccountEmail,
+        OffsetDateTime googleAccountLinkedAt) {
 
     public static UserResponse from(User user) {
+        boolean googleLinked = user.getGoogleAccountSubject() != null;
         return new UserResponse(
                 user.getId(),
                 user.getExternalId(),
@@ -22,7 +26,10 @@ public record UserResponse(
                 user.getDisplayName(),
                 user.getHomeStationId(),
                 user.getWorkStationId(),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                googleLinked,
+                user.getGoogleAccountEmail(),
+                user.getGoogleLinkedAt());
     }
 }
 

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,6 +37,14 @@ public class UserController {
         User created = userService.createUser(request.toUser());
         return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(created));
     }
+
+    @PostMapping("/login")
+    public UserResponse login(@RequestBody LoginRequest request) {
+        User user = userService.loginToUserAccount(request.email());
+        return UserResponse.from(user);
+    }
+
+    public record LoginRequest(String email) {}
 
     @GetMapping("/{userId}")
     public UserResponse getUser(@PathVariable UUID userId) {
