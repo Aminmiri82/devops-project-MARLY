@@ -1,61 +1,52 @@
 package org.marly.mavigo.controller;
 
-import org.marly.mavigo.client.prim.PrimApiClient;
-import org.marly.mavigo.client.prim.PrimJourneyRequest;
-import org.marly.mavigo.client.prim.PrimJourneyResponse;
-import org.marly.mavigo.models.stoparea.StopArea;
-import org.marly.mavigo.service.stoparea.StopAreaService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.marly.mavigo.controller.dto.JourneyPreferencesRequest;
+import org.marly.mavigo.controller.dto.JourneyResponse;
+import org.marly.mavigo.controller.dto.PlanJourneyCommand;
+import org.marly.mavigo.controller.dto.PlanJourneyRequest;
+import org.marly.mavigo.models.journey.Journey;
+import org.marly.mavigo.service.journey.JourneyPlanningService;
+import org.marly.mavigo.service.journey.dto.JourneyPreferences;
+import org.marly.mavigo.service.journey.dto.JourneyPlanningParameters;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/journeys")
 public class JourneyController {
 
-    @Autowired
-    private StopAreaService stopAreaService;
+    private final JourneyPlanningService journeyPlanningService;
 
-    @Autowired
-    private PrimApiClient primApiClient;
+    public JourneyController(JourneyPlanningService journeyPlanningService) {
+        this.journeyPlanningService = journeyPlanningService;
+    }
 
-    @GetMapping("/journeys")
-    public ResponseEntity<?> getJourneys(
-            @RequestParam String from,
-            @RequestParam String to
-    ) {
-        try {
-            // 1. Find or create stop areas
-            StopArea stopAreaFrom = stopAreaService.findOrCreateByQuery(from);
-            StopArea stopAreaTo = stopAreaService.findOrCreateByQuery(to);
+    @PostMapping
+    public ResponseEntity<JourneyResponse> planJourney(@Valid @RequestBody PlanJourneyCommand command) {
+        PlanJourneyRequest request = command.journey();
+        JourneyPreferences preferences = mapPreferences(command.preferences());
 
-            // 2. Set departure time (tomorrow 9:00)
-            LocalDateTime departureTime = LocalDateTime.now().plusDays(1)
-                    .withHour(9).withMinute(0).withSecond(0).withNano(0);
+        JourneyPlanningParameters parameters = new JourneyPlanningParameters(
+                request.userId(),
+                request.originQuery(),
+                request.destinationQuery(),
+                request.departureTime(),
+                preferences);
 
-            // 3. Build journey request
-            PrimJourneyRequest journeyRequest = new PrimJourneyRequest(
-                    stopAreaFrom.getExternalId(),
-                    stopAreaTo.getExternalId(),
-                    departureTime
-            );
+        Journey journey = journeyPlanningService.planAndPersist(parameters);
+        return ResponseEntity.status(HttpStatus.CREATED).body(JourneyResponse.from(journey));
+    }
 
-            // 4. Call Prim API
-            PrimJourneyResponse journeyResponse = primApiClient.getJourney(journeyRequest);
-
-            if (journeyResponse != null && journeyResponse.journeys() != null) {
-                List<?> journeys = journeyResponse.journeys();
-                return ResponseEntity.ok(journeys);
-            } else {
-                return ResponseEntity.ok(List.of());
-            }
-
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+    private JourneyPreferences mapPreferences(JourneyPreferencesRequest preferencesRequest) {
+        if (preferencesRequest == null) {
+            return JourneyPreferences.disabled();
         }
+        return new JourneyPreferences(preferencesRequest.comfortMode(), preferencesRequest.touristicMode());
     }
 }
