@@ -20,7 +20,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/google/**").authenticated()
                         .anyRequest().permitAll()
                 )
-                .oauth2Login(o -> o.defaultSuccessUrl("/api/google/tasks/me", true))
+                .oauth2Login(o -> o.defaultSuccessUrl("/api/google/tasks/me", false))
                 .oauth2Client(withDefaults())
                 .headers(h -> h.frameOptions(frame -> frame.sameOrigin()))
                 .csrf(csrf -> csrf.disable());
