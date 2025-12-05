@@ -130,34 +130,6 @@ public class PrimApiClientImpl implements PrimApiClient {
         }
     }
 
-    @Override
-    public List<PrimDisruption> getDisruptions() {
-        return List.of(
-                new PrimDisruption(
-                        "1",
-                        "RER A",
-                        "Trafic interrompu entre La Défense et Nanterre-Préfecture",
-                        "HIGH",
-                        LocalDateTime.now().minusMinutes(20)
-                ),
-                new PrimDisruption(
-                        "2",
-                        "Metro 13",
-                        "Ralentissements en raison d'un incident technique",
-                        "MEDIUM",
-                        LocalDateTime.now().minusMinutes(5)
-                ),
-                new PrimDisruption(
-                        "3",
-                        "Bus 27",
-                        "Retards importants dus à un embouteillage",
-                        "LOW",
-                        LocalDateTime.now()
-                )
-        );
-    }
-
-
     private HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("apikey", apiKey);
