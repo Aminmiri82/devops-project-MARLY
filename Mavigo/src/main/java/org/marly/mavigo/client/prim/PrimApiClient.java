@@ -8,8 +8,5 @@ public interface PrimApiClient {
 
     List<PrimPlace> searchPlaces(String query);
 
-
     List<PrimJourneyPlanDto> calculateJourneyPlans(PrimJourneyRequest request);
-
-    List<PrimDisruption> getDisruptions();
 }
