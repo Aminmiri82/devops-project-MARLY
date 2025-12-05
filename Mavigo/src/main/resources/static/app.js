@@ -15,6 +15,10 @@ const mainContent = document.getElementById('mainContent');
 const journeyForm = document.getElementById('journeyForm');
 const resultsDiv = document.getElementById('results');
 const departureInput = document.getElementById('departure');
+const disruptionLineInput = document.getElementById('disruptionLineInput');
+const disruptionResultsDiv = document.getElementById('disruptionResults');
+const fetchDisruptionsBtn = document.getElementById('fetchDisruptionsBtn');
+const fetchShortDisruptionsBtn = document.getElementById('fetchShortDisruptionsBtn');
 
 // Initialize
 init();
@@ -22,6 +26,7 @@ init();
 function init() {
     setupAuthListeners();
     setupJourneyForm();
+    setupDisruptionTester();
     setupGoogleLinkListeners();
     setDefaultDepartureTime();
     restoreSession();
@@ -197,6 +202,75 @@ function showError(el, message) {
 // Journey Form
 function setupJourneyForm() {
     journeyForm.addEventListener('submit', handleJourneySubmit);
+}
+
+// Disruptions tester
+function setupDisruptionTester() {
+    if (!disruptionLineInput || !disruptionResultsDiv) return;
+    if (fetchDisruptionsBtn) {
+        fetchDisruptionsBtn.addEventListener('click', () => fetchDisruptions(false));
+    }
+    if (fetchShortDisruptionsBtn) {
+        fetchShortDisruptionsBtn.addEventListener('click', () => fetchDisruptions(true));
+    }
+}
+
+async function fetchDisruptions(shortTerm) {
+    const line = (disruptionLineInput.value || '').trim();
+    if (!line) {
+        disruptionResultsDiv.innerHTML = '<p class="error-message">Please enter a line id or code.</p>';
+        return;
+    }
+
+    disruptionResultsDiv.innerHTML = '<p class="loading">Loading disruptions...</p>';
+
+    const url = shortTerm
+        ? `/disruptions/line/${encodeURIComponent(line)}/short-term`
+        : `/disruptions/line/${encodeURIComponent(line)}`;
+
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(body || 'Request failed');
+        }
+        const data = await resp.json();
+        renderDisruptions(data, line, shortTerm);
+    } catch (err) {
+        disruptionResultsDiv.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
+    }
+}
+
+function renderDisruptions(disruptions, line, shortTerm) {
+    if (!Array.isArray(disruptions) || disruptions.length === 0) {
+        disruptionResultsDiv.innerHTML = `<p class="results-placeholder">No ${shortTerm ? 'short-term ' : ''}disruptions found for "${line}".</p>`;
+        return;
+    }
+
+    const cards = disruptions.map(d => {
+        const updated = d.updatedAt ? formatDateTime(d.updatedAt) : '—';
+        const tags = Array.isArray(d.tags) && d.tags.length ? d.tags.join(', ') : 'None';
+        const messages = Array.isArray(d.messages) && d.messages.length
+            ? `<ul>${d.messages.map(m => `<li>${m}</li>`).join('')}</ul>`
+            : '<p>No messages</p>';
+        const periods = Array.isArray(d.applicationPeriods) && d.applicationPeriods.length
+            ? `<ul>${d.applicationPeriods.map(p => `<li>${formatDateTime(p.begin)} → ${formatDateTime(p.end)}</li>`).join('')}</ul>`
+            : '<p>No application periods</p>';
+
+        return `
+            <div class="card disruption-card">
+                <h4>${d.lineName || d.lineCode || d.lineId || 'Unknown line'}</h4>
+                <p><strong>Severity:</strong> ${d.severity || 'n/a'} (${d.effect || 'n/a'}) • Priority: ${d.priority ?? 'n/a'}</p>
+                <p><strong>Status:</strong> ${d.status || 'n/a'} • <strong>Category:</strong> ${d.category || 'n/a'} • <strong>Cause:</strong> ${d.cause || 'n/a'}</p>
+                <p><strong>Updated:</strong> ${updated}</p>
+                <p><strong>Tags:</strong> ${tags}</p>
+                <div><strong>Messages:</strong> ${messages}</div>
+                <div><strong>Application periods:</strong> ${periods}</div>
+            </div>
+        `;
+    }).join('');
+
+    disruptionResultsDiv.innerHTML = cards;
 }
 
 async function handleJourneySubmit(e) {
