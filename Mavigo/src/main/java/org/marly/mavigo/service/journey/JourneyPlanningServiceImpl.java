@@ -45,6 +45,9 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         this.primJourneyRequestFactory = primJourneyRequestFactory;
     }
 
+    // in journey model, add a field for distruptions
+    // user can add new distruption
+    // on new distruption add: recalculate new journey with the new info
     @Override
     public Journey planAndPersist(JourneyPlanningParameters parameters) {
         StopArea origin = stopAreaService.findOrCreateByQuery(parameters.originQuery());

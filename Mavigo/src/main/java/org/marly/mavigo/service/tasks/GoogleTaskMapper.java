@@ -10,6 +10,11 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
+    // task : titre, description, location, due date, completed (bool)
+    // todo: find relevant tasks based on journey
+    // task location == origin OR destination of the journey
+    // matching task/journey , fais comme tu veux
+    // add a notification/toast on the frontend to tell user to do task
 public class GoogleTaskMapper {
 
     /** Mappe un TaskDto Google -> entité UserTask (si plus tard on veut persister). */
