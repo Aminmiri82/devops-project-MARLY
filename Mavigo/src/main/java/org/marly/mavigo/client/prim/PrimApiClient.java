@@ -2,10 +2,11 @@ package org.marly.mavigo.client.prim;
 
 import java.util.List;
 
+import org.marly.mavigo.client.prim.dto.PrimJourneyPlanDto;
+
 public interface PrimApiClient {
 
-    PrimItineraryResponse planItinerary(PrimItineraryRequest request);
+    List<PrimPlace> searchPlaces(String query);
 
-    List<PrimDisruption> fetchRealtimeDisruptions();
+    List<PrimJourneyPlanDto> calculateJourneyPlans(PrimJourneyRequest request);
 }
-

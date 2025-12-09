@@ -1,5 +1,11 @@
 package org.marly.mavigo.models.task;
 
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+import org.marly.mavigo.models.shared.GeoPoint;
+import org.marly.mavigo.models.user.User;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -12,10 +18,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.time.OffsetDateTime;
-import java.util.UUID;
-import org.marly.mavigo.models.shared.GeoPoint;
-import org.marly.mavigo.models.user.User;
 
 @Entity
 @Table(name = "user_task")
@@ -48,6 +50,8 @@ public class UserTask {
     @Column(name = "is_completed", nullable = false)
     private boolean completed = false;
 
+
+    // task location field
     // location where we want to remind the user of this task
     @Embedded
     private GeoPoint locationHint;

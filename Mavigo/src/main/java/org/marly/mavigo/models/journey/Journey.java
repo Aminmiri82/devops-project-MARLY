@@ -22,12 +22,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+
+import org.marly.mavigo.models.poi.PointOfInterest;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.user.User;
-import org.marly.mavigo.models.poi.PointOfInterest;
-import jakarta.persistence.OneToMany;
+
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.JoinTable;
-import jakarta.persistence.CascadeType;
 
 @Entity
 @Table(name = "journey")
@@ -47,18 +48,17 @@ public class Journey {
     @Column(name = "destination_label", nullable = false)
     private String destinationLabel;
 
-
     @Embedded
     @AttributeOverrides({
-        @AttributeOverride(name = "latitude", column = @Column(name = "origin_latitude")),
-        @AttributeOverride(name = "longitude", column = @Column(name = "origin_longitude"))
+            @AttributeOverride(name = "latitude", column = @Column(name = "origin_latitude")),
+            @AttributeOverride(name = "longitude", column = @Column(name = "origin_longitude"))
     })
     private GeoPoint originCoordinate;
 
     @Embedded
     @AttributeOverrides({
-        @AttributeOverride(name = "latitude", column = @Column(name = "destination_latitude")),
-        @AttributeOverride(name = "longitude", column = @Column(name = "destination_longitude"))
+            @AttributeOverride(name = "latitude", column = @Column(name = "destination_latitude")),
+            @AttributeOverride(name = "longitude", column = @Column(name = "destination_longitude"))
     })
     private GeoPoint destinationCoordinate;
 
@@ -86,7 +86,7 @@ public class Journey {
     @OrderColumn(name = "sequence_index")
     private List<Leg> legs = new ArrayList<>();
 
-    @OneToMany(mappedBy = "journey", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "journey_point_of_interest", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
     private List<PointOfInterest> pointOfInterests = new ArrayList<>();
 
@@ -95,7 +95,7 @@ public class Journey {
     }
 
     public Journey(User user, String originLabel, String destinationLabel, OffsetDateTime plannedDeparture,
-                   OffsetDateTime plannedArrival) {
+            OffsetDateTime plannedArrival) {
         this.user = user;
         this.originLabel = originLabel;
         this.destinationLabel = destinationLabel;
@@ -207,6 +207,7 @@ public class Journey {
     public void addLeg(Leg leg) {
         legs.add(leg);
     }
+
     public List<PointOfInterest> getPointOfInterests() {
         return Collections.unmodifiableList(pointOfInterests);
     }
@@ -215,4 +216,3 @@ public class Journey {
         pointOfInterests.add(pointOfInterest);
     }
 }
-

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mavigo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-brand">
+            <h1>Mavigo</h1>
+            <span class="tagline">Journey Planning</span>
+        </div>
+        <div class="header-auth" id="authSection">
+            <div id="loggedOutView">
+                <button type="button" id="showLoginBtn" class="btn btn-outline">Log In</button>
+                <button type="button" id="showRegisterBtn" class="btn btn-primary">Sign Up</button>
+            </div>
+            <div id="loggedInView" class="hidden">
+                <span id="userGreeting"></span>
+                <button type="button" id="logoutBtn" class="btn btn-outline btn-sm">Log Out</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="modal-overlay hidden" id="authModal">
+        <div class="modal">
+            <button type="button" class="modal-close" id="closeAuthModal">&times;</button>
+            
+            <div id="loginForm" class="auth-form">
+                <h2>Welcome Back</h2>
+                <p class="form-subtitle">Log in with your email</p>
+                <form id="loginFormEl">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" placeholder="you@example.com" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Log In</button>
+                </form>
+                <p id="loginError" class="form-error hidden"></p>
+                <p class="form-switch">Don't have an account? <a href="#" id="switchToRegister">Sign up</a></p>
+            </div>
+
+            <div id="registerForm" class="auth-form hidden">
+                <h2>Create Account</h2>
+                <p class="form-subtitle">Join Mavigo to plan your journeys</p>
+                <form id="registerFormEl">
+                    <div class="form-group">
+                        <label for="registerName">Display Name</label>
+                        <input type="text" id="registerName" placeholder="Your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerEmail">Email</label>
+                        <input type="email" id="registerEmail" placeholder="you@example.com" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+                </form>
+                <p id="registerError" class="form-error hidden"></p>
+                <p class="form-switch">Already have an account? <a href="#" id="switchToLogin">Log in</a></p>
+            </div>
+        </div>
+    </div>
+
+    <main class="app-main">
+        <div id="notLoggedInPrompt" class="prompt-card">
+            <h2>Plan Your Journey</h2>
+            <p>Log in or create an account to start planning trips across Paris transit network.</p>
+            <button type="button" class="btn btn-primary" id="promptLoginBtn">Get Started</button>
+        </div>
+
+        <div id="mainContent" class="hidden">
+            <section class="user-panel">
+                <div class="panel-header">
+                    <h2>Your Account</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="user-info">
+                        <p><strong>Name:</strong> <span id="displayUserName">—</span></p>
+                        <p><strong>Email:</strong> <span id="displayUserEmail">—</span></p>
+                        <p><strong>User ID:</strong> <code id="displayUserId">—</code></p>
+                    </div>
+                    <div class="google-link-section">
+                        <h3>Google Tasks</h3>
+                        <p class="section-desc">Link your Google account to sync tasks with your journeys.</p>
+                        <div class="google-link-actions">
+                            <button type="button" id="linkGoogleTasksBtn" class="btn btn-outline">Link Google Tasks</button>
+                            <button type="button" id="refreshGoogleLinkBtn" class="btn btn-ghost btn-sm">Refresh</button>
+                        </div>
+                        <p id="googleLinkStatus" class="link-status">Not linked</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="journey-panel">
+                <div class="panel-header">
+                    <h2>Plan a Journey</h2>
+                </div>
+                <div class="panel-body">
+                    <form id="journeyForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="from">From</label>
+                                <input type="text" id="from" placeholder="Origin station or address" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="to">To</label>
+                                <input type="text" id="to" placeholder="Destination station or address" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="departure">Departure</label>
+                                <input type="datetime-local" id="departure" required>
+                            </div>
+                            <div class="form-group form-group-checkboxes">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="comfort">
+                                    <span>Comfort Mode</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="touristic">
+                                    <span>Touristic Mode</span>
+                                </label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Plan Journey</button>
+                    </form>
+                </div>
+            </section>
+
+            <section class="results-panel">
+                <div class="panel-header">
+                    <h2>Results</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="results">
+                        <p class="results-placeholder">Your journey results will appear here.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="journey-panel">
+                <div class="panel-header">
+                    <h2>Disruptions Tester</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="disruptionLineInput">Line ID or code</label>
+                            <input type="text" id="disruptionLineInput" placeholder="e.g. line:IDFM:C01380 or 10">
+                            <p class="form-subtitle">We call <code>/disruptions/line/{line}</code> and the short-term variant.</p>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <button type="button" id="fetchDisruptionsBtn" class="btn btn-outline">Fetch all disruptions</button>
+                        <button type="button" id="fetchShortDisruptionsBtn" class="btn btn-primary">Fetch short-term only</button>
+                    </div>
+                    <div id="disruptionResults" class="disruption-results">
+                        <p class="results-placeholder">Enter a line and click a button to fetch disruptions.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
