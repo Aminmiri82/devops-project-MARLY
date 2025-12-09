@@ -8,6 +8,7 @@ import jakarta.persistence.Embedded;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import java.time.OffsetDateTime;
+
 import org.marly.mavigo.models.shared.GeoPoint;
 
 @Embeddable

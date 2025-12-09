@@ -1,6 +1,7 @@
 package org.marly.mavigo.service.alert;
 
 import java.util.UUID;
+
 import org.marly.mavigo.models.alert.TrafficAlert;
 
 public interface RealTimeAlertService {
