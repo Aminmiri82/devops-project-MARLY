@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.marly.mavigo.client.disruption.DisruptionApiClient;
 import org.marly.mavigo.client.disruption.dto.LineReport;
 import org.marly.mavigo.client.disruption.dto.LineReportsResponse;
@@ -22,6 +23,19 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class PerturbationService {
+
+    // you can delete disruptionAPI client 
+    // add a button in the frontend : i have a disruption
+    // line: 10
+    // time : (default: 1 hour)
+    // in controller
+    // endpoint : add disruption
+    // endpoint : get disruption
+    // in service
+    // service : add disruption
+    // add a disruption model/entity
+    // it will have the fields: effected line, validuntil, createdat, creator(user)
+    // soft delete : when you do a soft delete: set validuntil to DateTime.now()
 
     private static final Set<String> IMPORTANT_EFFECTS = Set.of("NO_SERVICE", "SIGNIFICANT_DELAYS", "DETOUR", "REDUCED_SERVICE");
     private static final int IMPORTANT_PRIORITY_THRESHOLD = 40;
