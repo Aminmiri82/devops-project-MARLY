@@ -4,7 +4,7 @@ import java.util.UUID;
 
 import org.marly.mavigo.models.alert.TrafficAlert;
 
-public interface RealTimeAlertService {
+public interface  RealTimeAlertService {
 
     void subscribeJourney(UUID journeyId);
 

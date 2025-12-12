@@ -1,55 +1,52 @@
 package org.marly.mavigo.controller.perturbation;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.marly.mavigo.client.prim.PrimDisruption;
-import org.marly.mavigo.controller.PerturbationController;
+import org.marly.mavigo.models.disruption.Disruption;
 import org.marly.mavigo.service.perturbation.PerturbationService;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(MockitoExtension.class)
-class PerturbationControllerTest {
+@SpringBootTest
+@AutoConfigureMockMvc
+public class PerturbationControllerTest {
 
-    @Mock
-    private PerturbationService perturbationService;
-
-    @InjectMocks
-    private PerturbationController perturbationController;
-
+    @Autowired
     private MockMvc mockMvc;
 
-    @BeforeEach
-    void setup() {
-        mockMvc = MockMvcBuilders.standaloneSetup(perturbationController).build();
+    @Autowired
+    private PerturbationService service;
+
+    @Test
+    public void testGetPerturbations() throws Exception {
+        // Ajouter une perturbation pour tester la récupération
+        service.addDisruption("10", "TestUser");
+
+        mockMvc.perform(get("/perturbations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isNotEmpty());
     }
 
     @Test
-    void testGetPerturbations() throws Exception {
-
-        PrimDisruption disruption = new PrimDisruption(
-                "1",
-                "Ligne 1",
-                "Travaux sur la ligne",
-                "Moyenne",
-                LocalDateTime.now()
-        );
-
-
-        when(perturbationService.getPerturbations()).thenReturn(List.of(disruption));
-
-        mockMvc.perform(get("/perturbations"))
+    public void testAddPerturbation() throws Exception {
+        mockMvc.perform(post("/perturbations")
+                        .param("line", "20")
+                        .param("creator", "Alice")
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
+
+        // Vérifier que la perturbation a été ajoutée
+        mockMvc.perform(get("/perturbations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.effectedLine=='20')]").exists());
     }
 }
