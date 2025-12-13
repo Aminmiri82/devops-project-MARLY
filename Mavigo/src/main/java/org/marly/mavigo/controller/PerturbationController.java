@@ -1,48 +1,37 @@
 package org.marly.mavigo.controller;
 
 import java.util.List;
-import org.marly.mavigo.client.prim.dto.PrimJourneyPlanDto;
+import org.marly.mavigo.models.disruption.Disruption;
 import org.marly.mavigo.service.perturbation.PerturbationService;
-import org.marly.mavigo.service.perturbation.dto.DisruptionDto;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/disruptions")
+@RequestMapping("/perturbations")
 public class PerturbationController {
 
-    private final PerturbationService perturbationService;
+    private final PerturbationService service;
 
-    public PerturbationController(PerturbationService perturbationService) {
-        this.perturbationService = perturbationService;
+    public PerturbationController(PerturbationService service) {
+        this.service = service;
     }
 
-    @PostMapping("/journey")
-    public ResponseEntity<List<DisruptionDto>> getDisruptionsForJourney(@RequestBody PrimJourneyPlanDto journey) {
-        List<DisruptionDto> disruptions = perturbationService.getDisruptionsForJourney(journey);
-        return ResponseEntity.ok(disruptions);
+    @GetMapping
+    public ResponseEntity<List<Disruption>> getPerturbations() {
+        return ResponseEntity.ok(service.getDisruptions());
     }
 
-    @PostMapping("/journey/short-term")
-    public ResponseEntity<List<DisruptionDto>> getShortTermDisruptionsForJourney(@RequestBody PrimJourneyPlanDto journey) {
-        List<DisruptionDto> disruptions = perturbationService.getShortTermDisruptionsForJourney(journey);
-        return ResponseEntity.ok(disruptions);
+    @PostMapping
+    public ResponseEntity<Disruption> addPerturbation(
+            @RequestParam String line,
+            @RequestParam String creator
+    ) {
+        return ResponseEntity.ok(service.addDisruption(line, creator));
     }
 
-    @GetMapping("/line/{lineIdOrCode}")
-    public ResponseEntity<List<DisruptionDto>> getDisruptionsForLine(@PathVariable String lineIdOrCode) {
-        List<DisruptionDto> disruptions = perturbationService.getDisruptionsForLine(lineIdOrCode);
-        return ResponseEntity.ok(disruptions);
-    }
-
-    @GetMapping("/line/{lineIdOrCode}/short-term")
-    public ResponseEntity<List<DisruptionDto>> getShortTermDisruptionsForLine(@PathVariable String lineIdOrCode) {
-        List<DisruptionDto> disruptions = perturbationService.getShortTermDisruptionsForLine(lineIdOrCode);
-        return ResponseEntity.ok(disruptions);
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> softDeleteDisruption(@PathVariable Long id) {
+        service.softDelete(id);
+        return ResponseEntity.noContent().build();
     }
 }
