@@ -468,3 +468,26 @@ body {
     border-radius: var(--radius-md);
     color: var(--color-error);
 }
+
+.perturbation-panel {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.perturbation-panel .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.perturbation-panel .panel-header h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.perturbation-panel .panel-body {
+    padding: 20px;
+}

@@ -1,380 +1,85 @@
-// State
-let currentUser = null;
-
-// DOM Elements
-const authModal = document.getElementById('authModal');
-const loginFormEl = document.getElementById('loginFormEl');
-const registerFormEl = document.getElementById('registerFormEl');
-const loginFormView = document.getElementById('loginForm');
-const registerFormView = document.getElementById('registerForm');
-const loggedOutView = document.getElementById('loggedOutView');
-const loggedInView = document.getElementById('loggedInView');
-const userGreeting = document.getElementById('userGreeting');
-const notLoggedInPrompt = document.getElementById('notLoggedInPrompt');
-const mainContent = document.getElementById('mainContent');
-const journeyForm = document.getElementById('journeyForm');
+const form = document.getElementById('journeyForm');
 const resultsDiv = document.getElementById('results');
-const departureInput = document.getElementById('departure');
 
-// Initialize
-init();
-
-function init() {
-    setupAuthListeners();
-    setupJourneyForm();
-    setupDisruptionTester();
-    setupGoogleLinkListeners();
-    setDefaultDepartureTime();
-    restoreSession();
-}
-
-// Auth UI
-function setupAuthListeners() {
-    document.getElementById('showLoginBtn').addEventListener('click', () => openAuthModal('login'));
-    document.getElementById('showRegisterBtn').addEventListener('click', () => openAuthModal('register'));
-    document.getElementById('promptLoginBtn').addEventListener('click', () => openAuthModal('login'));
-    document.getElementById('closeAuthModal').addEventListener('click', closeAuthModal);
-    document.getElementById('switchToRegister').addEventListener('click', (e) => { e.preventDefault(); showAuthForm('register'); });
-    document.getElementById('switchToLogin').addEventListener('click', (e) => { e.preventDefault(); showAuthForm('login'); });
-    document.getElementById('logoutBtn').addEventListener('click', logout);
-
-    authModal.addEventListener('click', (e) => {
-        if (e.target === authModal) closeAuthModal();
-    });
-
-    loginFormEl.addEventListener('submit', handleLogin);
-    registerFormEl.addEventListener('submit', handleRegister);
-}
-
-function openAuthModal(formType) {
-    authModal.classList.remove('hidden');
-    showAuthForm(formType);
-}
-
-function closeAuthModal() {
-    authModal.classList.add('hidden');
-    clearAuthErrors();
-}
-
-function showAuthForm(type) {
-    clearAuthErrors();
-    if (type === 'login') {
-        loginFormView.classList.remove('hidden');
-        registerFormView.classList.add('hidden');
-    } else {
-        loginFormView.classList.add('hidden');
-        registerFormView.classList.remove('hidden');
-    }
-}
-
-function clearAuthErrors() {
-    document.getElementById('loginError').classList.add('hidden');
-    document.getElementById('registerError').classList.add('hidden');
-}
-
-async function handleLogin(e) {
+form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('loginEmail').value.trim();
-    const errorEl = document.getElementById('loginError');
+    resultsDiv.innerHTML = "Loading...";
 
-    if (!email) {
-        showError(errorEl, 'Please enter your email.');
-        return;
-    }
+    const from = document.getElementById('from').value;
+    const to = document.getElementById('to').value;
 
     try {
-        const resp = await fetch('/api/users/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        if (!resp.ok) {
-            const body = await resp.text();
-            throw new Error(body || 'Login failed');
-        }
-        const user = await resp.json();
-        setCurrentUser(user);
-        closeAuthModal();
-        loginFormEl.reset();
+        const response = await fetch(`/api/journeys?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const journeys = await response.json();
+        displayJourneys(journeys);
     } catch (err) {
-        showError(errorEl, err.message);
+        resultsDiv.innerHTML = `<p style="color:red">Error fetching journeys: ${err}</p>`;
+        console.error(err);
     }
-}
+});
 
-async function handleRegister(e) {
-    e.preventDefault();
-    const name = document.getElementById('registerName').value.trim();
-    const email = document.getElementById('registerEmail').value.trim();
-    const errorEl = document.getElementById('registerError');
+function displayJourneys(journeys) {
+    resultsDiv.innerHTML = journeys.map(j => {
+        const realSections = j.sections?.filter(s => s.type !== 'crow_fly') || [];
 
-    if (!name || !email) {
-        showError(errorEl, 'Please fill in all fields.');
-        return;
-    }
+        if (realSections.length === 0) return '<p>No valid sections</p>';
 
-    const payload = {
-        displayName: name,
-        email: email,
-        externalId: generateId()
-    };
+        // Get departure and arrival from first and last real section
+        const first = realSections[0];
+        const last = realSections[realSections.length - 1];
 
-    try {
-        const resp = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (!resp.ok) {
-            const body = await resp.text();
-            throw new Error(body || 'Registration failed');
-        }
-        const user = await resp.json();
-        setCurrentUser(user);
-        closeAuthModal();
-        registerFormEl.reset();
-    } catch (err) {
-        showError(errorEl, err.message);
-    }
-}
+        const dep = first?.from?.departureDateTime 
+            ? new Date(first.from.departureDateTime).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) 
+            : 'Unknown';
+        const arr = last?.to?.arrivalDateTime 
+            ? new Date(last.to.arrivalDateTime).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) 
+            : 'Unknown';
 
-function logout() {
-    currentUser = null;
-    localStorage.removeItem('mavigo_user_id');
-    updateUI();
-}
-
-function setCurrentUser(user) {
-    currentUser = user;
-    localStorage.setItem('mavigo_user_id', user.userId);
-    updateUI();
-}
-
-function restoreSession() {
-    const savedUserId = localStorage.getItem('mavigo_user_id');
-    if (savedUserId) {
-        fetch(`/api/users/${savedUserId}`)
-            .then(resp => resp.ok ? resp.json() : Promise.reject())
-            .then(user => {
-                currentUser = user;
-                updateUI();
-            })
-            .catch(() => {
-                localStorage.removeItem('mavigo_user_id');
-                updateUI();
-            });
-    } else {
-        updateUI();
-    }
-}
-
-function updateUI() {
-    if (currentUser) {
-        loggedOutView.classList.add('hidden');
-        loggedInView.classList.remove('hidden');
-        userGreeting.textContent = `Hi, ${currentUser.displayName}`;
-        notLoggedInPrompt.classList.add('hidden');
-        mainContent.classList.remove('hidden');
-        renderUserInfo();
-        renderGoogleLinkStatus(currentUser);
-    } else {
-        loggedOutView.classList.remove('hidden');
-        loggedInView.classList.add('hidden');
-        notLoggedInPrompt.classList.remove('hidden');
-        mainContent.classList.add('hidden');
-    }
-}
-
-function renderUserInfo() {
-    document.getElementById('displayUserName').textContent = currentUser.displayName;
-    document.getElementById('displayUserEmail').textContent = currentUser.email;
-    document.getElementById('displayUserId').textContent = currentUser.userId;
-}
-
-function showError(el, message) {
-    el.textContent = message;
-    el.classList.remove('hidden');
-}
-
-// Journey Form
-function setupJourneyForm() {
-    journeyForm.addEventListener('submit', handleJourneySubmit);
-}
-
-async function handleJourneySubmit(e) {
-    e.preventDefault();
-
-    if (!currentUser) {
-        resultsDiv.innerHTML = '<p class="error-message">Please log in first.</p>';
-        return;
-    }
-
-    const from = document.getElementById('from').value.trim();
-    const to = document.getElementById('to').value.trim();
-    const departure = departureInput.value;
-    const comfort = document.getElementById('comfort').checked;
-    const touristic = document.getElementById('touristic').checked;
-
-    if (!departure) {
-        resultsDiv.innerHTML = '<p class="error-message">Please select a departure time.</p>';
-        return;
-    }
-
-    const payload = {
-        journey: {
-            userId: currentUser.userId,
-            originQuery: from,
-            destinationQuery: to,
-            departureTime: departure
-        },
-        preferences: {
-            comfortMode: comfort,
-            touristicMode: touristic
-        }
-    };
-
-    resultsDiv.innerHTML = '<p class="loading">Planning your journey...</p>';
-
-    try {
-        const resp = await fetch('/api/journeys', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!resp.ok) {
-            const body = await resp.text();
-            throw new Error(body || 'Failed to plan journey');
+        // Duration in h:m from total journey seconds
+        let duration = '?';
+        if (j.duration) {
+            const hours = Math.floor(j.duration / 3600);
+            const minutes = Math.floor((j.duration % 3600) / 60);
+            duration = `${hours}h${minutes}m`;
         }
 
-        const journey = await resp.json();
-        displayJourney(journey);
-    } catch (err) {
-        resultsDiv.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
-    }
-}
+        const transfers = j.nbTransfers !== undefined ? j.nbTransfers : '?';
 
-function displayJourney(journey) {
-    const departure = journey.plannedDeparture ? formatDateTime(journey.plannedDeparture) : '—';
-    const arrival = journey.plannedArrival ? formatDateTime(journey.plannedArrival) : '—';
-    const legs = journey.legs || [];
+        const sectionsHtml = realSections.map(s => {
+            const mode = s.displayInformations?.commercialMode || s.type || 'Unknown';
+            const fromName = s.from?.name || 'Unknown';
+            const toName = s.to?.name || 'Unknown';
+            let sectionDuration = '?';
+            if (s.duration) {
+                const h = Math.floor(s.duration / 3600);
+                const m = Math.floor((s.duration % 3600) / 60);
+                sectionDuration = `${h}h${m}m`;
+            }
+            return `<li>${mode} from ${fromName} to ${toName} (${sectionDuration})</li>`;
+        }).join('');
 
-    const legsHtml = legs.length
-        ? legs.map(leg => `
-            <li>
-                <span class="leg-mode">${leg.mode || 'Unknown'}</span>
-                ${leg.originLabel || '?'} → ${leg.destinationLabel || '?'}
-                <div class="leg-times">
-                    ${leg.estimatedDeparture ? formatDateTime(leg.estimatedDeparture) : '?'} - 
-                    ${leg.estimatedArrival ? formatDateTime(leg.estimatedArrival) : '?'}
-                    (${leg.durationSeconds ? formatDuration(leg.durationSeconds) : '?'})
-                </div>
-            </li>
-        `).join('')
-        : '<li>No route details available</li>';
-
-    resultsDiv.innerHTML = `
-        <div class="journey-result">
-            <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
-            <p class="journey-meta">Depart: ${departure} • Arrive: ${arrival}</p>
-            <div class="journey-modes">
-                <span>Comfort: ${journey.comfortModeEnabled ? 'On' : 'Off'}</span>
-                <span>Touristic: ${journey.touristicModeEnabled ? 'On' : 'Off'}</span>
+        return `
+            <div class="journey">
+                <h3>${dep} → ${arr} | Duration: ${duration} | Transfers: ${transfers}</h3>
+                <ul>${sectionsHtml}</ul>
             </div>
-            <ul class="journey-legs">${legsHtml}</ul>
-        </div>
-    `;
+        `;
+    }).join('<hr>');
 }
 
-// Google Link
-function setupGoogleLinkListeners() {
-    document.getElementById('linkGoogleTasksBtn').addEventListener('click', startGoogleLinkFlow);
-    document.getElementById('refreshGoogleLinkBtn').addEventListener('click', refreshGoogleLink);
-    window.addEventListener('message', handleGoogleLinkMessage);
-}
 
-function startGoogleLinkFlow() {
-    const statusEl = document.getElementById('googleLinkStatus');
 
-    if (!currentUser) {
-        statusEl.textContent = 'Please log in first.';
-        return;
-    }
-
-    const linkUrl = `/api/google/tasks/link?userId=${encodeURIComponent(currentUser.userId)}`;
-    const popup = window.open(linkUrl, 'googleTasksLink', 'width=600,height=700');
-
-    if (!popup) {
-        statusEl.textContent = 'Popup blocked. Please allow popups for this site.';
-        return;
-    }
-
-    statusEl.textContent = 'Complete sign-in in the popup...';
-
-    const watcher = setInterval(() => {
-        if (popup.closed) {
-            clearInterval(watcher);
-            refreshGoogleLink();
-        }
-    }, 1500);
-}
-
-async function refreshGoogleLink() {
-    if (!currentUser) return;
-
-    try {
-        const resp = await fetch(`/api/users/${currentUser.userId}`);
-        if (resp.ok) {
-            const user = await resp.json();
-            currentUser = user;
-            renderGoogleLinkStatus(user);
-        }
-    } catch (err) {
-        console.error('Failed to refresh link status', err);
-    }
-}
-
-function renderGoogleLinkStatus(user) {
-    const statusEl = document.getElementById('googleLinkStatus');
-
-    if (!user || !user.googleAccountLinked) {
-        statusEl.textContent = 'Not linked';
-        statusEl.classList.remove('linked');
-    } else {
-        const email = user.googleAccountEmail || 'your Google account';
-        const linkedAt = user.googleAccountLinkedAt ? formatDateTime(user.googleAccountLinkedAt) : '';
-        statusEl.textContent = `Linked to ${email}${linkedAt ? ` (${linkedAt})` : ''}`;
-        statusEl.classList.add('linked');
-    }
-}
-
-function handleGoogleLinkMessage(event) {
-    if (event.origin !== window.location.origin) return;
-    if (event.data && event.data.type === 'GOOGLE_TASKS_LINKED') {
-        refreshGoogleLink();
-    }
-}
-
-// Utilities
-function setDefaultDepartureTime() {
-    if (!departureInput) return;
-    const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
-    departureInput.value = oneHourLater.toISOString().slice(0, 16);
-}
-
+// Helper to format duration in seconds to "hh:mm"
 function formatDuration(seconds) {
-    if (!seconds && seconds !== 0) return '?';
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    return `${h}h${m}m`;
 }
 
+// Helper to format ISO datetime string
 function formatDateTime(dt) {
-    return new Date(dt).toLocaleString();
-}
-
-function generateId() {
-    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-        return window.crypto.randomUUID();
-    }
-    return `user-${Date.now()}`;
+    const date = new Date(dt);
+    return date.toLocaleString();
 }
