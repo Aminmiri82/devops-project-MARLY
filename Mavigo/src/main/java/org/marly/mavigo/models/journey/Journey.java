@@ -1,5 +1,16 @@
 package org.marly.mavigo.models.journey;
 
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
+import org.marly.mavigo.models.disruption.Disruption;
+import org.marly.mavigo.models.poi.PointOfInterest;
+import org.marly.mavigo.models.shared.GeoPoint;
+import org.marly.mavigo.models.user.User;
+
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.CollectionTable;
@@ -14,21 +25,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-
-import org.marly.mavigo.models.poi.PointOfInterest;
-import org.marly.mavigo.models.shared.GeoPoint;
-import org.marly.mavigo.models.user.User;
-
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.JoinTable;
 
 @Entity
 @Table(name = "journey")
@@ -85,6 +86,28 @@ public class Journey {
     @CollectionTable(name = "journey_leg", joinColumns = @JoinColumn(name = "journey_id"))
     @OrderColumn(name = "sequence_index")
     private List<Leg> legs = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+@JoinTable(
+    name = "journey_disruption",
+    joinColumns = @JoinColumn(name = "journey_id"),
+    inverseJoinColumns = @JoinColumn(name = "disruption_id")
+)
+private List<Disruption> disruptions = new ArrayList<>();
+
+// Méthodes utilitaires
+public void addDisruption(Disruption disruption) {
+    disruptions.add(disruption);
+}
+
+public List<Disruption> getDisruptions() {
+    return Collections.unmodifiableList(disruptions);
+}
+
+// Vérifier si un leg est impacté par une perturbation
+public boolean isLegImpacted(String line) {
+    return legs.stream().anyMatch(leg -> leg.getLineCode().equals(line));
+}
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "journey_point_of_interest", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
