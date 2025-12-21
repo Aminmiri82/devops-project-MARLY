@@ -49,8 +49,7 @@ public class JourneyController {
             JourneyPlanningService journeyPlanningService,
             UserTaskRepository userTaskRepository,
             UserRepository userRepository,
-            TaskOnRouteService taskOnRouteService
-    ) {
+            TaskOnRouteService taskOnRouteService) {
         this.journeyPlanningService = journeyPlanningService;
         this.userTaskRepository = userTaskRepository;
         this.userRepository = userRepository;
@@ -69,28 +68,36 @@ public class JourneyController {
                 request.originQuery(),
                 request.destinationQuery(),
                 departure,
-                preferences
-        );
+                preferences);
 
         // 1) Planifier + persister le trajet
         Journey journey = journeyPlanningService.planAndPersist(parameters);
 
-        // 2) Calculer les tâches "sur le chemin"
-        final double RADIUS_METERS = 300.0;
+        // 2) Calculer les tâches "sur le chemin" (polyline densifiée)
+        final double BASE_RADIUS_METERS = 300.0;
 
         List<JourneyResponse.TaskOnRouteResponse> tasksOnRoute = List.of();
 
         UUID userId = (journey.getUser() != null) ? journey.getUser().getId() : null;
         if (userId != null) {
-            var routePoints = taskOnRouteService.extractRoutePoints(journey);
-            var tasks = userTaskRepository.findByUserId(userId);
+            var tasks = userTaskRepository.findByUser_Id(userId);
+
+            // Points bruts (souvent pas assez denses)
+            var baseRoutePoints = taskOnRouteService.extractRoutePoints(journey);
+
+            // Densification: on ajoute des points intermédiaires tous les ~200m
+            var polyline = taskOnRouteService.densify(baseRoutePoints, 200);
+
+            // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux
+            // négatifs
+            double radius = (polyline == null || polyline.size() <= 3) ? 900.0 : BASE_RADIUS_METERS;
 
             tasksOnRoute = tasks.stream()
-                    .filter(t -> !t.isCompleted())
+                    .filter(t -> t != null && !t.isCompleted())
                     .filter(t -> t.getLocationHint() != null)
                     .map(t -> {
-                        double d = taskOnRouteService.minDistanceMeters(t.getLocationHint(), routePoints);
-                        return (d <= RADIUS_METERS) ? JourneyResponse.fromTask(t, d) : null;
+                        double d = taskOnRouteService.minDistanceMetersToPolyline(t.getLocationHint(), polyline);
+                        return (d <= radius) ? JourneyResponse.fromTask(t, d) : null;
                     })
                     .filter(Objects::nonNull)
                     .toList();
@@ -110,22 +117,24 @@ public class JourneyController {
         // 1) cas ISO avec offset: 2025-12-14T18:00:00+01:00
         try {
             return OffsetDateTime.parse(s).toLocalDateTime();
-        } catch (DateTimeParseException ignored) {}
+        } catch (DateTimeParseException ignored) {
+        }
 
         // 2) cas ISO local avec secondes: 2025-12-14T18:00:00
         try {
             return LocalDateTime.parse(s);
-        } catch (DateTimeParseException ignored) {}
+        } catch (DateTimeParseException ignored) {
+        }
 
         // 3) cas ISO local sans secondes: 2025-12-14T18:00
         try {
             return LocalDateTime.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
-        } catch (DateTimeParseException ignored) {}
+        } catch (DateTimeParseException ignored) {
+        }
 
         throw new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
-                "departureTime must be ISO datetime like '2025-12-14T18:00' or '2025-12-14T18:00:00' or '2025-12-14T18:00:00+01:00'"
-        );
+                "departureTime must be ISO datetime like '2025-12-14T18:00' or '2025-12-14T18:00:00' or '2025-12-14T18:00:00+01:00'");
     }
 
     // -------------------------
@@ -134,7 +143,7 @@ public class JourneyController {
 
     @GetMapping("/debug/user-tasks")
     public Map<String, Object> debugUserTasks(@RequestParam UUID userId) {
-        var tasks = userTaskRepository.findByUserId(userId);
+        var tasks = userTaskRepository.findByUser_Id(userId);
 
         var mapped = tasks.stream().map(t -> Map.<String, Object>of(
                 "id", t.getId(),
@@ -143,14 +152,12 @@ public class JourneyController {
                 "completed", t.isCompleted(),
                 "source", t.getSource() == null ? null : t.getSource().name(),
                 "lat", t.getLocationHint() == null ? null : t.getLocationHint().getLatitude(),
-                "lng", t.getLocationHint() == null ? null : t.getLocationHint().getLongitude()
-        )).toList();
+                "lng", t.getLocationHint() == null ? null : t.getLocationHint().getLongitude())).toList();
 
         return Map.of(
                 "userId", userId.toString(),
                 "taskCount", tasks.size(),
-                "tasks", mapped
-        );
+                "tasks", mapped);
     }
 
     @PostMapping("/debug/seed-task-near-gare-de-lyon")
@@ -164,14 +171,14 @@ public class JourneyController {
                 : request.title().trim();
 
         User user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + request.userId()));
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + request.userId()));
 
         UserTask task = new UserTask(
                 user,
                 "seed-" + UUID.randomUUID(),
                 TaskSource.GOOGLE_TASKS,
-                title
-        );
+                title);
         task.setCompleted(false);
         task.setLocationHint(new GeoPoint(48.8443, 2.3730)); // Gare de Lyon approx
 
@@ -183,11 +190,11 @@ public class JourneyController {
                 "taskId", saved.getId(),
                 "title", saved.getTitle(),
                 "lat", saved.getLocationHint().getLatitude(),
-                "lng", saved.getLocationHint().getLongitude()
-        );
+                "lng", saved.getLocationHint().getLongitude());
     }
 
-    public record SeedTaskRequest(UUID userId, String title) {}
+    public record SeedTaskRequest(UUID userId, String title) {
+    }
 
     private JourneyPreferences mapPreferences(JourneyPreferencesRequest preferencesRequest) {
         if (preferencesRequest == null) {

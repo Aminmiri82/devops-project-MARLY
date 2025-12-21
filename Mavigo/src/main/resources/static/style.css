@@ -715,3 +715,126 @@ select:disabled {
     opacity: 0.55;
     cursor: not-allowed;
 }
+
+/* ----------------------------- */
+/* TASKS UI (actions)            */
+/* ----------------------------- */
+
+.tasks-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tasks-listname {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.tasks-toolbar-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.task-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.task-card.completed {
+  opacity: 0.75;
+}
+
+.task-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.task-card.completed .task-title {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.task-meta {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.task-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-danger {
+  border: 1px solid rgba(244, 33, 46, 0.6);
+  background: rgba(244, 33, 46, 0.12);
+  color: var(--color-text);
+}
+
+.btn-danger:hover {
+  background: rgba(244, 33, 46, 0.18);
+}
+
+.btn-success {
+  border: 1px solid rgba(0, 186, 124, 0.6);
+  background: rgba(0, 186, 124, 0.12);
+  color: var(--color-text);
+}
+
+.btn-success:hover {
+  background: rgba(0, 186, 124, 0.18);
+}
+
+/* IMPORTANT TOAST (top center) */
+.toast-container-important {
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  top: 16px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+}
+
+.toast-important {
+  border-width: 2px;
+  padding: 14px 14px;
+}
+
+.toast-important .toast-text {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Inline banner in journey result */
+.tasks-on-route-banner {
+  margin: 14px 0 10px;
+  padding: 12px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 173, 31, 0.55);
+  background: rgba(255, 173, 31, 0.10);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tasks-on-route-title {
+  font-weight: 800;
+  color: var(--color-warning);
+}
+
+.tasks-on-route-sub {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  opacity: 0.95;
+  margin-top: 2px;
+}
