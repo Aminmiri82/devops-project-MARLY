@@ -1,8 +1,7 @@
-// State
 let currentUser = null;
-let currentView = "journey"; // 'journey' | 'tasks'
+let currentView = localStorage.getItem("mavigo_view") || "journey";
+let defaultTaskList = null;
 
-// DOM Elements
 const authModal = document.getElementById("authModal");
 const loginFormEl = document.getElementById("loginFormEl");
 const registerFormEl = document.getElementById("registerFormEl");
@@ -18,18 +17,15 @@ const journeyForm = document.getElementById("journeyForm");
 const resultsDiv = document.getElementById("results");
 const departureInput = document.getElementById("departure");
 
-// NAV
 const navJourneyBtn = document.getElementById("navJourneyBtn");
 const navTasksBtn = document.getElementById("navTasksBtn");
 const journeyView = document.getElementById("journeyView");
 const tasksView = document.getElementById("tasksView");
 
-// TASKS UI
-const loadListsBtn = document.getElementById("loadListsBtn");
-const loadTasksBtn = document.getElementById("loadTasksBtn");
-const taskListSelect = document.getElementById("taskListSelect");
 const tasksIncludeCompleted = document.getElementById("tasksIncludeCompleted");
 const tasksResults = document.getElementById("tasksResults");
+const tasksListName = document.getElementById("tasksListName");
+const refreshTasksBtn = document.getElementById("refreshTasksBtn");
 
 const createTaskForm = document.getElementById("createTaskForm");
 const taskTitle = document.getElementById("taskTitle");
@@ -37,94 +33,98 @@ const taskNotes = document.getElementById("taskNotes");
 const taskDue = document.getElementById("taskDue");
 const taskLocationQuery = document.getElementById("taskLocationQuery");
 
-// Initialize
 init();
 
 function init() {
   setupAuthListeners();
   setupJourneyForm();
-  setupDisruptionTester();
   setupGoogleLinkListeners();
   setupNav();
   setupTasks();
   setDefaultDepartureTime();
-  restoreSession();
-
   ensureToastUI();
   ensureTasksModalUI();
+  restoreSession();
 }
 
-// -----------------------------
-// NAV
-// -----------------------------
 function setupNav() {
-  navJourneyBtn.addEventListener("click", () => setView("journey"));
-  navTasksBtn.addEventListener("click", () => setView("tasks"));
-  setView("journey");
+  navJourneyBtn?.addEventListener("click", () => setView("journey"));
+  navTasksBtn?.addEventListener("click", () => setView("tasks"));
+  setView(currentView);
 }
 
 function setView(view) {
-  currentView = view;
+  currentView = view === "tasks" ? "tasks" : "journey";
+  localStorage.setItem("mavigo_view", currentView);
 
-  if (view === "journey") {
-    journeyView.classList.remove("hidden");
-    tasksView.classList.add("hidden");
-    navJourneyBtn.classList.add("nav-active");
-    navTasksBtn.classList.remove("nav-active");
+  if (currentView === "journey") {
+    journeyView?.classList.remove("hidden");
+    tasksView?.classList.add("hidden");
+    navJourneyBtn?.classList.add("nav-active");
+    navTasksBtn?.classList.remove("nav-active");
   } else {
-    journeyView.classList.add("hidden");
-    tasksView.classList.remove("hidden");
-    navJourneyBtn.classList.remove("nav-active");
-    navTasksBtn.classList.add("nav-active");
+    journeyView?.classList.add("hidden");
+    tasksView?.classList.remove("hidden");
+    navJourneyBtn?.classList.remove("nav-active");
+    navTasksBtn?.classList.add("nav-active");
   }
+
+  updateTasksUIState();
+  if (currentView === "tasks") ensureDefaultTaskListLoaded({ force: false });
 }
 
-// -----------------------------
-// AUTH UI
-// -----------------------------
 function setupAuthListeners() {
   document
     .getElementById("showLoginBtn")
-    .addEventListener("click", () => openAuthModal("login"));
+    ?.addEventListener("click", () => openAuthModal("login"));
   document
     .getElementById("showRegisterBtn")
-    .addEventListener("click", () => openAuthModal("register"));
+    ?.addEventListener("click", () => openAuthModal("register"));
   document
     .getElementById("promptLoginBtn")
-    .addEventListener("click", () => openAuthModal("login"));
+    ?.addEventListener("click", () => openAuthModal("login"));
   document
     .getElementById("closeAuthModal")
-    .addEventListener("click", closeAuthModal);
-  document.getElementById("switchToRegister").addEventListener("click", (e) => {
-    e.preventDefault();
-    showAuthForm("register");
-  });
-  document.getElementById("switchToLogin").addEventListener("click", (e) => {
+    ?.addEventListener("click", closeAuthModal);
+
+  document
+    .getElementById("switchToRegister")
+    ?.addEventListener("click", (e) => {
+      e.preventDefault();
+      showAuthForm("register");
+    });
+
+  document.getElementById("switchToLogin")?.addEventListener("click", (e) => {
     e.preventDefault();
     showAuthForm("login");
   });
-  document.getElementById("logoutBtn").addEventListener("click", logout);
 
-  authModal.addEventListener("click", (e) => {
+  document.getElementById("logoutBtn")?.addEventListener("click", logout);
+
+  authModal?.addEventListener("click", (e) => {
     if (e.target === authModal) closeAuthModal();
   });
 
-  loginFormEl.addEventListener("submit", handleLogin);
-  registerFormEl.addEventListener("submit", handleRegister);
+  loginFormEl?.addEventListener("submit", handleLogin);
+  registerFormEl?.addEventListener("submit", handleRegister);
 }
 
 function openAuthModal(formType) {
+  if (!authModal) return;
   authModal.classList.remove("hidden");
   showAuthForm(formType);
 }
 
 function closeAuthModal() {
+  if (!authModal) return;
   authModal.classList.add("hidden");
   clearAuthErrors();
 }
 
 function showAuthForm(type) {
   clearAuthErrors();
+  if (!loginFormView || !registerFormView) return;
+
   if (type === "login") {
     loginFormView.classList.remove("hidden");
     registerFormView.classList.add("hidden");
@@ -135,19 +135,17 @@ function showAuthForm(type) {
 }
 
 function clearAuthErrors() {
-  document.getElementById("loginError").classList.add("hidden");
-  document.getElementById("registerError").classList.add("hidden");
+  document.getElementById("loginError")?.classList.add("hidden");
+  document.getElementById("registerError")?.classList.add("hidden");
 }
 
 async function handleLogin(e) {
   e.preventDefault();
-  const email = document.getElementById("loginEmail").value.trim();
+
+  const email = (document.getElementById("loginEmail")?.value || "").trim();
   const errorEl = document.getElementById("loginError");
 
-  if (!email) {
-    showError(errorEl, "Please enter your email.");
-    return;
-  }
+  if (!email) return showError(errorEl, "Please enter your email.");
 
   try {
     const resp = await fetch("/api/users/login", {
@@ -155,35 +153,31 @@ async function handleLogin(e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
+
     if (!resp.ok) {
       const body = await resp.text();
       throw new Error(body || "Login failed");
     }
+
     const user = await resp.json();
-    setCurrentUser(user);
+    setCurrentUser(user, { preferredView: "tasks" });
     closeAuthModal();
-    loginFormEl.reset();
+    loginFormEl?.reset();
   } catch (err) {
-    showError(errorEl, err.message);
+    showError(errorEl, err?.message || "Login failed");
   }
 }
 
 async function handleRegister(e) {
   e.preventDefault();
-  const name = document.getElementById("registerName").value.trim();
-  const email = document.getElementById("registerEmail").value.trim();
+
+  const name = (document.getElementById("registerName")?.value || "").trim();
+  const email = (document.getElementById("registerEmail")?.value || "").trim();
   const errorEl = document.getElementById("registerError");
 
-  if (!name || !email) {
-    showError(errorEl, "Please fill in all fields.");
-    return;
-  }
+  if (!name || !email) return showError(errorEl, "Please fill in all fields.");
 
-  const payload = {
-    displayName: name,
-    email: email,
-    externalId: generateId(),
-  };
+  const payload = { displayName: name, email, externalId: generateId() };
 
   try {
     const resp = await fetch("/api/users", {
@@ -191,103 +185,123 @@ async function handleRegister(e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
     if (!resp.ok) {
       const body = await resp.text();
       throw new Error(body || "Registration failed");
     }
+
     const user = await resp.json();
-    setCurrentUser(user);
+    setCurrentUser(user, { preferredView: "tasks" });
     closeAuthModal();
-    registerFormEl.reset();
+    registerFormEl?.reset();
   } catch (err) {
-    showError(errorEl, err.message);
+    showError(errorEl, err?.message || "Registration failed");
   }
 }
 
 function logout() {
   currentUser = null;
+  defaultTaskList = null;
   localStorage.removeItem("mavigo_user_id");
+  clearGoogleLinkStatus();
+  resetTasksUI();
   updateUI();
+  lastNotifiedJourneyId = null;
+  lastTasksSignature = null;
 }
 
-function setCurrentUser(user) {
+function setCurrentUser(user, opts = {}) {
   currentUser = user;
-  localStorage.setItem("mavigo_user_id", user.userId);
+  defaultTaskList = null;
+  if (user?.userId) localStorage.setItem("mavigo_user_id", user.userId);
+  if (opts.preferredView) setView(opts.preferredView);
   updateUI();
 }
 
 function restoreSession() {
   const savedUserId = localStorage.getItem("mavigo_user_id");
-  if (savedUserId) {
-    fetch(`/api/users/${savedUserId}`)
-      .then((resp) => (resp.ok ? resp.json() : Promise.reject()))
-      .then((user) => {
-        currentUser = user;
-        updateUI();
-      })
-      .catch(() => {
-        localStorage.removeItem("mavigo_user_id");
-        updateUI();
-      });
-  } else {
-    updateUI();
-  }
+  if (!savedUserId) return updateUI();
+
+  fetch(`/api/users/${savedUserId}`)
+    .then((resp) => (resp.ok ? resp.json() : Promise.reject(resp)))
+    .then((user) => {
+      currentUser = user;
+      updateUI();
+      if (currentView === "tasks")
+        ensureDefaultTaskListLoaded({ force: false });
+    })
+    .catch(() => {
+      localStorage.removeItem("mavigo_user_id");
+      currentUser = null;
+      defaultTaskList = null;
+      updateUI();
+    });
 }
 
 function updateUI() {
   if (currentUser) {
-    loggedOutView.classList.add("hidden");
-    loggedInView.classList.remove("hidden");
-    userGreeting.textContent = `Hi, ${currentUser.displayName}`;
-    notLoggedInPrompt.classList.add("hidden");
-    mainContent.classList.remove("hidden");
+    loggedOutView?.classList.add("hidden");
+    loggedInView?.classList.remove("hidden");
+    if (userGreeting)
+      userGreeting.textContent = `Hi, ${currentUser.displayName || "User"}`;
+    notLoggedInPrompt?.classList.add("hidden");
+    mainContent?.classList.remove("hidden");
     renderUserInfo();
     renderGoogleLinkStatus(currentUser);
-    setView(currentView || "journey");
+    setView(currentView);
   } else {
-    loggedOutView.classList.remove("hidden");
-    loggedInView.classList.add("hidden");
-    notLoggedInPrompt.classList.remove("hidden");
-    mainContent.classList.add("hidden");
+    loggedOutView?.classList.remove("hidden");
+    loggedInView?.classList.add("hidden");
+    notLoggedInPrompt?.classList.remove("hidden");
+    mainContent?.classList.add("hidden");
+    clearGoogleLinkStatus();
+    resetTasksUI();
   }
 }
 
 function renderUserInfo() {
-  document.getElementById("displayUserName").textContent =
-    currentUser.displayName;
-  document.getElementById("displayUserEmail").textContent = currentUser.email;
-  document.getElementById("displayUserId").textContent = currentUser.userId;
+  document.getElementById("displayUserName") &&
+    (document.getElementById("displayUserName").textContent =
+      currentUser?.displayName || "—");
+  document.getElementById("displayUserEmail") &&
+    (document.getElementById("displayUserEmail").textContent =
+      currentUser?.email || "—");
+  document.getElementById("displayUserId") &&
+    (document.getElementById("displayUserId").textContent =
+      currentUser?.userId || "—");
 }
 
 function showError(el, message) {
+  if (!el) return;
   el.textContent = message;
   el.classList.remove("hidden");
 }
 
-// -----------------------------
-// JOURNEY FORM
-// -----------------------------
 function setupJourneyForm() {
-  journeyForm.addEventListener("submit", handleJourneySubmit);
+  journeyForm?.addEventListener("submit", handleJourneySubmit);
 }
 
 async function handleJourneySubmit(e) {
   e.preventDefault();
 
   if (!currentUser) {
-    resultsDiv.innerHTML = '<p class="error-message">Please log in first.</p>';
+    if (resultsDiv)
+      resultsDiv.innerHTML =
+        '<p class="error-message">Please log in first.</p>';
     return;
   }
 
-  const from = document.getElementById("from").value.trim();
-  const to = document.getElementById("to").value.trim();
-  const departure = departureInput.value;
-  const comfort = document.getElementById("comfort").checked;
-  const touristic = document.getElementById("touristic").checked;
+  const from = (document.getElementById("from")?.value || "").trim();
+  const to = (document.getElementById("to")?.value || "").trim();
+  const departure = departureInput?.value || "";
+  const comfort = !!document.getElementById("comfort")?.checked;
+  const touristic = !!document.getElementById("touristic")?.checked;
 
   if (!departure) {
-    resultsDiv.innerHTML =
-      '<p class="error-message">Please select a departure time.</p>';
+    if (resultsDiv)
+      resultsDiv.innerHTML =
+        '<p class="error-message">Please select a departure time.</p>';
     return;
   }
 
@@ -304,7 +318,8 @@ async function handleJourneySubmit(e) {
     },
   };
 
-  resultsDiv.innerHTML = '<p class="loading">Planning your journey...</p>';
+  if (resultsDiv)
+    resultsDiv.innerHTML = '<p class="loading">Planning your journey...</p>';
 
   try {
     const resp = await fetch("/api/journeys", {
@@ -320,151 +335,220 @@ async function handleJourneySubmit(e) {
 
     const journey = await resp.json();
     displayJourney(journey);
-
     notifyTasksOnRouteIfAny(journey);
   } catch (err) {
-    resultsDiv.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
+    if (resultsDiv)
+      resultsDiv.innerHTML = `<p class="error-message">Error: ${escapeHtml(
+        err?.message || "Unknown error"
+      )}</p>`;
   }
 }
 
 function displayJourney(journey) {
-  const departure = journey.plannedDeparture
+  if (!resultsDiv) return;
+
+  const departure = journey?.plannedDeparture
     ? formatDateTime(journey.plannedDeparture)
     : "—";
-  const arrival = journey.plannedArrival
+  const arrival = journey?.plannedArrival
     ? formatDateTime(journey.plannedArrival)
     : "—";
-  const legs = journey.legs || [];
+  const legs = Array.isArray(journey?.legs) ? journey.legs : [];
 
   const legsHtml = legs.length
     ? legs
-        .map(
-          (leg) => `
-        <li>
-          <span class="leg-mode">${leg.mode || "Unknown"}</span>
-          ${leg.originLabel || "?"} → ${leg.destinationLabel || "?"}
-          <div class="leg-times">
-            ${
-              leg.estimatedDeparture
-                ? formatDateTime(leg.estimatedDeparture)
-                : "?"
-            } -
-            ${leg.estimatedArrival ? formatDateTime(leg.estimatedArrival) : "?"}
-            (${leg.durationSeconds ? formatDuration(leg.durationSeconds) : "?"})
-          </div>
-        </li>
-      `
-        )
+        .map((leg) => {
+          const mode = escapeHtml(leg?.mode || "Unknown");
+          const origin = escapeHtml(leg?.originLabel || "?");
+          const dest = escapeHtml(leg?.destinationLabel || "?");
+          const dep = leg?.estimatedDeparture
+            ? formatDateTime(leg.estimatedDeparture)
+            : "?";
+          const arr = leg?.estimatedArrival
+            ? formatDateTime(leg.estimatedArrival)
+            : "?";
+          const dur =
+            leg?.durationSeconds || leg?.durationSeconds === 0
+              ? formatDuration(leg.durationSeconds)
+              : "?";
+          return `<li><span class="leg-mode">${mode}</span> ${origin} → ${dest}<div class="leg-times">${dep} - ${arr} (${dur})</div></li>`;
+        })
         .join("")
     : "<li>No route details available</li>";
 
+  const tasks = Array.isArray(journey?.tasksOnRoute)
+    ? journey.tasksOnRoute
+    : [];
+  const tasksBannerHtml = tasks.length
+    ? `
+      <div class="tasks-on-route-banner">
+        <div>
+          <div class="tasks-on-route-title">${tasks.length} task${
+        tasks.length > 1 ? "s" : ""
+      } on your route</div>
+          <div class="tasks-on-route-sub">${escapeHtml(
+            tasks[0]?.title || "Task"
+          )}</div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn">View</button>
+      </div>
+    `
+    : "";
+
   resultsDiv.innerHTML = `
     <div class="journey-result">
-      <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
+      <h3>${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(
+    journey?.destinationLabel || "—"
+  )}</h3>
       <p class="journey-meta">Depart: ${departure} • Arrive: ${arrival}</p>
+
+      ${tasksBannerHtml}
+
       <div class="journey-modes">
-        <span>Comfort: ${journey.comfortModeEnabled ? "On" : "Off"}</span>
-        <span>Touristic: ${journey.touristicModeEnabled ? "On" : "Off"}</span>
+        <span>Comfort: ${journey?.comfortModeEnabled ? "On" : "Off"}</span>
+        <span>Touristic: ${journey?.touristicModeEnabled ? "On" : "Off"}</span>
       </div>
+
       <ul class="journey-legs">${legsHtml}</ul>
     </div>
   `;
+
+  if (tasks.length) {
+    document
+      .getElementById("viewTasksOnRouteBtn")
+      ?.addEventListener("click", () => openTasksModal(tasks));
+  }
 }
 
-// -----------------------------
-// TASKS (NEW PAGE)
-// -----------------------------
 function setupTasks() {
-  if (loadListsBtn) loadListsBtn.addEventListener("click", loadTaskLists);
-  if (loadTasksBtn)
-    loadTasksBtn.addEventListener("click", loadTasksForSelectedList);
-  if (createTaskForm) createTaskForm.addEventListener("submit", createTask);
+  refreshTasksBtn?.addEventListener("click", () =>
+    ensureDefaultTaskListLoaded({ force: true })
+  );
+  tasksIncludeCompleted?.addEventListener("change", () =>
+    loadTasksFromDefaultList()
+  );
+  createTaskForm?.addEventListener("submit", createTask);
+  updateTasksUIState();
 }
 
-async function loadTaskLists() {
-  if (!currentUser) {
-    showToast("Please log in first.", { variant: "warning" });
-    return;
+function isGoogleLinked() {
+  return !!(
+    currentUser &&
+    (currentUser.googleAccountLinkedAt || currentUser.googleAccountSubject)
+  );
+}
+
+function updateTasksUIState() {
+  const enabled = !!currentUser && isGoogleLinked();
+
+  if (refreshTasksBtn) refreshTasksBtn.disabled = !enabled;
+
+  if (createTaskForm) {
+    const submitBtn = createTaskForm.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = !enabled;
+    if (taskTitle) taskTitle.disabled = !enabled;
+    if (taskNotes) taskNotes.disabled = !enabled;
+    if (taskDue) taskDue.disabled = !enabled;
+    if (taskLocationQuery) taskLocationQuery.disabled = !enabled;
   }
 
-  tasksResults.innerHTML = '<p class="loading">Loading lists...</p>';
+  if (tasksListName) {
+    if (!currentUser) tasksListName.textContent = "Default list: —";
+    else if (!isGoogleLinked())
+      tasksListName.textContent = "Default list: (link Google Tasks)";
+    else
+      tasksListName.textContent = defaultTaskList?.title
+        ? `Default list: ${defaultTaskList.title}`
+        : "Default list: …";
+  }
+
+  if (tasksResults && currentView === "tasks") {
+    if (!currentUser) {
+      tasksResults.innerHTML = `<p class="results-placeholder">Please log in to use Google Tasks.</p>`;
+    } else if (!isGoogleLinked()) {
+      tasksResults.innerHTML = `<p class="results-placeholder">Link Google Tasks to load your tasks.</p>`;
+    } else if (!defaultTaskList) {
+      tasksResults.innerHTML = `<p class="results-placeholder">Loading your default list…</p>`;
+    }
+  }
+}
+
+function resetTasksUI() {
+  if (tasksListName) tasksListName.textContent = "Default list: —";
+  if (tasksResults)
+    tasksResults.innerHTML = `<p class="results-placeholder">Tasks will appear here.</p>`;
+}
+
+async function ensureDefaultTaskListLoaded({ force }) {
+  if (!currentUser) return;
+  if (!isGoogleLinked()) return updateTasksUIState();
+  if (defaultTaskList && !force) {
+    updateTasksUIState();
+    return loadTasksFromDefaultList();
+  }
+
+  defaultTaskList = null;
+  updateTasksUIState();
 
   try {
     const resp = await fetch(
-      `/api/google/tasks/users/${currentUser.userId}/lists`
+      `/api/google/tasks/users/${currentUser.userId}/default-list`
     );
 
-    // si ton backend renvoie 401 (meilleur), on gère proprement
-    if (resp.status === 401 || resp.status === 403) {
-      tasksResults.innerHTML = `<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>`;
+    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
+      defaultTaskList = null;
+      if (tasksResults)
+        tasksResults.innerHTML = `<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>`;
       showToast("Link Google Tasks first.", { variant: "warning" });
+      updateTasksUIState();
       return;
     }
 
     if (!resp.ok) {
       const body = await resp.text();
-      throw new Error(body || "Failed to load lists");
+      throw new Error(body || "Failed to load default list");
     }
 
-    const lists = await resp.json();
-    renderTaskLists(lists);
-    tasksResults.innerHTML = `<p class="results-placeholder">Lists loaded. Select one and click "Load Tasks".</p>`;
+    const list = await resp.json();
+    defaultTaskList = { id: list.id, title: list.title || "Default" };
+    updateTasksUIState();
+    await loadTasksFromDefaultList();
   } catch (err) {
-    // ton cas CORS/302 vers Google => ça finit souvent en TypeError
-    tasksResults.innerHTML = `<p class="error-message">Could not load lists. Make sure Google Tasks is linked.</p>`;
-    showToast("Could not load lists (likely not linked).", {
+    defaultTaskList = null;
+    if (tasksResults)
+      tasksResults.innerHTML = `<p class="error-message">Could not load default list.</p>`;
+    showToast(err?.message || "Could not load default list.", {
       variant: "warning",
     });
+    updateTasksUIState();
   }
 }
 
-function renderTaskLists(lists) {
-  taskListSelect.innerHTML = "";
+async function loadTasksFromDefaultList() {
+  if (!currentUser) return;
+  if (!isGoogleLinked()) return;
+  if (!defaultTaskList?.id) return;
 
-  if (!Array.isArray(lists) || !lists.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "— No lists —";
-    taskListSelect.appendChild(opt);
-    return;
-  }
-
-  const first = document.createElement("option");
-  first.value = "";
-  first.textContent = "— Select a list —";
-  taskListSelect.appendChild(first);
-
-  for (const l of lists) {
-    const opt = document.createElement("option");
-    opt.value = l.id;
-    opt.textContent = l.title || l.id;
-    taskListSelect.appendChild(opt);
-  }
-}
-
-async function loadTasksForSelectedList() {
-  if (!currentUser) {
-    showToast("Please log in first.", { variant: "warning" });
-    return;
-  }
-
-  const listId = taskListSelect.value;
-  if (!listId) {
-    tasksResults.innerHTML = `<p class="error-message">Select a list first.</p>`;
-    return;
-  }
-
-  tasksResults.innerHTML = '<p class="loading">Loading tasks...</p>';
+  if (tasksResults)
+    tasksResults.innerHTML = '<p class="loading">Loading tasks...</p>';
 
   try {
-    const includeCompleted = !!tasksIncludeCompleted.checked;
+    const includeCompleted = !!tasksIncludeCompleted?.checked;
     const url = `/api/google/tasks/users/${
       currentUser.userId
     }/lists/${encodeURIComponent(
-      listId
+      defaultTaskList.id
     )}/tasks?includeCompleted=${includeCompleted}`;
 
     const resp = await fetch(url);
+
+    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
+      if (tasksResults)
+        tasksResults.innerHTML = `<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>`;
+      showToast("Link Google Tasks first.", { variant: "warning" });
+      return;
+    }
+
     if (!resp.ok) {
       const body = await resp.text();
       throw new Error(body || "Failed to load tasks");
@@ -473,66 +557,158 @@ async function loadTasksForSelectedList() {
     const tasks = await resp.json();
     renderTasks(tasks);
   } catch (err) {
-    tasksResults.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
+    if (tasksResults)
+      tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
+        err?.message || "Unknown error"
+      )}</p>`;
   }
 }
 
 function renderTasks(tasks) {
+  if (!tasksResults) return;
+
   if (!Array.isArray(tasks) || !tasks.length) {
     tasksResults.innerHTML = `<p class="results-placeholder">No tasks in this list.</p>`;
     return;
   }
 
-  const items = tasks
+  const html = tasks
     .map((t) => {
-      const title = escapeHtml(t.title || "Untitled");
-      const due = t.due ? formatDateTime(t.due) : "—";
-      const status = t.status || "needsAction";
+      const id = String(t?.id || "");
+      const title = escapeHtml(t?.title || "Untitled");
+      const due = t?.due ? formatDateTime(t.due) : "—";
+      const statusRaw = (t?.status || "needsAction").toLowerCase();
+      const completed = statusRaw === "completed";
+
+      const completeBtn = completed
+        ? `<button type="button" class="btn btn-success btn-sm" disabled>Completed</button>`
+        : `<button type="button" class="btn btn-success btn-sm" data-action="complete" data-task-id="${escapeHtml(
+            id
+          )}">Complete</button>`;
 
       return `
-      <div class="journey-result" style="margin-bottom: 12px;">
-        <h3 style="margin-bottom:6px;">${title}</h3>
-        <p class="journey-meta">Due: ${due} • Status: ${escapeHtml(status)}</p>
-      </div>
-    `;
+        <div class="task-card ${completed ? "completed" : ""}">
+          <h3 class="task-title">${title}</h3>
+          <p class="task-meta">Due: ${escapeHtml(due)} • Status: ${escapeHtml(
+        statusRaw
+      )}</p>
+          <div class="task-actions">
+            ${completeBtn}
+            <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-task-id="${escapeHtml(
+              id
+            )}">Delete</button>
+          </div>
+        </div>
+      `;
     })
     .join("");
 
-  tasksResults.innerHTML = items;
+  tasksResults.innerHTML = `<div class="tasks-results">${html}</div>`;
+
+  tasksResults.querySelectorAll("[data-action='complete']").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const taskId = btn.getAttribute("data-task-id");
+      if (!taskId) return;
+      await completeTask(taskId);
+    });
+  });
+
+  tasksResults.querySelectorAll("[data-action='delete']").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const taskId = btn.getAttribute("data-task-id");
+      if (!taskId) return;
+      await deleteTask(taskId);
+    });
+  });
+}
+
+async function completeTask(taskId) {
+  if (!currentUser || !defaultTaskList?.id) return;
+
+  try {
+    const resp = await fetch(
+      `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(
+        defaultTaskList.id
+      )}/tasks/${encodeURIComponent(taskId)}/complete`,
+      { method: "PATCH" }
+    );
+
+    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
+      showToast("Link Google Tasks first.", { variant: "warning" });
+      return;
+    }
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(body || "Failed to complete task");
+    }
+
+    showToast("Task completed!", { variant: "success" });
+    await loadTasksFromDefaultList();
+  } catch (err) {
+    showToast(err?.message || "Failed to complete task", {
+      variant: "warning",
+    });
+  }
+}
+
+async function deleteTask(taskId) {
+  if (!currentUser || !defaultTaskList?.id) return;
+
+  if (!confirm("Delete this task?")) return;
+
+  try {
+    const resp = await fetch(
+      `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(
+        defaultTaskList.id
+      )}/tasks/${encodeURIComponent(taskId)}`,
+      { method: "DELETE" }
+    );
+
+    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
+      showToast("Link Google Tasks first.", { variant: "warning" });
+      return;
+    }
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(body || "Failed to delete task");
+    }
+
+    showToast("Task deleted.", { variant: "success" });
+    await loadTasksFromDefaultList();
+  } catch (err) {
+    showToast(err?.message || "Failed to delete task", { variant: "warning" });
+  }
 }
 
 async function createTask(e) {
   e.preventDefault();
 
-  if (!currentUser) {
-    showToast("Please log in first.", { variant: "warning" });
-    return;
-  }
-
-  const listId = taskListSelect.value;
-  if (!listId) {
-    showToast("Select a list first.", { variant: "warning" });
-    return;
-  }
+  if (!currentUser)
+    return showToast("Please log in first.", { variant: "warning" });
+  if (!isGoogleLinked())
+    return showToast("Link Google Tasks first.", { variant: "warning" });
+  if (!defaultTaskList?.id)
+    return showToast("Default list not loaded yet.", { variant: "warning" });
 
   const payload = {
-    title: (taskTitle.value || "").trim(),
-    notes: (taskNotes.value || "").trim() || null,
-    due: (taskDue.value || "").trim() || null,
-    locationQuery: (taskLocationQuery.value || "").trim() || null,
+    title: (taskTitle?.value || "").trim(),
+    notes: (taskNotes?.value || "").trim() || null,
+    due: (taskDue?.value || "").trim() || null,
+    locationQuery: (taskLocationQuery?.value || "").trim() || null,
   };
 
-  if (!payload.title) {
-    showToast("Title is required.", { variant: "warning" });
-    return;
-  }
+  if (!payload.title)
+    return showToast("Title is required.", { variant: "warning" });
 
-  tasksResults.innerHTML = '<p class="loading">Creating task...</p>';
+  if (tasksResults)
+    tasksResults.innerHTML = '<p class="loading">Creating task...</p>';
 
   try {
     const resp = await fetch(
       `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(
-        listId
+        defaultTaskList.id
       )}/tasks`,
       {
         method: "POST",
@@ -541,6 +717,13 @@ async function createTask(e) {
       }
     );
 
+    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
+      if (tasksResults)
+        tasksResults.innerHTML = `<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>`;
+      showToast("Link Google Tasks first.", { variant: "warning" });
+      return;
+    }
+
     if (!resp.ok) {
       const body = await resp.text();
       throw new Error(body || "Failed to create task");
@@ -548,32 +731,32 @@ async function createTask(e) {
 
     const created = await resp.json();
 
-    if (created.locationWarning) {
+    if (created?.locationWarning) {
       showToast(
         `Task created, but location failed: ${created.locationWarning}`,
         { variant: "warning", durationMs: 6000 }
       );
     } else {
-      showToast("Task created!", { variant: "warning" });
+      showToast("Task created!", { variant: "success" });
     }
 
-    createTaskForm.reset();
-    await loadTasksForSelectedList();
+    createTaskForm?.reset();
+    await loadTasksFromDefaultList();
   } catch (err) {
-    tasksResults.innerHTML = `<p class="error-message">Error: ${err.message}</p>`;
+    if (tasksResults)
+      tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
+        err?.message || "Unknown error"
+      )}</p>`;
   }
 }
 
-// -----------------------------
-// GOOGLE LINK (your code)
-// -----------------------------
 function setupGoogleLinkListeners() {
   document
     .getElementById("linkGoogleTasksBtn")
-    .addEventListener("click", startGoogleLinkFlow);
+    ?.addEventListener("click", startGoogleLinkFlow);
   document
     .getElementById("refreshGoogleLinkBtn")
-    .addEventListener("click", refreshGoogleLink);
+    ?.addEventListener("click", refreshGoogleLink);
   window.addEventListener("message", handleGoogleLinkMessage);
 }
 
@@ -581,7 +764,7 @@ function startGoogleLinkFlow() {
   const statusEl = document.getElementById("googleLinkStatus");
 
   if (!currentUser) {
-    statusEl.textContent = "Please log in first.";
+    if (statusEl) statusEl.textContent = "Please log in first.";
     return;
   }
 
@@ -591,63 +774,67 @@ function startGoogleLinkFlow() {
   const popup = window.open(linkUrl, "googleTasksLink", "width=600,height=700");
 
   if (!popup) {
-    statusEl.textContent = "Popup blocked. Please allow popups for this site.";
+    if (statusEl)
+      statusEl.textContent =
+        "Popup blocked. Please allow popups for this site.";
     return;
   }
 
-  statusEl.textContent = "Complete sign-in in the popup...";
+  if (statusEl) statusEl.textContent = "Complete sign-in in the popup...";
 
   const watcher = setInterval(() => {
     if (popup.closed) {
       clearInterval(watcher);
       refreshGoogleLink();
     }
-  }, 1500);
+  }, 1200);
 }
 
 async function refreshGoogleLink() {
-  if (!currentUser) return;
+  if (!currentUser?.userId) return;
 
   try {
     const resp = await fetch(`/api/users/${currentUser.userId}`);
-    if (resp.ok) {
-      const user = await resp.json();
-      currentUser = user;
-      renderGoogleLinkStatus(user);
-    }
-  } catch (err) {
-    console.error("Failed to refresh link status", err);
-  }
+    if (!resp.ok) return;
+
+    const user = await resp.json();
+    currentUser = user;
+    renderGoogleLinkStatus(user);
+    updateTasksUIState();
+    if (currentView === "tasks") ensureDefaultTaskListLoaded({ force: true });
+  } catch (_) {}
+}
+
+function clearGoogleLinkStatus() {
+  const statusEl = document.getElementById("googleLinkStatus");
+  if (!statusEl) return;
+  statusEl.textContent = "";
+  statusEl.classList.remove("linked");
 }
 
 function renderGoogleLinkStatus(user) {
   const statusEl = document.getElementById("googleLinkStatus");
+  if (!statusEl) return;
+  if (!user) return clearGoogleLinkStatus();
 
-  if (!user || !user.googleAccountLinked) {
-    statusEl.textContent = "Not linked";
+  const linked = !!(user.googleAccountLinkedAt || user.googleAccountSubject);
+
+  if (!linked) {
+    statusEl.textContent = "Compte Google non lié.";
     statusEl.classList.remove("linked");
   } else {
-    const email = user.googleAccountEmail || "your Google account";
-    const linkedAt = user.googleAccountLinkedAt
-      ? formatDateTime(user.googleAccountLinkedAt)
-      : "";
-    statusEl.textContent = `Linked to ${email}${
-      linkedAt ? ` (${linkedAt})` : ""
-    }`;
+    statusEl.textContent = "Compte Google lié.";
     statusEl.classList.add("linked");
   }
 }
 
 function handleGoogleLinkMessage(event) {
   if (event.origin !== window.location.origin) return;
-  if (event.data && event.data.type === "GOOGLE_TASKS_LINKED") {
+  if (event.data && event.data.type === "GOOGLE_TASKS_LINKED")
     refreshGoogleLink();
-  }
 }
 
-// -----------------------------
-// NOTIFICATIONS (your code unchanged)
-// -----------------------------
+let lastNotifiedJourneyId = null;
 let lastTasksSignature = null;
 
 function notifyTasksOnRouteIfAny(journey) {
@@ -655,12 +842,31 @@ function notifyTasksOnRouteIfAny(journey) {
     journey && Array.isArray(journey.tasksOnRoute) ? journey.tasksOnRoute : [];
   if (!tasks.length) return;
 
+  const journeyId = journey?.id || journey?.journeyId || null;
+
+  // 1 popup max par trajet
+  if (journeyId && lastNotifiedJourneyId === journeyId) return;
+
   const sig = tasks
-    .map((t) => t.taskId)
+    .map((t) =>
+      String(
+        t?.taskId ||
+          t?.id ||
+          t?.googleTaskId ||
+          t?.sourceTaskId ||
+          t?.title ||
+          ""
+      )
+    )
+    .filter(Boolean)
     .sort()
     .join("|");
-  if (sig && sig === lastTasksSignature) return;
-  lastTasksSignature = sig;
+
+  // éviter plusieurs toasts pour le *même trajet* (ex: double-render)
+  if (journeyId && sig && lastTasksSignature === `${journeyId}:${sig}`) return;
+
+  lastNotifiedJourneyId = journeyId;
+  lastTasksSignature = journeyId ? `${journeyId}:${sig}` : sig;
 
   const count = tasks.length;
   const firstTitle = tasks[0]?.title || "a task";
@@ -672,26 +878,39 @@ function notifyTasksOnRouteIfAny(journey) {
 
   showToast(msg, {
     variant: "warning",
+    important: true,
+    durationMs: 15000,
     actionText: "View",
     onAction: () => openTasksModal(tasks),
   });
 }
 
 function ensureToastUI() {
-  if (document.getElementById("toastContainer")) return;
-  const container = document.createElement("div");
-  container.id = "toastContainer";
-  container.className = "toast-container";
-  document.body.appendChild(container);
+  if (!document.getElementById("toastContainer")) {
+    const container = document.createElement("div");
+    container.id = "toastContainer";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  if (!document.getElementById("toastContainerImportant")) {
+    const container = document.createElement("div");
+    container.id = "toastContainerImportant";
+    container.className = "toast-container toast-container-important";
+    document.body.appendChild(container);
+  }
 }
 
 function showToast(message, opts = {}) {
-  const container = document.getElementById("toastContainer");
+  const containerId = opts.important
+    ? "toastContainerImportant"
+    : "toastContainer";
+  const container = document.getElementById(containerId);
   if (!container) return;
 
   const toast = document.createElement("div");
-  toast.className = `toast ${
-    opts.variant ? `toast-${opts.variant}` : ""
+  toast.className = `toast ${opts.variant ? `toast-${opts.variant}` : ""} ${
+    opts.important ? "toast-important" : ""
   }`.trim();
 
   const text = document.createElement("div");
@@ -725,7 +944,12 @@ function showToast(message, opts = {}) {
 
   container.appendChild(toast);
 
-  const ttl = typeof opts.durationMs === "number" ? opts.durationMs : 4500;
+  const ttl =
+    typeof opts.durationMs === "number"
+      ? opts.durationMs
+      : opts.important
+      ? 12000
+      : 4500;
   const timer = setTimeout(() => removeToast(toast), ttl);
 
   toast.addEventListener("mouseenter", () => clearTimeout(timer));
@@ -763,8 +987,9 @@ function ensureTasksModalUI() {
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) close();
   });
-  overlay.querySelector("#tasksModalClose").addEventListener("click", close);
-  overlay.querySelector("#tasksModalOk").addEventListener("click", close);
+
+  overlay.querySelector("#tasksModalClose")?.addEventListener("click", close);
+  overlay.querySelector("#tasksModalOk")?.addEventListener("click", close);
 }
 
 function openTasksModal(tasks) {
@@ -772,19 +997,19 @@ function openTasksModal(tasks) {
   const list = document.getElementById("tasksModalList");
   if (!overlay || !list) return;
 
-  const items = tasks
+  const items = (Array.isArray(tasks) ? tasks : [])
     .map((t) => {
-      const title = escapeHtml(t.title || "Untitled");
+      const title = escapeHtml(t?.title || "Untitled");
       const dist =
-        typeof t.distanceMeters === "number"
+        typeof t?.distanceMeters === "number"
           ? `${Math.round(t.distanceMeters)} m`
           : "—";
       return `
-      <div class="tasks-modal-item">
-        <div class="tasks-modal-item-title">${title}</div>
-        <div class="tasks-modal-item-meta">Distance: ${dist}</div>
-      </div>
-    `;
+        <div class="tasks-modal-item">
+          <div class="tasks-modal-item-title">${title}</div>
+          <div class="tasks-modal-item-meta">Distance: ${dist}</div>
+        </div>
+      `;
     })
     .join("");
 
@@ -793,9 +1018,6 @@ function openTasksModal(tasks) {
   overlay.classList.remove("hidden");
 }
 
-// -----------------------------
-// Utilities
-// -----------------------------
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -807,14 +1029,17 @@ function escapeHtml(str) {
 
 function setDefaultDepartureTime() {
   if (!departureInput) return;
-  const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
-  departureInput.value = oneHourLater.toISOString().slice(0, 16);
+  const d = new Date(Date.now() + 60 * 60 * 1000);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  departureInput.value = d.toISOString().slice(0, 16);
 }
 
 function formatDuration(seconds) {
-  if (!seconds && seconds !== 0) return "?";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
+  if (seconds === null || seconds === undefined) return "?";
+  const s = Number(seconds);
+  if (Number.isNaN(s)) return "?";
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
@@ -823,12 +1048,7 @@ function formatDateTime(dt) {
 }
 
 function generateId() {
-  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+  if (window.crypto && typeof window.crypto.randomUUID === "function")
     return window.crypto.randomUUID();
-  }
   return `user-${Date.now()}`;
-}
-
-function setupDisruptionTester() {
-  // No-op in provided snippet
 }

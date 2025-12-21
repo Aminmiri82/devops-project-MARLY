@@ -68,6 +68,9 @@ public class GoogleTasksController {
         this.primApiClient = primApiClient;
     }
 
+    // -----------------------------
+    // ME (debug)
+    // -----------------------------
     @GetMapping("/me/lists")
     public List<TaskListDto> listsForMe(
             @RegisteredOAuth2AuthorizedClient("google") OAuth2AuthorizedClient authorizedClient,
@@ -107,6 +110,9 @@ public class GoogleTasksController {
                 "expiresAt", client.getAccessToken().getExpiresAt());
     }
 
+    // -----------------------------
+    // USER endpoints (used by your front)
+    // -----------------------------
     @GetMapping("/users/{userId}/lists")
     public List<TaskListDto> listsForUser(
             @PathVariable UUID userId,
@@ -114,6 +120,23 @@ public class GoogleTasksController {
             @RequestParam(required = false) String pageToken) {
         OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
         return fetchLists(client, pageSize, pageToken);
+    }
+
+    /**
+     * ✅ New: "one list" UX.
+     * Returns the default list used by the UI.
+     */
+    @GetMapping("/users/{userId}/default-list")
+    public Map<String, Object> defaultListForUser(@PathVariable UUID userId) {
+        OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
+        List<TaskListDto> lists = fetchLists(client, 50, null);
+
+        if (lists == null || lists.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No task list found on Google account");
+        }
+
+        TaskListDto chosen = lists.get(0); // simplest: first list as default
+        return Map.of("id", chosen.id(), "title", chosen.title());
     }
 
     @GetMapping("/users/{userId}/lists/{listId}/tasks")
@@ -128,7 +151,7 @@ public class GoogleTasksController {
 
     @GetMapping("/users/{userId}/local")
     public List<Map<String, Object>> localTasks(@PathVariable UUID userId) {
-        return userTaskRepository.findByUserId(userId)
+        return userTaskRepository.findByUser_Id(userId)
                 .stream()
                 .map(t -> {
                     Map<String, Object> m = new LinkedHashMap<>();
@@ -138,6 +161,7 @@ public class GoogleTasksController {
                     m.put("title", t.getTitle());
                     m.put("notes", t.getNotes());
                     m.put("dueAt", t.getDueAt());
+                    m.put("completed", t.isCompleted());
 
                     if (t.getLocationHint() != null) {
                         m.put("locationHint", Map.of(
@@ -146,7 +170,6 @@ public class GoogleTasksController {
                     } else {
                         m.put("locationHint", null);
                     }
-
                     return m;
                 })
                 .toList();
@@ -200,7 +223,7 @@ public class GoogleTasksController {
 
         OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
 
-        // ✅ PRIM : on tente, mais on ne bloque pas la création si PRIM est KO
+        // ✅ PRIM best-effort
         GeoPoint locationHint = null;
         String locationWarning = null;
 
@@ -208,7 +231,6 @@ public class GoogleTasksController {
             try {
                 locationHint = resolveGeoPointFromQuery(request.locationQuery());
             } catch (ResponseStatusException ex) {
-                // on laisse passer, mais on prévient le front
                 locationWarning = ex.getReason();
             } catch (Exception ex) {
                 locationWarning = "Location lookup failed: " + ex.getMessage();
@@ -253,13 +275,10 @@ public class GoogleTasksController {
                 OffsetDateTime dueAt = request.due().atStartOfDay().atOffset(ZoneOffset.UTC);
                 ut.setDueAt(dueAt);
             }
-            if (locationHint != null) {
+            if (locationHint != null && locationHint.isComplete()) {
                 ut.setLocationHint(locationHint);
-            }
-            if (locationHint == null || !locationHint.isComplete()) {
-                ut.setLocationHint(null);
             } else {
-                ut.setLocationHint(locationHint);
+                ut.setLocationHint(null);
             }
 
             UserTask saved = userTaskRepository.save(ut);
@@ -284,6 +303,87 @@ public class GoogleTasksController {
         }
     }
 
+    /**
+     * ✅ New: mark completed
+     */
+    @PatchMapping("/users/{userId}/lists/{listId}/tasks/{taskId}/complete")
+    public Map<String, Object> completeTaskForUser(
+            @PathVariable UUID userId,
+            @PathVariable String listId,
+            @PathVariable String taskId) {
+
+        OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
+
+        try {
+            Map<String, Object> patch = new java.util.HashMap<>();
+            patch.put("status", "completed");
+            patch.put("completed", Instant.now().toString());
+
+            Map<String, Object> response = googleApiWebClient.patch()
+                    .uri(b -> b.path("/lists/{taskListId}/tasks/{taskId}").build(listId, taskId))
+                    .attributes(oauth2AuthorizedClient(client))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(patch)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
+                    })
+                    .block();
+
+            // sync local
+            userTaskRepository
+                    .findByUser_IdAndSourceAndSourceTaskId(userId, TaskSource.GOOGLE_TASKS, taskId)
+                    .ifPresent(t -> {
+                        t.setCompleted(true);
+                        t.setLastSyncedAt(OffsetDateTime.now());
+                        userTaskRepository.save(t);
+                    });
+
+            return response == null ? Map.of("ok", true) : response;
+
+        } catch (WebClientResponseException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.valueOf(e.getStatusCode().value()),
+                    "Google Tasks API error: " + e.getResponseBodyAsString(),
+                    e);
+        }
+    }
+
+    /**
+     * ✅ New: delete task
+     */
+    @DeleteMapping("/users/{userId}/lists/{listId}/tasks/{taskId}")
+    public ResponseEntity<Void> deleteTaskForUser(
+            @PathVariable UUID userId,
+            @PathVariable String listId,
+            @PathVariable String taskId) {
+
+        OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
+
+        try {
+            googleApiWebClient.delete()
+                    .uri(b -> b.path("/lists/{taskListId}/tasks/{taskId}").build(listId, taskId))
+                    .attributes(oauth2AuthorizedClient(client))
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+
+            userTaskRepository
+                    .findByUser_IdAndSourceAndSourceTaskId(userId, TaskSource.GOOGLE_TASKS, taskId)
+                    .ifPresent(userTaskRepository::delete);
+
+            return ResponseEntity.noContent().build();
+
+        } catch (WebClientResponseException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.valueOf(e.getStatusCode().value()),
+                    "Google Tasks API error: " + e.getResponseBodyAsString(),
+                    e);
+        }
+    }
+
+    // -----------------------------
+    // Internal helpers
+    // -----------------------------
     private List<TaskListDto> fetchLists(OAuth2AuthorizedClient authorizedClient, Integer pageSize, String pageToken) {
         try {
             TasksListsResponse resp = googleApiWebClient.get()
@@ -387,7 +487,6 @@ public class GoogleTasksController {
 
         } catch (WebClientResponseException e) {
             if (e.getStatusCode().value() == 401) {
-                // ✅ le cas que tu as : credentials PRIM invalides
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                         "PRIM unauthorized (check PRIM API credentials / header)", e);
             }

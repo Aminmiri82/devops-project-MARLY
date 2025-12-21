@@ -78,7 +78,6 @@
 
   <div id="mainContent" class="hidden">
 
-    <!-- Account panel -->
     <section class="user-panel">
       <div class="panel-header">
         <h2>Your Account</h2>
@@ -89,6 +88,7 @@
           <p><strong>Email:</strong> <span id="displayUserEmail">—</span></p>
           <p><strong>User ID:</strong> <code id="displayUserId">—</code></p>
         </div>
+
         <div class="google-link-section">
           <h3>Google Tasks</h3>
           <p class="section-desc">Link your Google account to sync tasks with your journeys.</p>
@@ -160,23 +160,16 @@
         </div>
         <div class="panel-body">
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="taskListSelect">Task List</label>
-              <select id="taskListSelect" class="input-like">
-                <option value="">— Load lists first —</option>
-              </select>
-            </div>
+          <div class="tasks-toolbar">
+            <p class="tasks-listname" id="tasksListName">Default list: —</p>
 
-            <div class="form-group form-group-checkboxes">
+            <div class="tasks-toolbar-actions">
               <label class="checkbox-label">
                 <input type="checkbox" id="tasksIncludeCompleted">
                 <span>Include completed</span>
               </label>
-              <div style="display:flex; gap:8px; margin-top:8px;">
-                <button type="button" class="btn btn-outline btn-sm" id="loadListsBtn">Load Lists</button>
-                <button type="button" class="btn btn-outline btn-sm" id="loadTasksBtn">Load Tasks</button>
-              </div>
+
+              <button type="button" class="btn btn-outline btn-sm" id="refreshTasksBtn">Refresh</button>
             </div>
           </div>
 
@@ -219,7 +212,7 @@
         </div>
         <div class="panel-body">
           <div id="tasksResults">
-            <p class="results-placeholder">Load a list to see tasks.</p>
+            <p class="results-placeholder">Tasks will appear here.</p>
           </div>
         </div>
       </section>
