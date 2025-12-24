@@ -18,7 +18,9 @@
     --font-mono: 'SF Mono', 'Consolas', monospace;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -427,30 +429,75 @@ body {
 
 .journey-legs {
     list-style: none;
-    padding: 0;
-    margin: 0;
+    padding: 0 0 0 10px;
+    margin: 16px 0 0 0;
+    position: relative;
 }
 
-.journey-legs li {
-    padding: 12px 0;
-    border-top: 1px solid var(--color-border);
-    font-size: 0.9375rem;
+.journey-leg-item {
+    position: relative;
+    padding: 0 0 24px 24px;
+    border: none;
 }
 
-.journey-legs li:first-child {
-    border-top: none;
-    padding-top: 0;
+.journey-leg-item:last-child {
+    padding-bottom: 0;
+}
+
+/* Vertical Line */
+.journey-leg-item::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 6px;
+    bottom: -6px;
+    width: 2px;
+    background: var(--color-border);
+}
+
+.journey-leg-item:last-child::before {
+    display: none;
+}
+
+/* Dot Marker */
+.leg-marker {
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary);
+    z-index: 1;
+}
+
+.leg-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .leg-mode {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 0.875rem;
     color: var(--color-primary);
+}
+
+.leg-route {
+    font-weight: 600;
+    font-size: 0.9375rem;
 }
 
 .leg-times {
     font-size: 0.8125rem;
     color: var(--color-text-muted);
-    margin-top: 4px;
+    font-family: var(--font-mono);
+}
+
+.leg-duration {
+    margin-left: 8px;
+    color: var(--color-text-muted);
 }
 
 /* Loading state */
@@ -491,6 +538,7 @@ body {
 .perturbation-panel .panel-body {
     padding: 20px;
 }
+
 .disruptions-panel {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
@@ -526,4 +574,80 @@ body {
 
 #disruptionList li:first-child {
     border-top: none;
+}
+
+/* Journey Status */
+.journey-status-card {
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.journey-status-card h3 {
+    margin: 16px 0 8px;
+    font-size: 1.25rem;
+    color: var(--color-text);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: var(--radius-lg);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.status-active {
+    background: rgba(0, 186, 124, 0.15);
+    color: var(--color-success);
+}
+
+.status-badge.status-planned {
+    background: rgba(29, 155, 240, 0.15);
+    color: var(--color-primary);
+}
+
+.journey-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+/* Progress Bar */
+.progress-container {
+    height: 8px;
+    background: var(--color-border);
+    border-radius: var(--radius-lg);
+    margin: 16px 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--color-primary);
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.progress-text {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    margin-top: -8px;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.disruption-warning {
+    margin: 8px 0;
+    padding: 8px;
+    background: rgba(255, 173, 31, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--color-warning);
+    font-size: 0.8125rem;
+    font-weight: 600;
 }
