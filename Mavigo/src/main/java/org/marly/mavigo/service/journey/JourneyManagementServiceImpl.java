@@ -34,6 +34,8 @@ public class JourneyManagementServiceImpl implements JourneyManagementService {
         
         Journey savedJourney = journeyRepository.save(journey);
         org.hibernate.Hibernate.initialize(savedJourney.getLegs());
+        org.hibernate.Hibernate.initialize(savedJourney.getUser());
+        org.hibernate.Hibernate.initialize(savedJourney.getDisruptions());
         return savedJourney;
     }
 
@@ -50,6 +52,8 @@ public class JourneyManagementServiceImpl implements JourneyManagementService {
         
         Journey savedJourney = journeyRepository.save(journey);
         org.hibernate.Hibernate.initialize(savedJourney.getLegs());
+        org.hibernate.Hibernate.initialize(savedJourney.getUser());
+        org.hibernate.Hibernate.initialize(savedJourney.getDisruptions());
         return savedJourney;
     }
 
@@ -65,6 +69,8 @@ public class JourneyManagementServiceImpl implements JourneyManagementService {
         
         Journey savedJourney = journeyRepository.save(journey);
         org.hibernate.Hibernate.initialize(savedJourney.getLegs());
+        org.hibernate.Hibernate.initialize(savedJourney.getUser());
+        org.hibernate.Hibernate.initialize(savedJourney.getDisruptions());
         return savedJourney;
     }
 
