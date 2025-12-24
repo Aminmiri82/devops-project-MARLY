@@ -235,7 +235,9 @@ async function startJourney(journeyId, btnElement) {
     });
 
     try {
-        const resp = await fetch(`/api/journeys/${journeyId}/start`, { method: 'POST' });
+        const url = `/api/journeys/${journeyId}/start`;
+        console.log('Fetching:', url);
+        const resp = await fetch(url, { method: 'POST' });
         if (!resp.ok) {
             const body = await resp.text();
             throw new Error(body || 'Failed to start journey');
@@ -258,7 +260,9 @@ async function startJourney(journeyId, btnElement) {
 async function completeJourney() {
     if (!currentJourney) return;
     try {
-        const resp = await fetch(`/api/journeys/${currentJourney.journeyId}/complete`, { method: 'POST' });
+        const url = `/api/journeys/${currentJourney.journeyId}/complete`;
+        console.log('Fetching:', url);
+        const resp = await fetch(url, { method: 'POST' });
         if (!resp.ok) {
             const body = await resp.text();
             throw new Error(body || 'Failed to complete journey');
@@ -276,7 +280,9 @@ async function cancelJourney() {
     if (!confirm('Are you sure you want to cancel this journey?')) return;
 
     try {
-        const resp = await fetch(`/api/journeys/${currentJourney.journeyId}/cancel`, { method: 'POST' });
+        const url = `/api/journeys/${currentJourney.journeyId}/cancel`;
+        console.log('Fetching:', url);
+        const resp = await fetch(url, { method: 'POST' });
         if (!resp.ok) {
             const body = await resp.text();
             throw new Error(body || 'Failed to cancel journey');
@@ -530,7 +536,7 @@ function displayJourney(journey) {
             <li class="journey-leg-item">
                 <div class="leg-marker"></div>
                 <div class="leg-content">
-                    <span class="leg-mode">${formatMode(leg.mode)}</span>
+                    <span class="leg-mode">${formatMode(leg.mode)} ${leg.lineCode ? `<span class="leg-line">${leg.lineCode}</span>` : ''}</span>
                     <span class="leg-route">${leg.originLabel || '?'} → ${leg.destinationLabel || '?'}</span>
                     <div class="leg-times">
                         ${leg.estimatedDeparture ? formatDateTime(leg.estimatedDeparture) : '?'} - 
