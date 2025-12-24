@@ -16,5 +16,8 @@ public interface JourneyRepository extends JpaRepository<Journey, UUID> {
     List<Journey> findByPlannedDepartureBetween(OffsetDateTime start, OffsetDateTime end);
 
     Optional<Journey> findByPrimItineraryId(String primItineraryId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT j FROM Journey j LEFT JOIN FETCH j.legs LEFT JOIN FETCH j.disruptions WHERE j.id = :id")
+    Optional<Journey> findWithLegsById(@org.springframework.data.repository.query.Param("id") UUID id);
 }
 

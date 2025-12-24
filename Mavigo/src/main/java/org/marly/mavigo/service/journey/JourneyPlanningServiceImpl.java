@@ -49,7 +49,7 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
     }
 
     @Override
-    public Journey planAndPersist(JourneyPlanningParameters parameters) {
+    public List<Journey> planAndPersist(JourneyPlanningParameters parameters) {
         StopArea origin = stopAreaService.findOrCreateByQuery(parameters.originQuery());
         StopArea destination = stopAreaService.findOrCreateByQuery(parameters.destinationQuery());
 
@@ -71,21 +71,28 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
             throw new PrimApiException("Prim API returned no journey options for the requested parameters");
         }
 
-        PrimJourneyPlanDto selected = selectFirstJourney(options);
+        // Select top 3 options
+        List<PrimJourneyPlanDto> topOptions = options.stream().limit(3).toList();
+        List<Journey> savedJourneys = new java.util.ArrayList<>();
 
-        Journey journey = journeyAssembler.assemble(
-                user,
-                origin,
-                destination,
-                selected,
-                parameters.preferences());
+        for (PrimJourneyPlanDto selected : topOptions) {
+             Journey journey = journeyAssembler.assemble(
+                    user,
+                    origin,
+                    destination,
+                    selected,
+                    parameters.preferences());
 
-        journey.setStatus(JourneyStatus.PLANNED);
+            journey.setStatus(JourneyStatus.PLANNED);
+            Journey savedJourney = journeyRepository.save(journey);
+            org.hibernate.Hibernate.initialize(savedJourney.getLegs()); // Eager load for return
+            org.hibernate.Hibernate.initialize(savedJourney.getUser());
+            savedJourneys.add(savedJourney);
+            
+            LOGGER.info("Persisted journey {} using Prim itinerary {}", savedJourney.getId(), selected.journeyId());
+        }
 
-        Journey savedJourney = journeyRepository.save(journey);
-
-        LOGGER.info("Persisted journey {} using Prim itinerary {}", savedJourney.getId(), selected.journeyId());
-        return savedJourney;
+        return savedJourneys;
     }
 
     private PrimJourneyPlanDto selectFirstJourney(List<PrimJourneyPlanDto> options) {
@@ -96,21 +103,46 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
      * Met à jour un trajet existant lorsqu'une perturbation est signalée.
      */
     @Transactional
-    public Journey updateJourneyWithDisruption(Journey journey, Disruption disruption) {
+    public List<Journey> updateJourneyWithDisruption(java.util.UUID journeyId, Disruption disruption, Double userLat, Double userLng, String manualOrigin) {
+        
+        Journey journey = journeyRepository.findWithLegsById(journeyId)
+             .orElseThrow(() -> new IllegalArgumentException("Journey not found: " + journeyId));
+
+        // Initialize User to avoid LazyInitializationException during JSON serialization
+        org.hibernate.Hibernate.initialize(journey.getUser());
+
         // Vérifie si le trajet est impacté par la perturbation
-        boolean impacted = journey.getLegs().stream()
-                .anyMatch(leg -> leg.getLineCode().equals(disruption.getEffectedLine()));
+        // If line is "General Disruption", we skip check and force reroute
+        boolean isGeneric = "General Disruption".equals(disruption.getEffectedLine());
+        boolean impacted = isGeneric || journey.getLegs().stream()
+                .anyMatch(leg -> leg.getLineCode() != null && leg.getLineCode().equals(disruption.getEffectedLine()));
 
         if (!impacted) {
-            // Aucun impact, on retourne le trajet tel quel
-            return journey;
+            // Aucun impact, on retourne le trajet tel quel (dans une liste)
+            return java.util.Collections.singletonList(journey);
         }
 
         // Ajouter la perturbation
         journey.addDisruption(disruption);
 
-        // Récupérer StopArea depuis les labels
-        StopArea origin = stopAreaService.findOrCreateByQuery(journey.getOriginLabel());
+        // Determine new origin: GPS > manual override > original origin
+        StopArea origin;
+        String originQuery;
+        
+        if (userLat != null && userLng != null) {
+             // Create a temporary StopArea for the GPS location
+             originQuery = "Current Location"; // Display label
+             String tempId = String.format("coord:%.6f;%.6f", userLng, userLat); 
+             org.marly.mavigo.models.shared.GeoPoint location = new org.marly.mavigo.models.shared.GeoPoint(userLat, userLng);
+             origin = new StopArea(tempId, "Current Location", location);
+        } else if (manualOrigin != null && !manualOrigin.isBlank()) {
+             originQuery = manualOrigin;
+             origin = stopAreaService.findOrCreateByQuery(originQuery);
+        } else {
+             originQuery = journey.getOriginLabel();
+             origin = stopAreaService.findOrCreateByQuery(originQuery);
+        }
+
         StopArea destination = stopAreaService.findOrCreateByQuery(journey.getDestinationLabel());
 
         // Créer JourneyPreferences à partir des flags existants
@@ -121,9 +153,9 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         // Créer les paramètres pour recalculer le trajet
         JourneyPlanningParameters params = new JourneyPlanningParameters(
                 journey.getUser().getId(),
-                journey.getOriginLabel(),
+                originQuery,
                 journey.getDestinationLabel(),
-                journey.getPlannedDeparture().toLocalDateTime(),
+                java.time.LocalDateTime.now(), // Use NOW as departure time for rerouting
                 preferences);
 
         JourneyPlanningContext context = new JourneyPlanningContext(
@@ -139,28 +171,38 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         // request.addExcludedLine(disruption.getEffectedLine());
 
         // Recalculer les itinéraires
+        // Recalculer les itinéraires
         List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
         if (options.isEmpty()) {
-            return journey; // pas d'alternative trouvée
+            return java.util.Collections.singletonList(journey); // pas d'alternative trouvée
         }
 
-        // Sélectionner le nouvel itinéraire
-        PrimJourneyPlanDto selected = options.get(0);
+        // Select top 3 options
+        List<PrimJourneyPlanDto> topOptions = options.stream().limit(3).toList();
+        List<Journey> newJourneys = new java.util.ArrayList<>();
 
-        // Recréer le trajet avec JourneyAssembler
-        Journey updatedJourney = journeyAssembler.assemble(
-                journey.getUser(),
-                origin,
-                destination,
-                selected,
-                preferences);
+        // Le premier scénario peut remplacer le trajet actuel s'il est jugé "meilleur" ou on crée de nouvelles entités
+        // Pour simplifier et permettre le choix utilisateur, on crée de nouvelles entités Journey PLANNED
+        // L'utilisateur choisira ensuite laquelle activer.
+        
+        for (PrimJourneyPlanDto selected : topOptions) {
+             Journey newJourney = journeyAssembler.assemble(
+                    journey.getUser(),
+                    origin,
+                    destination,
+                    selected,
+                    preferences);
 
-        // Mettre à jour les legs et informations importantes
-        journey.replaceLegs(updatedJourney.getLegs());
-        journey.setPlannedArrival(updatedJourney.getPlannedArrival());
-        journey.setPrimItineraryId(updatedJourney.getPrimItineraryId());
+            newJourney.setStatus(JourneyStatus.PLANNED);
+            newJourney.addDisruption(disruption);
+            
+            Journey savedJourney = journeyRepository.save(newJourney);
+            org.hibernate.Hibernate.initialize(savedJourney.getLegs()); 
+            org.hibernate.Hibernate.initialize(savedJourney.getUser());
+            org.hibernate.Hibernate.initialize(savedJourney.getDisruptions());
+            newJourneys.add(savedJourney);
+        }
 
-        // Sauvegarder et retourner
-        return journeyRepository.save(journey);
+        return newJourneys;
     }
 }

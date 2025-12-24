@@ -69,6 +69,12 @@ public class Journey {
     @Column(name = "planned_arrival", nullable = false)
     private OffsetDateTime plannedArrival;
 
+    @Column(name = "actual_departure")
+    private OffsetDateTime actualDeparture;
+
+    @Column(name = "actual_arrival")
+    private OffsetDateTime actualArrival;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private JourneyStatus status = JourneyStatus.PLANNED;
@@ -113,7 +119,7 @@ public boolean isLegImpacted(String line) {
     @JoinTable(name = "journey_point_of_interest", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
     private List<PointOfInterest> pointOfInterests = new ArrayList<>();
 
-    protected Journey() {
+    public Journey() {
 
     }
 
@@ -184,6 +190,22 @@ public boolean isLegImpacted(String line) {
 
     public void setPlannedArrival(OffsetDateTime plannedArrival) {
         this.plannedArrival = plannedArrival;
+    }
+
+    public OffsetDateTime getActualDeparture() {
+        return actualDeparture;
+    }
+
+    public void setActualDeparture(OffsetDateTime actualDeparture) {
+        this.actualDeparture = actualDeparture;
+    }
+
+    public OffsetDateTime getActualArrival() {
+        return actualArrival;
+    }
+
+    public void setActualArrival(OffsetDateTime actualArrival) {
+        this.actualArrival = actualArrival;
     }
 
     public JourneyStatus getStatus() {

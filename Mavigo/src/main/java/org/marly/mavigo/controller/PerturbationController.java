@@ -57,21 +57,26 @@ public class PerturbationController {
      * Recalcule le trajet si la ligne est impactée.
      */
     @PostMapping("/apply")
-    public ResponseEntity<Journey> applyPerturbation(
+    public ResponseEntity<List<org.marly.mavigo.controller.dto.JourneyResponse>> applyPerturbation(
             @RequestParam UUID journeyId,
-            @RequestParam String line,
-            @RequestParam String creator
+            @RequestParam(required = false) String line,
+            @RequestParam String creator,
+            @RequestParam(required = false) Double userLat,
+            @RequestParam(required = false) Double userLng,
+            @RequestParam(required = false) String newOrigin
     ) {
-        // Récupérer le trajet
-        Journey journey = journeyRepository.findById(journeyId)
-                .orElseThrow(() -> new IllegalArgumentException("Journey not found: " + journeyId));
+        // Créer la perturbation (generic if line is null)
+        String lineCode = line != null ? line : "General Disruption";
+        Disruption disruption = perturbationService.addDisruption(lineCode, creator);
 
-        // Créer la perturbation
-        Disruption disruption = perturbationService.addDisruption(line, creator);
+        // Recalculer le trajet si nécessaire (retourne une liste d'options)
+        // Pass ID directly so service can handle transaction and lazy loading
+        List<Journey> updatedJourneys = journeyPlanningService.updateJourneyWithDisruption(journeyId, disruption, userLat, userLng, newOrigin);
 
-        // Recalculer le trajet si nécessaire
-        Journey updatedJourney = journeyPlanningService.updateJourneyWithDisruption(journey, disruption);
+        List<org.marly.mavigo.controller.dto.JourneyResponse> response = updatedJourneys.stream()
+                .map(org.marly.mavigo.controller.dto.JourneyResponse::from)
+                .toList();
 
-        return ResponseEntity.ok(updatedJourney);
+        return ResponseEntity.ok(response);
     }
 }
