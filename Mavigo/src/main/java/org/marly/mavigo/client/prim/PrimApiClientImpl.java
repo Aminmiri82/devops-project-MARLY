@@ -178,44 +178,41 @@ public class PrimApiClientImpl implements PrimApiClient {
 
             var sdt = section.stopDateTimes();
             if (sdt != null && sdt.size() >= 2) {
-                for (int i = 0; i < sdt.size() - 1; i++) {
-                    PrimStopDateTime a = sdt.get(i);
-                    PrimStopDateTime b = sdt.get(i + 1);
-                    if (a == null || b == null)
-                        continue;
+                PrimStopDateTime first = sdt.get(0);
+                PrimStopDateTime last = sdt.get(sdt.size() - 1);
 
-                    PrimStopPoint from = a.stopPoint();
-                    PrimStopPoint to = b.stopPoint();
-                    if (from == null || to == null)
-                        continue;
+                if (first != null && last != null) {
+                    PrimStopPoint from = first.stopPoint();
+                    PrimStopPoint to = last.stopPoint();
 
-                    PrimDisplayInformations di = section.displayInformations();
+                    if (from != null && to != null) {
+                        PrimDisplayInformations di = section.displayInformations();
 
-                    legs.add(new PrimJourneyPlanDto.LegDto(
-                            seq++,
-                            section.id(),
-                            section.type(),
-                            di != null ? di.commercialMode() : null,
-                            di != null ? di.code() : null,
-                            toOffset(a.departureDateTime() != null ? a.departureDateTime()
-                                    : section.departureDateTime()),
-                            toOffset(b.arrivalDateTime() != null ? b.arrivalDateTime() : section.arrivalDateTime()),
-                            section.duration(),
-                            from.id(),
-                            from.name(),
-                            extractLatitude(from),
-                            extractLongitude(from),
-                            to.id(),
-                            to.name(),
-                            extractLatitude(to),
-                            extractLongitude(to),
-                            di != null ? di.label() : null));
+                        legs.add(new PrimJourneyPlanDto.LegDto(
+                                seq++,
+                                section.id(),
+                                section.type(),
+                                di != null ? di.commercialMode() : null,
+                                di != null ? di.code() : null,
+                                toOffset(first.departureDateTime() != null ? first.departureDateTime()
+                                        : section.departureDateTime()),
+                                toOffset(last.arrivalDateTime() != null ? last.arrivalDateTime() : section.arrivalDateTime()),
+                                section.duration(),
+                                from.id(),
+                                from.name(),
+                                extractLatitude(from),
+                                extractLongitude(from),
+                                to.id(),
+                                to.name(),
+                                extractLatitude(to),
+                                extractLongitude(to),
+                                di != null ? di.label() : null));
+                    }
                 }
-                continue; // on ne repasse pas par mapSection()
+                continue;
             }
 
             legs.add(mapSection(section, seq++));
-            seq++;
         }
 
         return Collections.unmodifiableList(legs);
