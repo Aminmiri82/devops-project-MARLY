@@ -18,7 +18,9 @@
     --font-mono: 'SF Mono', 'Consolas', monospace;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -427,30 +429,75 @@ body {
 
 .journey-legs {
     list-style: none;
-    padding: 0;
-    margin: 0;
+    padding: 0 0 0 10px;
+    margin: 16px 0 0 0;
+    position: relative;
 }
 
-.journey-legs li {
-    padding: 12px 0;
-    border-top: 1px solid var(--color-border);
-    font-size: 0.9375rem;
+.journey-leg-item {
+    position: relative;
+    padding: 0 0 24px 24px;
+    border: none;
 }
 
-.journey-legs li:first-child {
-    border-top: none;
-    padding-top: 0;
+.journey-leg-item:last-child {
+    padding-bottom: 0;
+}
+
+/* Vertical Line */
+.journey-leg-item::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 6px;
+    bottom: -6px;
+    width: 2px;
+    background: var(--color-border);
+}
+
+.journey-leg-item:last-child::before {
+    display: none;
+}
+
+/* Dot Marker */
+.leg-marker {
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary);
+    z-index: 1;
+}
+
+.leg-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .leg-mode {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 0.875rem;
     color: var(--color-primary);
+}
+
+.leg-route {
+    font-weight: 600;
+    font-size: 0.9375rem;
 }
 
 .leg-times {
     font-size: 0.8125rem;
     color: var(--color-text-muted);
-    margin-top: 4px;
+    font-family: var(--font-mono);
+}
+
+.leg-duration {
+    margin-left: 8px;
+    color: var(--color-text-muted);
 }
 
 /* Loading state */
@@ -470,7 +517,7 @@ body {
 }
 
 /* ----------------------------- */
-/* TOAST + TASKS MODAL (NEW)      */
+/* TOAST NOTIFICATIONS           */
 /* ----------------------------- */
 
 .toast-container {
@@ -554,7 +601,30 @@ body {
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Modal listing tasks */
+/* IMPORTANT TOAST (top center) */
+.toast-container-important {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 16px;
+    transform: translateX(-50%);
+    max-width: min(560px, calc(100vw - 32px));
+}
+
+.toast-important {
+    border-width: 2px;
+    padding: 14px 14px;
+}
+
+.toast-important .toast-text {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+/* ----------------------------- */
+/* TASKS MODAL                   */
+/* ----------------------------- */
+
 .tasks-modal-overlay {
     position: fixed;
     inset: 0;
@@ -663,6 +733,30 @@ body {
     align-items: center;
 }
 
+/* ----------------------------- */
+/* TASKS UI                      */
+/* ----------------------------- */
+
+.tasks-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.tasks-listname {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+.tasks-toolbar-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
 .tasks-results {
     display: grid;
     gap: 12px;
@@ -675,16 +769,61 @@ body {
     padding: 14px;
 }
 
+.task-card.completed {
+    opacity: 0.75;
+}
+
 .task-title {
     margin: 0 0 6px;
     font-weight: 700;
     color: var(--color-primary);
 }
 
+.task-card.completed .task-title {
+    text-decoration: line-through;
+    color: var(--color-text-muted);
+}
+
 .task-meta {
     font-size: 0.85rem;
     color: var(--color-text-muted);
+    margin: 0 0 10px;
 }
+
+.task-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* Inline banner in journey result */
+.tasks-on-route-banner {
+    margin: 14px 0 10px;
+    padding: 12px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 173, 31, 0.55);
+    background: rgba(255, 173, 31, 0.10);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.tasks-on-route-title {
+    font-weight: 800;
+    color: var(--color-warning);
+}
+
+.tasks-on-route-sub {
+    font-size: 0.9rem;
+    color: var(--color-text);
+    opacity: 0.95;
+    margin-top: 2px;
+}
+
+/* ----------------------------- */
+/* FORM ELEMENTS                 */
+/* ----------------------------- */
 
 .form-group select,
 .form-group input[type="date"] {
@@ -717,124 +856,171 @@ select:disabled {
 }
 
 /* ----------------------------- */
-/* TASKS UI (actions)            */
+/* BUTTON VARIANTS               */
 /* ----------------------------- */
 
-.tasks-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.tasks-listname {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
-}
-
-.tasks-toolbar-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.task-card {
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 14px;
-}
-
-.task-card.completed {
-  opacity: 0.75;
-}
-
-.task-title {
-  margin: 0 0 6px;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.task-card.completed .task-title {
-  text-decoration: line-through;
-  color: var(--color-text-muted);
-}
-
-.task-meta {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  margin: 0 0 10px;
-}
-
-.task-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
 .btn-danger {
-  border: 1px solid rgba(244, 33, 46, 0.6);
-  background: rgba(244, 33, 46, 0.12);
-  color: var(--color-text);
+    border: 1px solid rgba(244, 33, 46, 0.6);
+    background: rgba(244, 33, 46, 0.12);
+    color: var(--color-text);
 }
 
 .btn-danger:hover {
-  background: rgba(244, 33, 46, 0.18);
+    background: rgba(244, 33, 46, 0.18);
 }
 
 .btn-success {
-  border: 1px solid rgba(0, 186, 124, 0.6);
-  background: rgba(0, 186, 124, 0.12);
-  color: var(--color-text);
+    border: 1px solid rgba(0, 186, 124, 0.6);
+    background: rgba(0, 186, 124, 0.12);
+    color: var(--color-text);
 }
 
 .btn-success:hover {
-  background: rgba(0, 186, 124, 0.18);
+    background: rgba(0, 186, 124, 0.18);
 }
 
-/* IMPORTANT TOAST (top center) */
-.toast-container-important {
-  left: 50%;
-  right: auto;
-  bottom: auto;
-  top: 16px;
-  transform: translateX(-50%);
-  max-width: min(560px, calc(100vw - 32px));
+/* ----------------------------- */
+/* PERTURBATION & DISRUPTIONS    */
+/* ----------------------------- */
+
+.perturbation-panel {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    margin-bottom: 24px;
+    overflow: hidden;
 }
 
-.toast-important {
-  border-width: 2px;
-  padding: 14px 14px;
+.perturbation-panel .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
 }
 
-.toast-important .toast-text {
-  font-size: 1rem;
-  font-weight: 700;
+.perturbation-panel .panel-header h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
 }
 
-/* Inline banner in journey result */
-.tasks-on-route-banner {
-  margin: 14px 0 10px;
-  padding: 12px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 173, 31, 0.55);
-  background: rgba(255, 173, 31, 0.10);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.perturbation-panel .panel-body {
+    padding: 20px;
 }
 
-.tasks-on-route-title {
-  font-weight: 800;
-  color: var(--color-warning);
+.disruptions-panel {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    margin-bottom: 24px;
+    overflow: hidden;
 }
 
-.tasks-on-route-sub {
-  font-size: 0.9rem;
-  color: var(--color-text);
-  opacity: 0.95;
-  margin-top: 2px;
+.disruptions-panel .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.disruptions-panel .panel-header h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+#disruptionList {
+    list-style: none;
+    padding: 0;
+    margin-top: 16px;
+}
+
+#disruptionList li {
+    padding: 8px 0;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#disruptionList li:first-child {
+    border-top: none;
+}
+
+.disruption-warning {
+    margin: 8px 0;
+    padding: 8px;
+    background: rgba(255, 173, 31, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--color-warning);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+/* ----------------------------- */
+/* JOURNEY STATUS                */
+/* ----------------------------- */
+
+.journey-status-card {
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.journey-status-card h3 {
+    margin: 16px 0 8px;
+    font-size: 1.25rem;
+    color: var(--color-text);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: var(--radius-lg);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.status-active {
+    background: rgba(0, 186, 124, 0.15);
+    color: var(--color-success);
+}
+
+.status-badge.status-planned {
+    background: rgba(29, 155, 240, 0.15);
+    color: var(--color-primary);
+}
+
+.journey-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+/* ----------------------------- */
+/* PROGRESS BAR                  */
+/* ----------------------------- */
+
+.progress-container {
+    height: 8px;
+    background: var(--color-border);
+    border-radius: var(--radius-lg);
+    margin: 16px 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--color-primary);
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.progress-text {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    margin-top: -8px;
+    margin-bottom: 16px;
+    display: block;
 }
