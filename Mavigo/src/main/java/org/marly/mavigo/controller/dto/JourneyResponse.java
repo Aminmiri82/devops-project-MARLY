@@ -20,6 +20,10 @@ public record JourneyResponse(
         boolean comfortModeEnabled,
         boolean touristicModeEnabled,
         String primItineraryId,
+        String status,
+        OffsetDateTime actualDeparture,
+        OffsetDateTime actualArrival,
+        int disruptionCount,
         List<LegResponse> legs) {
 
     public static JourneyResponse from(Journey journey) {
@@ -38,6 +42,10 @@ public record JourneyResponse(
                 journey.isComfortModeEnabled(),
                 journey.isTouristicModeEnabled(),
                 journey.getPrimItineraryId(),
+                journey.getStatus().name(),
+                journey.getActualDeparture(),
+                journey.getActualArrival(),
+                journey.getDisruptions() != null ? journey.getDisruptions().size() : 0,
                 legResponses);
     }
 
