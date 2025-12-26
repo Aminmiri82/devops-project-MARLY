@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -69,6 +70,20 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="disruptionModal">
+  <div class="modal">
+    <button type="button" class="modal-close" id="closeDisruptionModal">&times;</button>
+    <div class="auth-form">
+      <h2>Reroute Journey</h2>
+      <p class="form-subtitle">Choose how to start your new journey</p>
+
+      <button type="button" id="useGpsBtn" class="btn btn-primary btn-block" style="margin-bottom: 12px;">Use Current GPS Location</button>
+      <div style="text-align: center; margin-bottom: 12px; color: var(--color-text-muted); font-size: 0.8rem;">— OR —</div>
+      <button type="button" id="useManualBtn" class="btn btn-outline btn-block">Enter Departure Station Name</button>
+    </div>
+  </div>
+</div>
+
 <main class="app-main">
   <div id="notLoggedInPrompt" class="prompt-card">
     <h2>Plan Your Journey</h2>
@@ -103,6 +118,22 @@
 
     <!-- VIEW: Journey -->
     <div id="journeyView">
+      <section class="journey-panel hidden" id="currentJourneyPanel">
+        <div class="panel-header">
+          <h2>Current Journey</h2>
+        </div>
+        <div class="panel-body">
+          <div id="currentJourneyContent">
+            <!-- Filled by JS -->
+          </div>
+          <div class="journey-actions">
+            <button type="button" id="completeJourneyBtn" class="btn btn-primary">Complete Journey</button>
+            <button type="button" id="reportDisruptionBtn" class="btn btn-warning hidden">Report Disruption</button>
+            <button type="button" id="cancelJourneyBtn" class="btn btn-outline-danger">Cancel Journey</button>
+          </div>
+        </div>
+      </section>
+
       <section class="journey-panel">
         <div class="panel-header">
           <h2>Plan a Journey</h2>
@@ -223,4 +254,5 @@
 
 <script src="app.js"></script>
 </body>
+
 </html>

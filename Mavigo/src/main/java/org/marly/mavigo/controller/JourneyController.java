@@ -27,12 +27,14 @@ import org.marly.mavigo.service.journey.dto.JourneyPlanningParameters;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import org.marly.mavigo.service.journey.JourneyManagementService;
 
 import jakarta.validation.Valid;
 
@@ -44,20 +46,23 @@ public class JourneyController {
     private final UserTaskRepository userTaskRepository;
     private final UserRepository userRepository;
     private final TaskOnRouteService taskOnRouteService;
+    private final JourneyManagementService journeyManagementService;
 
     public JourneyController(
             JourneyPlanningService journeyPlanningService,
             UserTaskRepository userTaskRepository,
             UserRepository userRepository,
-            TaskOnRouteService taskOnRouteService) {
+            TaskOnRouteService taskOnRouteService,
+            JourneyManagementService journeyManagementService) {
         this.journeyPlanningService = journeyPlanningService;
         this.userTaskRepository = userTaskRepository;
         this.userRepository = userRepository;
         this.taskOnRouteService = taskOnRouteService;
+        this.journeyManagementService = journeyManagementService;
     }
 
     @PostMapping
-    public ResponseEntity<JourneyResponse> planJourney(@Valid @RequestBody PlanJourneyCommand command) {
+    public ResponseEntity<java.util.List<JourneyResponse>> planJourney(@Valid @RequestBody PlanJourneyCommand command) {
         PlanJourneyRequest request = command.journey();
         JourneyPreferences preferences = mapPreferences(command.preferences());
 
@@ -70,41 +75,70 @@ public class JourneyController {
                 departure,
                 preferences);
 
-        // 1) Planifier + persister le trajet
-        Journey journey = journeyPlanningService.planAndPersist(parameters);
+        // 1) Planifier + persister les trajets (reroutage-task returns List<Journey>)
+        java.util.List<Journey> journeys = journeyPlanningService.planAndPersist(parameters);
 
-        // 2) Calculer les tâches "sur le chemin" (polyline densifiée)
+        // 2) Calculer les tâches "sur le chemin" pour chaque trajet (polyline densifiée)
         final double BASE_RADIUS_METERS = 300.0;
 
-        List<JourneyResponse.TaskOnRouteResponse> tasksOnRoute = List.of();
+        java.util.List<JourneyResponse> responses = journeys.stream()
+                .map(journey -> {
+                    List<JourneyResponse.TaskOnRouteResponse> tasksOnRoute = List.of();
 
-        UUID userId = (journey.getUser() != null) ? journey.getUser().getId() : null;
-        if (userId != null) {
-            var tasks = userTaskRepository.findByUser_Id(userId);
+                    UUID userId = (journey.getUser() != null) ? journey.getUser().getId() : null;
+                    if (userId != null) {
+                        var tasks = userTaskRepository.findByUser_Id(userId);
 
-            // Points bruts (souvent pas assez denses)
-            var baseRoutePoints = taskOnRouteService.extractRoutePoints(journey);
+                        // Points bruts (souvent pas assez denses)
+                        var baseRoutePoints = taskOnRouteService.extractRoutePoints(journey);
 
-            // Densification: on ajoute des points intermédiaires tous les ~200m
-            var polyline = taskOnRouteService.densify(baseRoutePoints, 200);
+                        // Densification: on ajoute des points intermédiaires tous les ~200m
+                        var polyline = taskOnRouteService.densify(baseRoutePoints, 200);
 
-            // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux
-            // négatifs
-            double radius = (polyline == null || polyline.size() <= 3) ? 900.0 : BASE_RADIUS_METERS;
+                        // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux négatifs
+                        double radius = (polyline == null || polyline.size() <= 3) ? 900.0 : BASE_RADIUS_METERS;
 
-            tasksOnRoute = tasks.stream()
-                    .filter(t -> t != null && !t.isCompleted())
-                    .filter(t -> t.getLocationHint() != null)
-                    .map(t -> {
-                        double d = taskOnRouteService.minDistanceMetersToPolyline(t.getLocationHint(), polyline);
-                        return (d <= radius) ? JourneyResponse.fromTask(t, d) : null;
-                    })
-                    .filter(Objects::nonNull)
-                    .toList();
-        }
+                        tasksOnRoute = tasks.stream()
+                                .filter(t -> t != null && !t.isCompleted())
+                                .filter(t -> t.getLocationHint() != null)
+                                .map(t -> {
+                                    double d = taskOnRouteService.minDistanceMetersToPolyline(t.getLocationHint(), polyline);
+                                    return (d <= radius) ? JourneyResponse.fromTask(t, d) : null;
+                                })
+                                .filter(Objects::nonNull)
+                                .toList();
+                    }
+
+                    return JourneyResponse.from(journey, tasksOnRoute);
+                })
+                .toList();
 
         // 3) Retourner la réponse enrichie
-        return ResponseEntity.status(HttpStatus.CREATED).body(JourneyResponse.from(journey, tasksOnRoute));
+        return ResponseEntity.status(HttpStatus.CREATED).body(responses);
+    }
+
+    @PostMapping("/{id}/start")
+    public ResponseEntity<JourneyResponse> startJourney(@PathVariable java.util.UUID id) {
+        Journey journey = journeyManagementService.startJourney(id);
+        return ResponseEntity.ok(JourneyResponse.from(journey));
+    }
+
+    @PostMapping("/{id}/complete")
+    public ResponseEntity<JourneyResponse> completeJourney(@PathVariable java.util.UUID id) {
+        Journey journey = journeyManagementService.completeJourney(id);
+        return ResponseEntity.ok(JourneyResponse.from(journey));
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<JourneyResponse> cancelJourney(@PathVariable java.util.UUID id) {
+        Journey journey = journeyManagementService.cancelJourney(id);
+        return ResponseEntity.ok(JourneyResponse.from(journey));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<JourneyResponse> getJourney(@PathVariable java.util.UUID id) {
+        Journey journey = journeyManagementService.getJourney(id);
+        return ResponseEntity.ok(JourneyResponse.from(journey));
     }
 
     private static LocalDateTime parseDepartureTime(String raw) {

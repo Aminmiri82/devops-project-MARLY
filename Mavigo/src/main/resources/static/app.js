@@ -1,7 +1,9 @@
 let currentUser = null;
 let currentView = localStorage.getItem("mavigo_view") || "journey";
 let defaultTaskList = null;
+let currentJourney = null;
 
+// DOM Elements
 const authModal = document.getElementById("authModal");
 const loginFormEl = document.getElementById("loginFormEl");
 const registerFormEl = document.getElementById("registerFormEl");
@@ -15,7 +17,13 @@ const mainContent = document.getElementById("mainContent");
 
 const journeyForm = document.getElementById("journeyForm");
 const resultsDiv = document.getElementById("results");
+const currentJourneyPanel = document.getElementById("currentJourneyPanel");
+const currentJourneyContent = document.getElementById("currentJourneyContent");
+const completeJourneyBtn = document.getElementById("completeJourneyBtn");
+const cancelJourneyBtn = document.getElementById("cancelJourneyBtn");
 const departureInput = document.getElementById("departure");
+const reportDisruptionBtn = document.getElementById("reportDisruptionBtn");
+const fetchShortDisruptionsBtn = document.getElementById("fetchShortDisruptionsBtn");
 
 const navJourneyBtn = document.getElementById("navJourneyBtn");
 const navTasksBtn = document.getElementById("navTasksBtn");
@@ -38,6 +46,7 @@ init();
 function init() {
   setupAuthListeners();
   setupJourneyForm();
+  setupJourneyActions();
   setupGoogleLinkListeners();
   setupNav();
   setupTasks();
@@ -282,6 +291,240 @@ function setupJourneyForm() {
   journeyForm?.addEventListener("submit", handleJourneySubmit);
 }
 
+function setupJourneyActions() {
+    completeJourneyBtn.addEventListener('click', completeJourney);
+    cancelJourneyBtn.addEventListener('click', cancelJourney);
+    if (reportDisruptionBtn) {
+        reportDisruptionBtn.addEventListener('click', reportDisruption);
+    }
+}
+
+async function startJourney(journeyId, btnElement) {
+    if (!currentUser) return;
+
+    // Collect all start buttons
+    const allButtons = document.querySelectorAll('.start-journey-btn');
+
+    if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.textContent = 'Starting...';
+    }
+
+    // Hide other buttons
+    allButtons.forEach(btn => {
+        if (btn !== btnElement) {
+            btn.classList.add('hidden');
+        }
+    });
+
+    try {
+        const url = `/api/journeys/${journeyId}/start`;
+        console.log('Fetching:', url);
+        const resp = await fetch(url, { method: 'POST' });
+        if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(body || 'Failed to start journey');
+        }
+        const journey = await resp.json();
+        updateCurrentJourney(journey);
+    } catch (err) {
+        alert(err.message);
+        // Restore buttons on error
+        allButtons.forEach(btn => {
+            btn.classList.remove('hidden');
+            btn.disabled = false;
+            if (btn === btnElement) {
+                btn.textContent = 'Start Journey';
+            }
+        });
+    }
+}
+
+async function completeJourney() {
+    if (!currentJourney) return;
+    try {
+        const url = `/api/journeys/${currentJourney.journeyId}/complete`;
+        console.log('Fetching:', url);
+        const resp = await fetch(url, { method: 'POST' });
+        if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(body || 'Failed to complete journey');
+        }
+        const journey = await resp.json();
+        updateCurrentJourney(journey);
+        alert('Journey completed!');
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+async function cancelJourney() {
+    if (!currentJourney) return;
+    if (!confirm('Are you sure you want to cancel this journey?')) return;
+
+    try {
+        const url = `/api/journeys/${currentJourney.journeyId}/cancel`;
+        console.log('Fetching:', url);
+        const resp = await fetch(url, { method: 'POST' });
+        if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(body || 'Failed to cancel journey');
+        }
+        const journey = await resp.json();
+        updateCurrentJourney(journey);
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+function updateCurrentJourney(journey) {
+    currentJourney = journey;
+
+    if (journey && (journey.status === 'PLANNED' || journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED')) {
+        currentJourneyPanel.classList.remove('hidden');
+        renderCurrentJourney(journey);
+
+        // Hide results if we have an active journey
+        document.querySelector('.results-panel').classList.add('hidden');
+    } else {
+        // Journey finished or cancelled
+        currentJourneyPanel.classList.add('hidden');
+        document.querySelector('.results-panel').classList.remove('hidden');
+        resultsDiv.innerHTML = '<p class="results-placeholder">Your journey results will appear here.</p>';
+        currentJourney = null;
+    }
+}
+
+function calculateProgress(journey) {
+    if (journey.status !== 'IN_PROGRESS' && journey.status !== 'REROUTED') return 0;
+
+    const now = new Date();
+    const start = new Date(journey.actualDeparture || journey.plannedDeparture);
+    const end = new Date(journey.plannedArrival);
+
+    if (isNaN(start) || isNaN(end) || end <= start) return 0;
+
+    if (now < start) return 0;
+    if (now > end) return 100;
+
+    const progress = ((now - start) / (end - start)) * 100;
+    return Math.min(Math.max(Math.round(progress), 0), 100);
+}
+
+function renderCurrentJourney(journey) {
+    const statusClass = journey.status === 'IN_PROGRESS' ? 'status-active' : 'status-planned';
+    const progress = calculateProgress(journey);
+
+    currentJourneyContent.innerHTML = `
+        <div class="journey-status-card">
+            <div class="status-badge ${statusClass}">${journey.status}</div>
+            ${journey.status === 'REROUTED' || journey.disruptionCount > 0 ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>' : ''}
+            <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
+            
+            ${journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED' ? `
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: ${progress}%"></div>
+                </div>
+                <span class="progress-text">${progress}% Completed</span>
+            ` : ''}
+
+            <p><strong>Planned Departure:</strong> ${formatDateTime(journey.plannedDeparture)}</p>
+            ${journey.actualDeparture ? `<p><strong>Started:</strong> ${formatDateTime(journey.actualDeparture)}</p>` : ''}
+            <p><strong>Planned Arrival:</strong> ${formatDateTime(journey.plannedArrival)}</p>
+        </div>
+    `;
+
+    if (journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED') {
+        completeJourneyBtn.classList.remove('hidden');
+        cancelJourneyBtn.classList.remove('hidden');
+        if (reportDisruptionBtn) reportDisruptionBtn.classList.remove('hidden');
+    } else {
+        completeJourneyBtn.classList.add('hidden');
+        cancelJourneyBtn.classList.add('hidden');
+        if (reportDisruptionBtn) reportDisruptionBtn.classList.add('hidden');
+    }
+}
+
+async function reportDisruption() {
+    if (!currentJourney) return;
+
+    // Ask user for rerouting method
+    const choice = confirm("Report disruption: Use current GPS location? (Click 'OK' for GPS, 'Cancel' to enter a station name)");
+
+    let lat = '';
+    let lng = '';
+    let manualOrigin = '';
+
+    if (choice) {
+        // Use GPS
+        const getPosition = () => new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Geolocation is not supported by your browser'));
+            } else {
+                navigator.geolocation.getCurrentPosition(resolve, reject);
+            }
+        });
+
+        try {
+            const position = await getPosition();
+            lat = position.coords.latitude;
+            lng = position.coords.longitude;
+            console.log('Got user location:', lat, lng);
+        } catch (geoErr) {
+            console.warn('Could not get location:', geoErr);
+            if (confirm("Could not get GPS location. Enter a station manually?")) {
+                manualOrigin = prompt("Enter new departure station:");
+                if (!manualOrigin) return;
+            } else {
+                return;
+            }
+        }
+    } else {
+        // Manual entry
+        manualOrigin = prompt("Enter new departure station:");
+        if (!manualOrigin) return;
+    }
+
+    try {
+        const creator = currentUser ? currentUser.displayName : 'Anonymous';
+        let url = `/perturbations/apply?journeyId=${currentJourney.journeyId}&creator=${encodeURIComponent(creator)}`;
+
+        if (lat && lng) {
+            url += `&userLat=${lat}&userLng=${lng}`;
+        } else if (manualOrigin) {
+            url += `&newOrigin=${encodeURIComponent(manualOrigin)}`;
+        }
+
+        const resp = await fetch(url, { method: 'POST' });
+        if (!resp.ok) {
+            const body = await resp.text();
+            throw new Error(body || 'Failed to report disruption');
+        }
+
+        const newJourneys = await resp.json();
+
+        // Switch back to results view to let user choose
+        currentJourneyPanel.classList.add('hidden');
+        document.querySelector('.results-panel').classList.remove('hidden');
+
+        resultsDiv.innerHTML = '';
+        if (newJourneys && newJourneys.length > 0) {
+            newJourneys.forEach(displayJourney);
+            alert('Disruption reported. Please choose an alternative route from the list below.');
+        } else {
+            alert('Disruption reported, but no alternative routes found.');
+        }
+    } catch (err) {
+        // Simple warning as requested if journey cannot be found or location is invalid
+        const msg = err.message || "";
+        if (msg.includes("No places") || msg.includes("No stop area") || msg.includes("No journey options") || msg.includes("Failed to calculate journey")) {
+            alert("No journey found.");
+        } else {
+            alert("No journey found. (Technical detail: " + msg + ")");
+        }
+    }
+}
+
 async function handleJourneySubmit(e) {
   e.preventDefault();
 
@@ -333,14 +576,30 @@ async function handleJourneySubmit(e) {
       throw new Error(body || "Failed to plan journey");
     }
 
-    const journey = await resp.json();
-    displayJourney(journey);
-    notifyTasksOnRouteIfAny(journey);
+    const journeys = await resp.json();
+
+    // Clear previous results
+    resultsDiv.innerHTML = '';
+
+    // Handle both single object (legacy) and array
+    const list = Array.isArray(journeys) ? journeys : [journeys];
+
+    if (list.length === 0) {
+      resultsDiv.innerHTML = '<p class="error-message">No journey found.</p>';
+      return;
+    }
+
+    // Display all journeys
+    list.forEach(displayJourney);
+
+    // Notify for tasks on route for the first journey (or all if you prefer)
+    if (list.length > 0) {
+      notifyTasksOnRouteIfAny(list[0]);
+    }
   } catch (err) {
     if (resultsDiv)
-      resultsDiv.innerHTML = `<p class="error-message">Error: ${escapeHtml(
-        err?.message || "Unknown error"
-      )}</p>`;
+      resultsDiv.innerHTML = `<p class="error-message">No journey found.</p>`;
+    console.error("Journey planning error:", err);
   }
 }
 
@@ -355,27 +614,42 @@ function displayJourney(journey) {
     : "—";
   const legs = Array.isArray(journey?.legs) ? journey.legs : [];
 
-  const legsHtml = legs.length
-    ? legs
-        .map((leg) => {
-          const mode = escapeHtml(leg?.mode || "Unknown");
-          const origin = escapeHtml(leg?.originLabel || "?");
-          const dest = escapeHtml(leg?.destinationLabel || "?");
-          const dep = leg?.estimatedDeparture
-            ? formatDateTime(leg.estimatedDeparture)
-            : "?";
-          const arr = leg?.estimatedArrival
-            ? formatDateTime(leg.estimatedArrival)
-            : "?";
-          const dur =
-            leg?.durationSeconds || leg?.durationSeconds === 0
-              ? formatDuration(leg.durationSeconds)
-              : "?";
-          return `<li><span class="leg-mode">${mode}</span> ${origin} → ${dest}<div class="leg-times">${dep} - ${arr} (${dur})</div></li>`;
-        })
-        .join("")
-    : "<li>No route details available</li>";
+  // Process legs based on rules (from reroutage-task):
+  // 1. If duration < 60s AND origin == destination -> Filter out
+  // 2. If duration >= 60s AND origin == destination AND mode == 'OTHER' -> Change mode to 'WALK'
+  const processedLegs = legs.filter(leg => {
+    const duration = leg.durationSeconds || 0;
+    const samePlace = leg.originLabel === leg.destinationLabel;
+    if (duration < 60 && samePlace) return false;
+    return true;
+  }).map(leg => {
+    const duration = leg.durationSeconds || 0;
+    const samePlace = leg.originLabel === leg.destinationLabel;
+    if (duration >= 60 && samePlace && leg.mode === 'OTHER') {
+      // Return a copy with modified mode
+      return { ...leg, mode: 'WALK' };
+    }
+    return leg;
+  });
 
+  const legsHtml = processedLegs.length
+    ? processedLegs.map(leg => `
+        <li class="journey-leg-item">
+            <div class="leg-marker"></div>
+            <div class="leg-content">
+                <span class="leg-mode">${formatMode(leg.mode)} ${leg.lineCode ? `<span class="leg-line">${leg.lineCode}</span>` : ''}</span>
+                <span class="leg-route">${leg.originLabel || '?'} → ${leg.destinationLabel || '?'}</span>
+                <div class="leg-times">
+                    ${leg.estimatedDeparture ? formatDateTime(leg.estimatedDeparture) : '?'} -
+                    ${leg.estimatedArrival ? formatDateTime(leg.estimatedArrival) : '?'}
+                    <span class="leg-duration">(${leg.durationSeconds ? formatDuration(leg.durationSeconds) : '?'})</span>
+                </div>
+            </div>
+        </li>
+    `).join('')
+    : '<li>No route details available</li>';
+
+  // Tasks on route banner (from fix-task-api)
   const tasks = Array.isArray(journey?.tasksOnRoute)
     ? journey.tasksOnRoute
     : [];
@@ -390,12 +664,12 @@ function displayJourney(journey) {
             tasks[0]?.title || "Task"
           )}</div>
         </div>
-        <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn">View</button>
+        <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn_${journey.journeyId}">View</button>
       </div>
     `
     : "";
 
-  resultsDiv.innerHTML = `
+  const html = `
     <div class="journey-result">
       <h3>${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(
     journey?.destinationLabel || "—"
@@ -408,14 +682,18 @@ function displayJourney(journey) {
         <span>Comfort: ${journey?.comfortModeEnabled ? "On" : "Off"}</span>
         <span>Touristic: ${journey?.touristicModeEnabled ? "On" : "Off"}</span>
       </div>
-
+      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${journey.journeyId}', this)">Start Journey</button>
+      <h4>Itinerary Steps:</h4>
       <ul class="journey-legs">${legsHtml}</ul>
     </div>
   `;
 
+  resultsDiv.insertAdjacentHTML('beforeend', html);
+
+  // Attach event listener for tasks modal if there are tasks
   if (tasks.length) {
     document
-      .getElementById("viewTasksOnRouteBtn")
+      .getElementById(`viewTasksOnRouteBtn_${journey.journeyId}`)
       ?.addEventListener("click", () => openTasksModal(tasks));
   }
 }
@@ -1045,6 +1323,14 @@ function formatDuration(seconds) {
 
 function formatDateTime(dt) {
   return new Date(dt).toLocaleString();
+}
+
+function formatMode(mode) {
+    if (!mode) return 'Unknown';
+    if (mode === 'OTHER') return 'Connection';
+    if (mode === 'WALK') return 'Walk';
+    // Capitalize first letter, lowercase rest for others
+    return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
 }
 
 function generateId() {
