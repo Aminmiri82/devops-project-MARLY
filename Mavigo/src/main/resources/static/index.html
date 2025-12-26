@@ -2,189 +2,257 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mavigo</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mavigo</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <header class="app-header">
-        <div class="header-brand">
-            <h1>Mavigo</h1>
-            <span class="tagline">Journey Planning</span>
-        </div>
-        <div class="header-auth" id="authSection">
-            <div id="loggedOutView">
-                <button type="button" id="showLoginBtn" class="btn btn-outline">Log In</button>
-                <button type="button" id="showRegisterBtn" class="btn btn-primary">Sign Up</button>
-            </div>
-            <div id="loggedInView" class="hidden">
-                <span id="userGreeting"></span>
-                <button type="button" id="logoutBtn" class="btn btn-outline btn-sm">Log Out</button>
-            </div>
-        </div>
-    </header>
+<header class="app-header">
+  <div class="header-brand">
+    <h1>Mavigo</h1>
+    <span class="tagline">Journey Planning</span>
+  </div>
 
-    <div class="modal-overlay hidden" id="authModal">
-        <div class="modal">
-            <button type="button" class="modal-close" id="closeAuthModal">&times;</button>
+  <nav class="app-nav" id="appNav">
+    <button type="button" class="btn btn-ghost btn-sm nav-btn nav-active" id="navJourneyBtn">Journey</button>
+    <button type="button" class="btn btn-ghost btn-sm nav-btn" id="navTasksBtn">Tasks</button>
+  </nav>
 
-            <div id="loginForm" class="auth-form">
-                <h2>Welcome Back</h2>
-                <p class="form-subtitle">Log in with your email</p>
-                <form id="loginFormEl">
-                    <div class="form-group">
-                        <label for="loginEmail">Email</label>
-                        <input type="email" id="loginEmail" placeholder="you@example.com" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">Log In</button>
-                </form>
-                <p id="loginError" class="form-error hidden"></p>
-                <p class="form-switch">Don't have an account? <a href="#" id="switchToRegister">Sign up</a></p>
-            </div>
+  <div class="header-auth" id="authSection">
+    <div id="loggedOutView">
+      <button type="button" id="showLoginBtn" class="btn btn-outline">Log In</button>
+      <button type="button" id="showRegisterBtn" class="btn btn-primary">Sign Up</button>
+    </div>
+    <div id="loggedInView" class="hidden">
+      <span id="userGreeting"></span>
+      <button type="button" id="logoutBtn" class="btn btn-outline btn-sm">Log Out</button>
+    </div>
+  </div>
+</header>
 
-            <div id="registerForm" class="auth-form hidden">
-                <h2>Create Account</h2>
-                <p class="form-subtitle">Join Mavigo to plan your journeys</p>
-                <form id="registerFormEl">
-                    <div class="form-group">
-                        <label for="registerName">Display Name</label>
-                        <input type="text" id="registerName" placeholder="Your name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="registerEmail">Email</label>
-                        <input type="email" id="registerEmail" placeholder="you@example.com" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">Create Account</button>
-                </form>
-                <p id="registerError" class="form-error hidden"></p>
-                <p class="form-switch">Already have an account? <a href="#" id="switchToLogin">Log in</a></p>
-            </div>
+<div class="modal-overlay hidden" id="authModal">
+  <div class="modal">
+    <button type="button" class="modal-close" id="closeAuthModal">&times;</button>
+
+    <div id="loginForm" class="auth-form">
+      <h2>Welcome Back</h2>
+      <p class="form-subtitle">Log in with your email</p>
+      <form id="loginFormEl">
+        <div class="form-group">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" placeholder="you@example.com" required>
         </div>
+        <button type="submit" class="btn btn-primary btn-block">Log In</button>
+      </form>
+      <p id="loginError" class="form-error hidden"></p>
+      <p class="form-switch">Don't have an account? <a href="#" id="switchToRegister">Sign up</a></p>
     </div>
 
-    <div class="modal-overlay hidden" id="disruptionModal">
-        <div class="modal">
-            <button type="button" class="modal-close" id="closeDisruptionModal">&times;</button>
-            <div class="auth-form">
-                <h2>Reroute Journey</h2>
-                <p class="form-subtitle">Choose how to start your new journey</p>
-
-                <button type="button" id="useGpsBtn" class="btn btn-primary btn-block" style="margin-bottom: 12px;">Use
-                    Current GPS Location</button>
-                <div
-                    style="text-align: center; margin-bottom: 12px; color: var(--color-text-muted); font-size: 0.8rem;">
-                    — OR —</div>
-                <button type="button" id="useManualBtn" class="btn btn-outline btn-block">Enter Departure Station
-                    Name</button>
-            </div>
+    <div id="registerForm" class="auth-form hidden">
+      <h2>Create Account</h2>
+      <p class="form-subtitle">Join Mavigo to plan your journeys</p>
+      <form id="registerFormEl">
+        <div class="form-group">
+          <label for="registerName">Display Name</label>
+          <input type="text" id="registerName" placeholder="Your name" required>
         </div>
+        <div class="form-group">
+          <label for="registerEmail">Email</label>
+          <input type="email" id="registerEmail" placeholder="you@example.com" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+      </form>
+      <p id="registerError" class="form-error hidden"></p>
+      <p class="form-switch">Already have an account? <a href="#" id="switchToLogin">Log in</a></p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="disruptionModal">
+  <div class="modal">
+    <button type="button" class="modal-close" id="closeDisruptionModal">&times;</button>
+    <div class="auth-form">
+      <h2>Reroute Journey</h2>
+      <p class="form-subtitle">Choose how to start your new journey</p>
+
+      <button type="button" id="useGpsBtn" class="btn btn-primary btn-block" style="margin-bottom: 12px;">Use Current GPS Location</button>
+      <div style="text-align: center; margin-bottom: 12px; color: var(--color-text-muted); font-size: 0.8rem;">— OR —</div>
+      <button type="button" id="useManualBtn" class="btn btn-outline btn-block">Enter Departure Station Name</button>
+    </div>
+  </div>
+</div>
+
+<main class="app-main">
+  <div id="notLoggedInPrompt" class="prompt-card">
+    <h2>Plan Your Journey</h2>
+    <p>Log in or create an account to start planning trips across Paris transit network.</p>
+    <button type="button" class="btn btn-primary" id="promptLoginBtn">Get Started</button>
+  </div>
+
+  <div id="mainContent" class="hidden">
+
+    <section class="user-panel">
+      <div class="panel-header">
+        <h2>Your Account</h2>
+      </div>
+      <div class="panel-body">
+        <div class="user-info">
+          <p><strong>Name:</strong> <span id="displayUserName">—</span></p>
+          <p><strong>Email:</strong> <span id="displayUserEmail">—</span></p>
+          <p><strong>User ID:</strong> <code id="displayUserId">—</code></p>
+        </div>
+
+        <div class="google-link-section">
+          <h3>Google Tasks</h3>
+          <p class="section-desc">Link your Google account to sync tasks with your journeys.</p>
+          <div class="google-link-actions">
+            <button type="button" id="linkGoogleTasksBtn" class="btn btn-outline">Link Google Tasks</button>
+            <button type="button" id="refreshGoogleLinkBtn" class="btn btn-ghost btn-sm">Refresh</button>
+          </div>
+          <p id="googleLinkStatus" class="link-status">Not linked</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW: Journey -->
+    <div id="journeyView">
+      <section class="journey-panel hidden" id="currentJourneyPanel">
+        <div class="panel-header">
+          <h2>Current Journey</h2>
+        </div>
+        <div class="panel-body">
+          <div id="currentJourneyContent">
+            <!-- Filled by JS -->
+          </div>
+          <div class="journey-actions">
+            <button type="button" id="completeJourneyBtn" class="btn btn-primary">Complete Journey</button>
+            <button type="button" id="reportDisruptionBtn" class="btn btn-warning hidden">Report Disruption</button>
+            <button type="button" id="cancelJourneyBtn" class="btn btn-outline-danger">Cancel Journey</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="journey-panel">
+        <div class="panel-header">
+          <h2>Plan a Journey</h2>
+        </div>
+        <div class="panel-body">
+          <form id="journeyForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="from">From</label>
+                <input type="text" id="from" placeholder="Origin station or address" required>
+              </div>
+              <div class="form-group">
+                <label for="to">To</label>
+                <input type="text" id="to" placeholder="Destination station or address" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="departure">Departure</label>
+                <input type="datetime-local" id="departure" required>
+              </div>
+              <div class="form-group form-group-checkboxes">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="comfort">
+                  <span>Comfort Mode</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="touristic">
+                  <span>Touristic Mode</span>
+                </label>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Plan Journey</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="results-panel">
+        <div class="panel-header">
+          <h2>Results</h2>
+        </div>
+        <div class="panel-body">
+          <div id="results">
+            <p class="results-placeholder">Your journey results will appear here.</p>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <main class="app-main">
-        <div id="notLoggedInPrompt" class="prompt-card">
-            <h2>Plan Your Journey</h2>
-            <p>Log in or create an account to start planning trips across Paris transit network.</p>
-            <button type="button" class="btn btn-primary" id="promptLoginBtn">Get Started</button>
+    <!-- VIEW: Tasks -->
+    <div id="tasksView" class="hidden">
+      <section class="journey-panel">
+        <div class="panel-header">
+          <h2>Google Tasks</h2>
         </div>
+        <div class="panel-body">
 
-        <div id="mainContent" class="hidden">
-            <section class="user-panel">
-                <div class="panel-header">
-                    <h2>Your Account</h2>
-                </div>
-                <div class="panel-body">
-                    <div class="user-info">
-                        <p><strong>Name:</strong> <span id="displayUserName">—</span></p>
-                        <p><strong>Email:</strong> <span id="displayUserEmail">—</span></p>
-                        <p><strong>User ID:</strong> <code id="displayUserId">—</code></p>
-                    </div>
-                    <div class="google-link-section">
-                        <h3>Google Tasks</h3>
-                        <p class="section-desc">Link your Google account to sync tasks with your journeys.</p>
-                        <div class="google-link-actions">
-                            <button type="button" id="linkGoogleTasksBtn" class="btn btn-outline">Link Google
-                                Tasks</button>
-                            <button type="button" id="refreshGoogleLinkBtn"
-                                class="btn btn-ghost btn-sm">Refresh</button>
-                        </div>
-                        <p id="googleLinkStatus" class="link-status">Not linked</p>
-                    </div>
-                </div>
-            </section>
+          <div class="tasks-toolbar">
+            <p class="tasks-listname" id="tasksListName">Default list: —</p>
 
-            <section class="journey-panel">
-                <div class="panel-header">
-                    <h2>Plan a Journey</h2>
-                </div>
-                <div class="panel-body">
-                    <form id="journeyForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="from">From</label>
-                                <input type="text" id="from" placeholder="Origin station or address" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="to">To</label>
-                                <input type="text" id="to" placeholder="Destination station or address" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="departure">Departure</label>
-                                <input type="datetime-local" id="departure" required>
-                            </div>
-                            <div class="form-group form-group-checkboxes">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="comfort">
-                                    <span>Comfort Mode</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="touristic">
-                                    <span>Touristic Mode</span>
-                                </label>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Plan Journey</button>
-                    </form>
-                </div>
-            </section>
+            <div class="tasks-toolbar-actions">
+              <label class="checkbox-label">
+                <input type="checkbox" id="tasksIncludeCompleted">
+                <span>Include completed</span>
+              </label>
 
-            <section class="results-panel">
-                <div class="panel-header">
-                    <h2>Results</h2>
-                </div>
-                <div class="panel-body">
-                    <div id="results">
-                        <p class="results-placeholder">Your journey results will appear here.</p>
-                    </div>
-                </div>
-            </section>
+              <button type="button" class="btn btn-outline btn-sm" id="refreshTasksBtn">Refresh</button>
+            </div>
+          </div>
 
-            <section class="journey-panel hidden" id="currentJourneyPanel">
-                <div class="panel-header">
-                    <h2>Current Journey</h2>
-                </div>
-                <div class="panel-body">
-                    <div id="currentJourneyContent">
-                        <!-- Filled by JS -->
-                    </div>
-                    <div class="journey-actions">
-                        <button type="button" id="completeJourneyBtn" class="btn btn-primary">Complete Journey</button>
-                        <button type="button" id="reportDisruptionBtn" class="btn btn-warning hidden">Report
-                            Disruption</button>
-                        <button type="button" id="cancelJourneyBtn" class="btn btn-outline-danger">Cancel
-                            Journey</button>
-                    </div>
-                </div>
-            </section>
+          <div class="panel-header" style="padding: 0; border: none; margin: 10px 0 12px;">
+            <h2 style="font-size: 1rem;">Create a Task</h2>
+          </div>
 
+          <form id="createTaskForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="taskTitle">Title</label>
+                <input type="text" id="taskTitle" placeholder="e.g. Buy groceries" required>
+              </div>
+              <div class="form-group">
+                <label for="taskDue">Due date</label>
+                <input type="date" id="taskDue">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="taskLocationQuery">Location (PRIM)</label>
+                <input type="text" id="taskLocationQuery" placeholder="e.g. Châtelet">
+              </div>
+              <div class="form-group">
+                <label for="taskNotes">Notes</label>
+                <input type="text" id="taskNotes" placeholder="Optional notes">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Create Task</button>
+          </form>
 
         </div>
-    </main>
+      </section>
 
-    <script src="app.js"></script>
+      <section class="results-panel">
+        <div class="panel-header">
+          <h2>Tasks</h2>
+        </div>
+        <div class="panel-body">
+          <div id="tasksResults">
+            <p class="results-placeholder">Tasks will appear here.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+</main>
+
+<script src="app.js"></script>
 </body>
 
 </html>

@@ -65,8 +65,7 @@ public class PrimApiClientImpl implements PrimApiClient {
                     url,
                     HttpMethod.GET,
                     entity,
-                    PrimPlacesResponse.class
-            );
+                    PrimPlacesResponse.class);
 
             PrimPlacesResponse placesResponse = response.getBody();
             return placesResponse != null && placesResponse.places() != null
@@ -118,8 +117,7 @@ public class PrimApiClientImpl implements PrimApiClient {
                     url,
                     HttpMethod.GET,
                     entity,
-                    PrimJourneyResponse.class
-            );
+                    PrimJourneyResponse.class);
 
             PrimJourneyResponse journeyResponse = response.getBody();
             List<PrimJourneyPlanDto> plans = toJourneyPlanDtos(journeyResponse);
@@ -171,21 +169,65 @@ public class PrimApiClientImpl implements PrimApiClient {
             return List.of();
         }
 
-        List<PrimJourneyPlanDto.LegDto> legs = new ArrayList<>(sections.size());
-        for (int index = 0; index < sections.size(); index++) {
-            PrimSection section = sections.get(index);
-            legs.add(mapSection(section, index));
+        List<PrimJourneyPlanDto.LegDto> legs = new ArrayList<>();
+        int seq = 1;
+
+        for (PrimSection section : sections) {
+            if (section == null)
+                continue;
+
+            var sdt = section.stopDateTimes();
+            if (sdt != null && sdt.size() >= 2) {
+                for (int i = 0; i < sdt.size() - 1; i++) {
+                    PrimStopDateTime a = sdt.get(i);
+                    PrimStopDateTime b = sdt.get(i + 1);
+                    if (a == null || b == null)
+                        continue;
+
+                    PrimStopPoint from = a.stopPoint();
+                    PrimStopPoint to = b.stopPoint();
+                    if (from == null || to == null)
+                        continue;
+
+                    PrimDisplayInformations di = section.displayInformations();
+
+                    legs.add(new PrimJourneyPlanDto.LegDto(
+                            seq++,
+                            section.id(),
+                            section.type(),
+                            di != null ? di.commercialMode() : null,
+                            di != null ? di.code() : null,
+                            toOffset(a.departureDateTime() != null ? a.departureDateTime()
+                                    : section.departureDateTime()),
+                            toOffset(b.arrivalDateTime() != null ? b.arrivalDateTime() : section.arrivalDateTime()),
+                            section.duration(),
+                            from.id(),
+                            from.name(),
+                            extractLatitude(from),
+                            extractLongitude(from),
+                            to.id(),
+                            to.name(),
+                            extractLatitude(to),
+                            extractLongitude(to),
+                            di != null ? di.label() : null));
+                }
+                continue; // on ne repasse pas par mapSection()
+            }
+
+            legs.add(mapSection(section, seq++));
+            seq++;
         }
+
         return Collections.unmodifiableList(legs);
     }
 
-    private PrimJourneyPlanDto.LegDto mapSection(PrimSection section, int index) {
+    private PrimJourneyPlanDto.LegDto mapSection(PrimSection section, int sequenceOrder) {
         PrimStopPoint from = section.from();
         PrimStopPoint to = section.to();
         PrimDisplayInformations displayInformations = section.displayInformations();
 
         return new PrimJourneyPlanDto.LegDto(
-                index + 1,
+                sequenceOrder,
                 section.id(),
                 section.type(),
                 displayInformations != null ? displayInformations.commercialMode() : null,
@@ -225,4 +267,3 @@ public class PrimApiClientImpl implements PrimApiClient {
         return stopPoint.coordinates().longitude();
     }
 }
-
