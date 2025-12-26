@@ -1,5 +1,16 @@
 package org.marly.mavigo.models.journey;
 
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
+import org.marly.mavigo.models.disruption.Disruption;
+import org.marly.mavigo.models.poi.PointOfInterest;
+import org.marly.mavigo.models.shared.GeoPoint;
+import org.marly.mavigo.models.user.User;
+
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.CollectionTable;
@@ -14,21 +25,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-
-import org.marly.mavigo.models.poi.PointOfInterest;
-import org.marly.mavigo.models.shared.GeoPoint;
-import org.marly.mavigo.models.user.User;
-
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.JoinTable;
 
 @Entity
 @Table(name = "journey")
@@ -68,6 +69,12 @@ public class Journey {
     @Column(name = "planned_arrival", nullable = false)
     private OffsetDateTime plannedArrival;
 
+    @Column(name = "actual_departure")
+    private OffsetDateTime actualDeparture;
+
+    @Column(name = "actual_arrival")
+    private OffsetDateTime actualArrival;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private JourneyStatus status = JourneyStatus.PLANNED;
@@ -87,10 +94,32 @@ public class Journey {
     private List<Leg> legs = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
+@JoinTable(
+    name = "journey_disruption",
+    joinColumns = @JoinColumn(name = "journey_id"),
+    inverseJoinColumns = @JoinColumn(name = "disruption_id")
+)
+private List<Disruption> disruptions = new ArrayList<>();
+
+// Méthodes utilitaires
+public void addDisruption(Disruption disruption) {
+    disruptions.add(disruption);
+}
+
+public List<Disruption> getDisruptions() {
+    return Collections.unmodifiableList(disruptions);
+}
+
+// Vérifier si un leg est impacté par une perturbation
+public boolean isLegImpacted(String line) {
+    return legs.stream().anyMatch(leg -> leg.getLineCode().equals(line));
+}
+
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "journey_point_of_interest", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
     private List<PointOfInterest> pointOfInterests = new ArrayList<>();
 
-    protected Journey() {
+    public Journey() {
 
     }
 
@@ -161,6 +190,22 @@ public class Journey {
 
     public void setPlannedArrival(OffsetDateTime plannedArrival) {
         this.plannedArrival = plannedArrival;
+    }
+
+    public OffsetDateTime getActualDeparture() {
+        return actualDeparture;
+    }
+
+    public void setActualDeparture(OffsetDateTime actualDeparture) {
+        this.actualDeparture = actualDeparture;
+    }
+
+    public OffsetDateTime getActualArrival() {
+        return actualArrival;
+    }
+
+    public void setActualArrival(OffsetDateTime actualArrival) {
+        this.actualArrival = actualArrival;
     }
 
     public JourneyStatus getStatus() {
