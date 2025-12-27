@@ -6,34 +6,40 @@ import jakarta.persistence.Embeddable;
 @Embeddable
 public class GeoPoint {
 
-    @Column(name = "latitude", nullable = false)
-    private double latitude;
+    // Nullable: une task peut exister sans localisation (PRIM down, user ne
+    // renseigne pas, etc.)
+    @Column(name = "latitude", nullable = true)
+    private Double latitude;
 
-    @Column(name = "longitude", nullable = false)
-    private double longitude;
+    @Column(name = "longitude", nullable = true)
+    private Double longitude;
 
-    public GeoPoint() {
+    protected GeoPoint() {
+        // JPA
     }
 
-    public GeoPoint(double latitude, double longitude) {
+    public GeoPoint(Double latitude, Double longitude) {
         this.latitude = latitude;
         this.longitude = longitude;
     }
 
-    public double getLatitude() {
+    public Double getLatitude() {
         return latitude;
     }
 
-    public void setLatitude(double latitude) {
+    public void setLatitude(Double latitude) {
         this.latitude = latitude;
     }
 
-    public double getLongitude() {
+    public Double getLongitude() {
         return longitude;
     }
 
-    public void setLongitude(double longitude) {
+    public void setLongitude(Double longitude) {
         this.longitude = longitude;
     }
-}
 
+    public boolean isComplete() {
+        return latitude != null && longitude != null;
+    }
+}
