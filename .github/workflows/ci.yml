@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./Mavigo
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle
+      run: ./gradlew build -x test
+
+    - name: Run tests
+      run: ./gradlew test
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: Mavigo/build/libs/*.jar
+        retention-days: 7
+
+  documentation:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Generate PDF documentation
+      uses: docker://asciidoctor/docker-asciidoctor:latest
+      with:
+        args: asciidoctor-pdf -r asciidoctor-diagram docs/documentation.adoc -o docs/Mavigo-Documentation.pdf
+
+    - name: Upload documentation
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation
+        path: docs/Mavigo-Documentation.pdf
+        retention-days: 7

@@ -6,6 +6,8 @@ import java.util.UUID;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.user.User;
 
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -50,17 +52,18 @@ public class UserTask {
     @Column(name = "is_completed", nullable = false)
     private boolean completed = false;
 
-
-    // task location field
     // location where we want to remind the user of this task
     @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "latitude", column = @Column(name = "location_hint_lat")),
+            @AttributeOverride(name = "longitude", column = @Column(name = "location_hint_lng"))
+    })
     private GeoPoint locationHint;
 
-    @Column(name = "last_synced_at", nullable = false)
+    @Column(name = "last_synced_at")
     private OffsetDateTime lastSyncedAt = OffsetDateTime.now();
 
     protected UserTask() {
-
     }
 
     public UserTask(User user, String sourceTaskId, TaskSource source, String title) {
@@ -146,4 +149,3 @@ public class UserTask {
         this.lastSyncedAt = lastSyncedAt;
     }
 }
-
