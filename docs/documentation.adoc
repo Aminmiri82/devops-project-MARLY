@@ -1,0 +1,434 @@
+= Mavigo - Documentation Technique
+:toc: left
+:toclevels: 3
+:sectnums:
+:icons: font
+:source-highlighter: highlight.js
+:imagesdir: images
+
+<<<
+
+== Presentation de l'equipe
+
+[cols="1", options="header"]
+|===
+|Membre
+
+|Marie BIBI
+|Raphael MEIMOUN
+|Seyed Amineddin MIRI
+|Malado SOW
+|===
+
+== Presentation thematique
+
+=== Contexte
+
+Mavigo est un assistant personnel de transport en commun pour la ville de Paris. L'application aide les utilisateurs a naviguer dans le reseau de transport parisien avec une planification intelligente des trajets et des fonctionnalites ameliorant la qualite de vie.
+
+=== Objectifs
+
+* Simplifier la planification des trajets en Ile-de-France
+* Fournir des informations en temps reel sur les perturbations
+* Integrer la gestion des taches avec Google Tasks
+* Offrir des suggestions de trajets adaptees aux preferences utilisateurs
+
+=== Fonctionnalites principales
+
+* **Planification de trajets** : Recherche d'itineraires optimaux via l'API PRIM
+* **Alertes en temps reel** : Notifications sur les perturbations du reseau
+* **Integration Google Tasks** : Synchronisation des trajets avec les taches
+* **Reroutage automatique** : Suggestions alternatives en cas de perturbation
+* **Suivi de position** : Progression en temps reel pendant le trajet
+
+
+<<<
+
+== Technologies et methodologies
+
+=== Stack technique
+
+==== Backend
+
+[cols="1,2", options="header"]
+|===
+|Technologie |Version/Details
+
+|Java
+|21 (LTS)
+
+|Spring Boot
+|3.5.7
+
+|Spring Data JPA
+|Persistance des donnees
+
+|Spring Security
+|OAuth2 avec Google
+
+|H2 Database
+|Base de donnees de developpement
+
+|Gradle
+|9.1 (systeme de build)
+|===
+
+==== Frontend
+
+* HTML5
+* CSS3
+* JavaScript (Vanilla, sans framework)
+
+==== APIs externes
+
+* **PRIM API** : Ile-de-France Mobilites pour la planification de trajets
+* **Google Tasks API** : Gestion des taches utilisateur
+* **Weather API** : Donnees meteorologiques
+
+=== Methodologies
+
+* **Git Flow** : Branches feature, dev, main
+* **CI/CD** : GitHub Actions pour l'integration continue
+* **Code Review** : Pull requests obligatoires
+
+<<<
+
+== Architecture
+
+=== Architecture globale
+
+[plantuml, architecture-globale, svg]
+----
+@startuml
+
+rectangle "Frontend\n(HTML/CSS/JS)" as Frontend
+rectangle "Controllers" as Controllers
+rectangle "Services" as Services
+rectangle "Repositories" as Repos
+rectangle "API Clients" as Clients
+rectangle "PRIM API" as PRIM
+rectangle "Google Tasks" as Google
+rectangle "Weather API" as Weather
+database "H2 Database" as DB
+
+Frontend --> Controllers : REST API
+Controllers --> Services
+Services --> Repos
+Services --> Clients
+Repos --> DB
+Clients --> PRIM
+Clients --> Google
+Clients --> Weather
+
+@enduml
+----
+
+<<<
+
+=== Diagramme de classes - Modeles principaux
+
+[plantuml, class-diagram, svg]
+----
+@startuml
+
+class User {
+    -Long id
+    -String email
+    -String name
+    -String googleId
+    +getJourneys()
+    +getTasks()
+}
+
+class Journey {
+    -Long id
+    -String departure
+    -String arrival
+    -LocalDateTime departureTime
+    -List<Leg> legs
+    +getDuration()
+    +getLegs()
+}
+
+class Leg {
+    -String mode
+    -String line
+    -String from
+    -String to
+    -Duration duration
+}
+
+class UserTask {
+    -Long id
+    -String title
+    -String description
+    -String location
+    -Boolean completed
+}
+
+class Disruption {
+    -Long id
+    -String title
+    -String description
+    -String severity
+    -List<String> affectedLines
+}
+
+class TrafficAlert {
+    -Long id
+    -String message
+    -String type
+    -LocalDateTime timestamp
+}
+
+User "1" --> "*" Journey : possede
+User "1" --> "*" UserTask : cree
+Journey "1" --> "*" Leg : contient
+Disruption --> TrafficAlert : genere
+
+@enduml
+----
+
+<<<
+
+=== Diagramme de sequence - Planification de trajet
+
+[plantuml, sequence-journey, svg]
+----
+@startuml
+
+actor Utilisateur
+participant Frontend
+participant JourneyController
+participant JourneyService
+participant PrimApiClient
+participant "PRIM API" as PRIM
+database "H2 DB" as DB
+
+Utilisateur -> Frontend : Saisir depart/arrivee
+Frontend -> JourneyController : POST /api/journey/plan
+JourneyController -> JourneyService : planJourney(request)
+JourneyService -> PrimApiClient : getJourneyPlan()
+PrimApiClient -> PRIM : HTTP Request
+PRIM --> PrimApiClient : Journey data
+PrimApiClient --> JourneyService : JourneyPlanDTO
+JourneyService -> DB : save(journey)
+JourneyService --> JourneyController : Journey
+JourneyController --> Frontend : JSON Response
+Frontend --> Utilisateur : Afficher itineraire
+
+@enduml
+----
+
+=== Diagramme de sequence - Gestion des perturbations
+
+[plantuml, sequence-disruption, svg]
+----
+@startuml
+
+actor Utilisateur
+participant Frontend
+participant PerturbationController
+participant PerturbationService
+participant DisruptionClient
+participant "Disruption API" as API
+
+Utilisateur -> Frontend : Consulter perturbations
+Frontend -> PerturbationController : GET /api/perturbations
+PerturbationController -> PerturbationService : getPerturbations()
+PerturbationService -> DisruptionClient : fetchDisruptions()
+DisruptionClient -> API : HTTP Request
+API --> DisruptionClient : Disruption data
+DisruptionClient --> PerturbationService : List<Disruption>
+PerturbationService --> PerturbationController : Response
+PerturbationController --> Frontend : JSON
+Frontend --> Utilisateur : Afficher alertes
+
+@enduml
+----
+
+<<<
+
+=== Structure des packages
+
+[plantuml, package-structure, svg]
+----
+@startuml
+
+package "org.marly.mavigo" {
+
+    package "controller" {
+        class JourneyController
+        class UserController
+        class GoogleTasksController
+        class PerturbationController
+        class AuthController
+    }
+
+    package "service" {
+        package "journey" {
+            class JourneyService
+        }
+        package "user" {
+            class UserService
+        }
+        package "tasks" {
+            class TaskService
+        }
+        package "perturbation" {
+            class PerturbationService
+        }
+    }
+
+    package "client" {
+        package "prim" {
+            class PrimApiClient
+        }
+        package "google" {
+            class GoogleApiClient
+        }
+        package "disruption" {
+            class DisruptionClient
+        }
+    }
+
+    package "models" {
+        class User
+        class Journey
+        class UserTask
+        class Disruption
+    }
+
+    package "repository" {
+        interface UserRepository
+        interface JourneyRepository
+        interface UserTaskRepository
+    }
+}
+
+@enduml
+----
+
+== Endpoints API
+
+=== Journey API
+
+[cols="1,2,3", options="header"]
+|===
+|Methode |Endpoint |Description
+
+|POST
+|`/api/journey/plan`
+|Planifier un nouveau trajet
+
+|GET
+|`/api/journey/{id}`
+|Obtenir les details d'un trajet
+
+|GET
+|`/api/journey/user`
+|Lister les trajets de l'utilisateur
+|===
+
+=== User API
+
+[cols="1,2,3", options="header"]
+|===
+|Methode |Endpoint |Description
+
+|GET
+|`/api/user/profile`
+|Obtenir le profil utilisateur
+
+|PUT
+|`/api/user/preferences`
+|Mettre a jour les preferences
+|===
+
+=== Tasks API
+
+[cols="1,2,3", options="header"]
+|===
+|Methode |Endpoint |Description
+
+|GET
+|`/api/tasks`
+|Lister les taches
+
+|POST
+|`/api/tasks`
+|Creer une nouvelle tache
+
+|PUT
+|`/api/tasks/{id}`
+|Modifier une tache
+
+|DELETE
+|`/api/tasks/{id}`
+|Supprimer une tache
+|===
+
+=== Perturbations API
+
+[cols="1,2,3", options="header"]
+|===
+|Methode |Endpoint |Description
+
+|GET
+|`/api/perturbations`
+|Obtenir les perturbations actuelles
+
+|GET
+|`/api/perturbations/line/{lineId}`
+|Perturbations pour une ligne specifique
+|===
+
+== Guide d'installation
+
+=== Prerequis
+
+* Java 21 ou superieur
+* Gradle 9.1+ (ou utiliser le wrapper inclus)
+* Compte Google pour OAuth2 (optionnel)
+* Cle API PRIM
+
+=== Installation
+
+[source,bash]
+----
+# Cloner le repository
+git clone https://github.com/Aminmiri82/devops-project-MARLY.git
+cd devops-project-MARLY
+
+# Configurer les variables d'environnement
+cd Mavigo
+cp local.env.example local.env
+# Editer local.env avec vos cles API
+
+# Lancer l'application
+./gradlew bootRun
+----
+
+L'application sera disponible sur http://localhost:8080
+
+=== Build
+
+[source,bash]
+----
+# Construire le JAR
+./gradlew build
+
+# Le JAR sera dans build/libs/
+----
+
+=== Tests
+
+[source,bash]
+----
+# Executer les tests
+./gradlew test
+----
+
+== Licence
+
+Ce projet est sous licence Apache 2.0. Voir le fichier LICENSE pour plus de details.
