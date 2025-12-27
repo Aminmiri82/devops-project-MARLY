@@ -1,6 +1,7 @@
 package org.marly.mavigo.controller.perturbation;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.marly.mavigo.models.disruption.Disruption;
 import org.marly.mavigo.service.perturbation.PerturbationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@EnabledIfEnvironmentVariable(named = "GOOGLE_CLIENT_ID", matches = ".+")
 public class PerturbationControllerTest {
 
     @Autowired
