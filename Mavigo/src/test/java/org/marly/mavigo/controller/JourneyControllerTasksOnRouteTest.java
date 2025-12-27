@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.task.TaskSource;
 import org.marly.mavigo.models.task.UserTask;
@@ -29,6 +30,7 @@ import org.springframework.http.*;
                 "server.error.include-stacktrace=never"
         }
 )
+@EnabledIfEnvironmentVariable(named = "GOOGLE_CLIENT_ID", matches = ".+")
 class JourneyControllerTasksOnRouteTest {
 
     @Autowired TestRestTemplate rest;

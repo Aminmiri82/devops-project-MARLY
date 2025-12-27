@@ -19,7 +19,7 @@ class TaskOnRouteServiceTest {
         // Task very close (~ a few meters)
         GeoPoint taskPoint = new GeoPoint(48.84435, 2.37305);
 
-        double d = service.minDistanceMeters(taskPoint, List.of(routePoint));
+        double d = service.minDistanceMetersToPolyline(taskPoint, List.of(routePoint));
         assertTrue(d < 50, "Expected < 50m, got " + d);
     }
 
@@ -29,7 +29,7 @@ class TaskOnRouteServiceTest {
         // Far: Tour Eiffel approx
         GeoPoint taskPoint = new GeoPoint(48.8584, 2.2945);
 
-        double d = service.minDistanceMeters(taskPoint, List.of(routePoint));
+        double d = service.minDistanceMetersToPolyline(taskPoint, List.of(routePoint));
         assertTrue(d > 3000, "Expected > 3km, got " + d);
     }
 }
