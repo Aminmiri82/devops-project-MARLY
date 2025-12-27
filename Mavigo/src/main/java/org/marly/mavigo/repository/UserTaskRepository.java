@@ -10,8 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserTaskRepository extends JpaRepository<UserTask, UUID> {
 
-    List<UserTask> findByUserId(UUID userId);
+    List<UserTask> findByUser_Id(UUID userId);
 
-    Optional<UserTask> findByUserIdAndSourceAndSourceTaskId(UUID userId, TaskSource source, String sourceTaskId);
+    Optional<UserTask> findByUser_IdAndSourceAndSourceTaskId(UUID userId, TaskSource source, String sourceTaskId);
 }
-
