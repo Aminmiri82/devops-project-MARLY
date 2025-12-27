@@ -9,6 +9,7 @@ import org.marly.mavigo.models.journey.Journey;
 import org.marly.mavigo.models.journey.Leg;
 import org.marly.mavigo.models.journey.TransitMode;
 import org.marly.mavigo.models.shared.GeoPoint;
+import org.marly.mavigo.models.task.UserTask;
 
 public record JourneyResponse(
         UUID journeyId,
@@ -20,7 +21,12 @@ public record JourneyResponse(
         boolean comfortModeEnabled,
         boolean touristicModeEnabled,
         String primItineraryId,
-        List<LegResponse> legs) {
+        String status,
+        OffsetDateTime actualDeparture,
+        OffsetDateTime actualArrival,
+        int disruptionCount,
+        List<LegResponse> legs,
+        List<TaskOnRouteResponse> tasksOnRoute) {
 
     public static JourneyResponse from(Journey journey) {
         List<Leg> journeyLegs = journey.getLegs();
@@ -38,7 +44,49 @@ public record JourneyResponse(
                 journey.isComfortModeEnabled(),
                 journey.isTouristicModeEnabled(),
                 journey.getPrimItineraryId(),
-                legResponses);
+                journey.getStatus().name(),
+                journey.getActualDeparture(),
+                journey.getActualArrival(),
+                journey.getDisruptions() != null ? journey.getDisruptions().size() : 0,
+                legResponses,
+                Collections.emptyList());
+    }
+
+    public record TaskOnRouteItem(
+            String taskId,
+            String title,
+            Double distanceMeters) {
+    }
+
+    public static JourneyResponse from(Journey journey, List<TaskOnRouteResponse> tasksOnRoute) {
+        JourneyResponse base = from(journey);
+        return new JourneyResponse(
+                base.journeyId(),
+                base.userId(),
+                base.originLabel(),
+                base.destinationLabel(),
+                base.plannedDeparture(),
+                base.plannedArrival(),
+                base.comfortModeEnabled(),
+                base.touristicModeEnabled(),
+                base.primItineraryId(),
+                base.status(),
+                base.actualDeparture(),
+                base.actualArrival(),
+                base.disruptionCount(),
+                base.legs(),
+                tasksOnRoute == null ? Collections.emptyList() : tasksOnRoute);
+    }
+
+    public static TaskOnRouteResponse fromTask(UserTask task, double distanceMeters) {
+        GeoPoint p = task.getLocationHint();
+        return new TaskOnRouteResponse(
+                task.getId(),
+                task.getTitle(),
+                task.getNotes(),
+                latitude(p),
+                longitude(p),
+                distanceMeters);
     }
 
     private static LegResponse fromLeg(Leg leg) {
@@ -83,5 +131,13 @@ public record JourneyResponse(
             Double destinationLat,
             Double destinationLng) {
     }
-}
 
+    public record TaskOnRouteResponse(
+            UUID taskId,
+            String title,
+            String notes,
+            Double locationLat,
+            Double locationLng,
+            Double distanceMeters) {
+    }
+}

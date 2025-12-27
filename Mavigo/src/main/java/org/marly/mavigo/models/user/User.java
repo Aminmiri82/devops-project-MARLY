@@ -56,6 +56,7 @@ public class User {
     @Column(name = "google_linked_at")
     private OffsetDateTime googleLinkedAt;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Journey> journeys = new ArrayList<>();
 
