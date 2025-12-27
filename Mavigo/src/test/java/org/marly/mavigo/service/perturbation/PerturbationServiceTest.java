@@ -1,6 +1,7 @@
 package org.marly.mavigo.service.perturbation;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.marly.mavigo.models.disruption.Disruption;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
+@EnabledIfEnvironmentVariable(named = "GOOGLE_CLIENT_ID", matches = ".+")
 public class PerturbationServiceTest {
 
     @Autowired
