@@ -70,6 +70,49 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="comfortProfileModal">
+  <div class="modal">
+    <button type="button" class="modal-close" id="closeComfortProfileModal">&times;</button>
+    <div class="auth-form">
+      <h2>Comfort Mode Settings</h2>
+      <p class="form-subtitle">Set your travel preferences</p>
+      <form id="comfortProfileForm">
+        <div class="form-group">
+          <label for="directPath">Direct Path Preference</label>
+          <select id="directPath" class="form-select">
+            <option value="">No preference</option>
+            <option value="indifferent">Indifferent</option>
+            <option value="none">No direct path</option>
+            <option value="only">Direct path only</option>
+            <option value="only_with_alternatives">Direct with alternatives</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="requireAirConditioning">
+            <span>Require Air Conditioning</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="maxNbTransfers">Max Number of Transfers</label>
+          <input type="number" id="maxNbTransfers" min="0" max="10" placeholder="e.g. 2">
+        </div>
+        <div class="form-group">
+          <label for="maxWaitingDuration">Max Waiting Duration (minutes)</label>
+          <input type="number" id="maxWaitingDuration" min="0" max="120" placeholder="e.g. 15">
+        </div>
+        <div class="form-group">
+          <label for="maxWalkingDuration">Max Walking Duration (minutes)</label>
+          <input type="number" id="maxWalkingDuration" min="0" max="60" placeholder="e.g. 10">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Save Settings</button>
+        <button type="button" id="clearComfortProfileBtn" class="btn btn-outline btn-block" style="margin-top: 8px;">Clear Settings</button>
+      </form>
+      <p id="comfortProfileError" class="form-error hidden"></p>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="disruptionModal">
   <div class="modal">
     <button type="button" class="modal-close" id="closeDisruptionModal">&times;</button>
@@ -112,6 +155,15 @@
             <button type="button" id="refreshGoogleLinkBtn" class="btn btn-ghost btn-sm">Refresh</button>
           </div>
           <p id="googleLinkStatus" class="link-status">Not linked</p>
+        </div>
+
+        <div class="comfort-profile-section">
+          <h3>Comfort Mode Settings</h3>
+          <p class="section-desc">Configure your travel preferences for comfort mode journeys.</p>
+          <div id="comfortProfileSummary" class="comfort-summary">
+            <p>No comfort profile configured.</p>
+          </div>
+          <button type="button" id="editComfortProfileBtn" class="btn btn-outline">Edit Comfort Profile</button>
         </div>
       </div>
     </section>

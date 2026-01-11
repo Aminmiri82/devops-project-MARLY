@@ -1,6 +1,8 @@
 package org.marly.mavigo.service.journey.preferences;
 
-import org.marly.mavigo.client.prim.PrimJourneyRequest;
+import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
+import org.marly.mavigo.models.user.ComfortProfile;
+import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningContext;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
 import org.slf4j.Logger;
@@ -19,7 +21,37 @@ public class ComfortModeJourneyStrategy implements JourneyPreferenceStrategy {
 
     @Override
     public void apply(JourneyPlanningContext context, PrimJourneyRequest request) {
-        // TODO: Use user's comfort profile to fine tune PrimJourneyRequest (e.g. no buses, limit transfers)
+        User user = context.user();
+        if (user == null) {
+            LOGGER.warn("No user in context, cannot apply comfort profile");
+            return;
+        }
+
+        ComfortProfile profile = user.getComfortProfile();
+        if (profile == null || !profile.hasSettings()) {
+            LOGGER.debug("User {} has no comfort profile configured", user.getId());
+            return;
+        }
+
+        if (profile.getDirectPath() != null) {
+            request.withDirectPath(profile.getDirectPath());
+        }
+
+        if (profile.getMaxNbTransfers() != null) {
+            request.withMaxNbTransfers(profile.getMaxNbTransfers());
+        }
+
+        if (profile.getMaxWaitingDuration() != null) {
+            request.withMaxWaitingDuration(profile.getMaxWaitingDuration());
+        }
+
+        if (profile.getMaxWalkingDuration() != null) {
+            request.withMaxWalkingDurationToPt(profile.getMaxWalkingDuration());
+        }
+
+        if (Boolean.TRUE.equals(profile.getRequireAirConditioning())) {
+            request.withEquipmentDetails(true);
+            LOGGER.debug("Requesting equipment details for A/C filtering");
+        }
     }
 }
-

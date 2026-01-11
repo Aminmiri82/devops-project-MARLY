@@ -2,9 +2,12 @@ package org.marly.mavigo.controller;
 
 import java.util.UUID;
 
+import org.marly.mavigo.controller.dto.ComfortProfileRequest;
+import org.marly.mavigo.controller.dto.ComfortProfileResponse;
 import org.marly.mavigo.controller.dto.CreateUserRequest;
 import org.marly.mavigo.controller.dto.UpdateUserRequest;
 import org.marly.mavigo.controller.dto.UserResponse;
+import org.marly.mavigo.models.user.ComfortProfile;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.service.user.UserService;
 import org.springframework.http.HttpStatus;
@@ -62,6 +65,42 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUser(@PathVariable UUID userId) {
         userService.deleteUser(userId);
+    }
+
+    @GetMapping("/{userId}/comfort-profile")
+    public ComfortProfileResponse getComfortProfile(@PathVariable UUID userId) {
+        User user = userService.getUser(userId);
+        return ComfortProfileResponse.from(user.getComfortProfile());
+    }
+
+    @PutMapping("/{userId}/comfort-profile")
+    public ComfortProfileResponse updateComfortProfile(
+            @PathVariable UUID userId,
+            @Valid @RequestBody ComfortProfileRequest request) {
+        User user = userService.getUser(userId);
+
+        ComfortProfile profile = user.getComfortProfile();
+        if (profile == null) {
+            profile = new ComfortProfile();
+            user.setComfortProfile(profile);
+        }
+
+        profile.setDirectPath(request.directPath());
+        profile.setRequireAirConditioning(request.requireAirConditioning());
+        profile.setMaxNbTransfers(request.maxNbTransfers());
+        profile.setMaxWaitingDuration(request.maxWaitingDuration());
+        profile.setMaxWalkingDuration(request.maxWalkingDuration());
+
+        User updated = userService.updateUser(user);
+        return ComfortProfileResponse.from(updated.getComfortProfile());
+    }
+
+    @DeleteMapping("/{userId}/comfort-profile")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteComfortProfile(@PathVariable UUID userId) {
+        User user = userService.getUser(userId);
+        user.setComfortProfile(new ComfortProfile());
+        userService.updateUser(user);
     }
 }
 
