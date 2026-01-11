@@ -2,7 +2,7 @@ package org.marly.mavigo.service.journey;
 
 import java.util.List;
 
-import org.marly.mavigo.client.prim.PrimJourneyRequest;
+import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningContext;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
 import org.marly.mavigo.service.journey.preferences.JourneyPreferenceStrategy;

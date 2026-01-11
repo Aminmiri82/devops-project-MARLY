@@ -15,7 +15,8 @@ public record UserResponse(
         OffsetDateTime createdAt,
         boolean googleAccountLinked,
         String googleAccountEmail,
-        OffsetDateTime googleAccountLinkedAt) {
+        OffsetDateTime googleAccountLinkedAt,
+        ComfortProfileResponse comfortProfile) {
 
     public static UserResponse from(User user) {
         boolean googleLinked = user.getGoogleAccountSubject() != null;
@@ -29,7 +30,7 @@ public record UserResponse(
                 user.getCreatedAt(),
                 googleLinked,
                 user.getGoogleAccountEmail(),
-                user.getGoogleLinkedAt());
+                user.getGoogleLinkedAt(),
+                ComfortProfileResponse.from(user.getComfortProfile()));
     }
 }
-

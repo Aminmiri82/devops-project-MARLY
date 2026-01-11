@@ -17,7 +17,7 @@ import org.marly.mavigo.client.google.dto.TaskListDto;
 import org.marly.mavigo.client.google.dto.TasksListsResponse;
 import org.marly.mavigo.client.google.dto.TasksPage;
 import org.marly.mavigo.client.prim.PrimApiClient;
-import org.marly.mavigo.client.prim.PrimPlace;
+import org.marly.mavigo.client.prim.model.PrimPlace;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.task.TaskSource;
 import org.marly.mavigo.models.task.UserTask;

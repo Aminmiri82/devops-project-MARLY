@@ -41,6 +41,14 @@ const taskNotes = document.getElementById("taskNotes");
 const taskDue = document.getElementById("taskDue");
 const taskLocationQuery = document.getElementById("taskLocationQuery");
 
+const comfortProfileModal = document.getElementById("comfortProfileModal");
+const comfortProfileForm = document.getElementById("comfortProfileForm");
+const comfortProfileSummary = document.getElementById("comfortProfileSummary");
+const editComfortProfileBtn = document.getElementById("editComfortProfileBtn");
+const closeComfortProfileModal = document.getElementById("closeComfortProfileModal");
+const clearComfortProfileBtn = document.getElementById("clearComfortProfileBtn");
+const comfortCheckbox = document.getElementById("comfort");
+
 init();
 
 function init() {
@@ -48,6 +56,7 @@ function init() {
   setupJourneyForm();
   setupJourneyActions();
   setupGoogleLinkListeners();
+  setupComfortProfileListeners();
   setupNav();
   setupTasks();
   setDefaultDepartureTime();
@@ -258,6 +267,7 @@ function updateUI() {
     mainContent?.classList.remove("hidden");
     renderUserInfo();
     renderGoogleLinkStatus(currentUser);
+    renderComfortProfileSummary();
     setView(currentView);
   } else {
     loggedOutView?.classList.remove("hidden");
@@ -545,6 +555,10 @@ async function handleJourneySubmit(e) {
     if (resultsDiv)
       resultsDiv.innerHTML =
         '<p class="error-message">Please select a departure time.</p>';
+    return;
+  }
+
+  if (comfort && !validateComfortMode()) {
     return;
   }
 
@@ -1110,6 +1124,183 @@ function handleGoogleLinkMessage(event) {
   if (event.origin !== window.location.origin) return;
   if (event.data && event.data.type === "GOOGLE_TASKS_LINKED")
     refreshGoogleLink();
+}
+
+function setupComfortProfileListeners() {
+  editComfortProfileBtn?.addEventListener("click", openComfortProfileModal);
+  closeComfortProfileModal?.addEventListener("click", closeComfortProfileModalFn);
+  clearComfortProfileBtn?.addEventListener("click", clearComfortProfile);
+  comfortProfileForm?.addEventListener("submit", saveComfortProfile);
+
+  comfortProfileModal?.addEventListener("click", (e) => {
+    if (e.target === comfortProfileModal) closeComfortProfileModalFn();
+  });
+}
+
+function openComfortProfileModal() {
+  if (!comfortProfileModal) return;
+  comfortProfileModal.classList.remove("hidden");
+  loadComfortProfileIntoForm();
+}
+
+function closeComfortProfileModalFn() {
+  if (!comfortProfileModal) return;
+  comfortProfileModal.classList.add("hidden");
+  document.getElementById("comfortProfileError")?.classList.add("hidden");
+}
+
+function loadComfortProfileIntoForm() {
+  if (!currentUser?.comfortProfile) return;
+  const profile = currentUser.comfortProfile;
+
+  const directPath = document.getElementById("directPath");
+  const requireAC = document.getElementById("requireAirConditioning");
+  const maxTransfers = document.getElementById("maxNbTransfers");
+  const maxWaiting = document.getElementById("maxWaitingDuration");
+  const maxWalking = document.getElementById("maxWalkingDuration");
+
+  if (directPath) directPath.value = profile.directPath || "";
+  if (requireAC) requireAC.checked = !!profile.requireAirConditioning;
+  if (maxTransfers) maxTransfers.value = profile.maxNbTransfers ?? "";
+  if (maxWaiting) maxWaiting.value = profile.maxWaitingDuration ? Math.round(profile.maxWaitingDuration / 60) : "";
+  if (maxWalking) maxWalking.value = profile.maxWalkingDuration ? Math.round(profile.maxWalkingDuration / 60) : "";
+}
+
+async function saveComfortProfile(e) {
+  e.preventDefault();
+
+  if (!currentUser) return;
+
+  const directPath = document.getElementById("directPath")?.value || null;
+  const requireAC = !!document.getElementById("requireAirConditioning")?.checked;
+  const maxTransfersVal = document.getElementById("maxNbTransfers")?.value;
+  const maxWaitingVal = document.getElementById("maxWaitingDuration")?.value;
+  const maxWalkingVal = document.getElementById("maxWalkingDuration")?.value;
+
+  const payload = {
+    directPath: directPath || null,
+    requireAirConditioning: requireAC,
+    maxNbTransfers: maxTransfersVal ? parseInt(maxTransfersVal, 10) : null,
+    maxWaitingDuration: maxWaitingVal ? parseInt(maxWaitingVal, 10) * 60 : null,
+    maxWalkingDuration: maxWalkingVal ? parseInt(maxWalkingVal, 10) * 60 : null,
+  };
+
+  const errorEl = document.getElementById("comfortProfileError");
+
+  try {
+    const resp = await fetch(`/api/users/${currentUser.userId}/comfort-profile`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(body || "Failed to save comfort profile");
+    }
+
+    const updated = await resp.json();
+    currentUser.comfortProfile = updated;
+    renderComfortProfileSummary();
+    closeComfortProfileModalFn();
+    showToast("Comfort profile saved!", { variant: "success" });
+  } catch (err) {
+    if (errorEl) {
+      errorEl.textContent = err?.message || "Failed to save";
+      errorEl.classList.remove("hidden");
+    }
+  }
+}
+
+async function clearComfortProfile() {
+  if (!currentUser) return;
+
+  if (!confirm("Clear all comfort profile settings?")) return;
+
+  try {
+    const resp = await fetch(`/api/users/${currentUser.userId}/comfort-profile`, {
+      method: "DELETE",
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(body || "Failed to clear comfort profile");
+    }
+
+    currentUser.comfortProfile = null;
+    renderComfortProfileSummary();
+    closeComfortProfileModalFn();
+    showToast("Comfort profile cleared.", { variant: "success" });
+  } catch (err) {
+    showToast(err?.message || "Failed to clear profile", { variant: "warning" });
+  }
+}
+
+function renderComfortProfileSummary() {
+  if (!comfortProfileSummary) return;
+
+  const profile = currentUser?.comfortProfile;
+
+  if (!profile || !hasComfortSettings(profile)) {
+    comfortProfileSummary.innerHTML = "<p>No comfort profile configured.</p>";
+    return;
+  }
+
+  const items = [];
+
+  if (profile.directPath) {
+    const labels = {
+      indifferent: "Indifferent",
+      none: "No direct path",
+      only: "Direct path only",
+      only_with_alternatives: "Direct with alternatives",
+    };
+    items.push(`<li>Direct Path: ${labels[profile.directPath] || profile.directPath}</li>`);
+  }
+
+  if (profile.requireAirConditioning) {
+    items.push("<li>Require Air Conditioning: Yes</li>");
+  }
+
+  if (profile.maxNbTransfers != null) {
+    items.push(`<li>Max Transfers: ${profile.maxNbTransfers}</li>`);
+  }
+
+  if (profile.maxWaitingDuration != null) {
+    const mins = Math.round(profile.maxWaitingDuration / 60);
+    items.push(`<li>Max Waiting: ${mins} min</li>`);
+  }
+
+  if (profile.maxWalkingDuration != null) {
+    const mins = Math.round(profile.maxWalkingDuration / 60);
+    items.push(`<li>Max Walking: ${mins} min</li>`);
+  }
+
+  comfortProfileSummary.innerHTML = `<ul class="comfort-summary-list">${items.join("")}</ul>`;
+}
+
+function hasComfortSettings(profile) {
+  if (!profile) return false;
+  return (
+    profile.directPath != null ||
+    profile.requireAirConditioning === true ||
+    profile.maxNbTransfers != null ||
+    profile.maxWaitingDuration != null ||
+    profile.maxWalkingDuration != null
+  );
+}
+
+function validateComfortMode() {
+  if (!comfortCheckbox?.checked) return true;
+
+  const profile = currentUser?.comfortProfile;
+  if (!hasComfortSettings(profile)) {
+    showToast("Please configure your comfort profile first.", { variant: "warning", durationMs: 5000 });
+    openComfortProfileModal();
+    return false;
+  }
+
+  return true;
 }
 
 let lastNotifiedJourneyId = null;

@@ -1,4 +1,4 @@
-package org.marly.mavigo.client.prim;
+package org.marly.mavigo.client.prim.model;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -114,6 +114,17 @@ public class PrimJourneyRequest {
     public PrimJourneyRequest withEquipmentDetails(Boolean equipmentDetails) {
         this.equipmentDetails = equipmentDetails;
         return this;
+    }
+
+    // do we use these rn ?
+    private List<String> excludedLines = new ArrayList<>();
+
+    public void addExcludedLine(String lineCode) {
+        excludedLines.add(lineCode);
+    }
+
+    public List<String> getExcludedLines() {
+        return Collections.unmodifiableList(excludedLines);
     }
 
 }

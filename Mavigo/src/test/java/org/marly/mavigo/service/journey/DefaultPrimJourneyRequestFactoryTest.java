@@ -11,7 +11,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.marly.mavigo.client.prim.PrimJourneyRequest;
+import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.stoparea.StopArea;
 import org.marly.mavigo.models.user.User;

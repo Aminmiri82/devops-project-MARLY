@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.IOException;
 
-import org.marly.mavigo.client.prim.PrimCoordinates;
+import org.marly.mavigo.client.prim.model.PrimCoordinates;
 
 public class PrimCoordinatesDeserializer extends JsonDeserializer<PrimCoordinates> {
 

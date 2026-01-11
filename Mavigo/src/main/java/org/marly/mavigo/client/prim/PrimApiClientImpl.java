@@ -1,6 +1,15 @@
 package org.marly.mavigo.client.prim;
 
 import org.marly.mavigo.client.prim.dto.PrimJourneyPlanDto;
+import org.marly.mavigo.client.prim.model.PrimDisplayInformations;
+import org.marly.mavigo.client.prim.model.PrimJourney;
+import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
+import org.marly.mavigo.client.prim.model.PrimJourneyResponse;
+import org.marly.mavigo.client.prim.model.PrimPlace;
+import org.marly.mavigo.client.prim.model.PrimPlacesResponse;
+import org.marly.mavigo.client.prim.model.PrimSection;
+import org.marly.mavigo.client.prim.model.PrimStopDateTime;
+import org.marly.mavigo.client.prim.model.PrimStopPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -107,6 +116,10 @@ public class PrimApiClientImpl implements PrimApiClient {
             request.getMaxNbTransfers().ifPresent(transfers -> uriBuilder.queryParam("max_nb_transfers", transfers));
             request.getWheelchair().ifPresent(wheelchair -> uriBuilder.queryParam("wheelchair", wheelchair));
             request.getRealtime().ifPresent(realtime -> uriBuilder.queryParam("realtime", realtime));
+            request.getMaxWaitingDuration().ifPresent(duration -> uriBuilder.queryParam("max_waiting_duration", duration));
+            request.getMaxWalkingDurationToPt().ifPresent(duration -> uriBuilder.queryParam("max_walking_duration_to_pt", duration));
+            request.getDirectPath().ifPresent(path -> uriBuilder.queryParam("direct_path", path));
+            request.getEquipmentDetails().ifPresent(details -> uriBuilder.queryParam("equipment_details", details));
 
             String url = uriBuilder.toUriString();
 
@@ -206,7 +219,8 @@ public class PrimApiClientImpl implements PrimApiClient {
                                 to.name(),
                                 extractLatitude(to),
                                 extractLongitude(to),
-                                di != null ? di.label() : null));
+                                di != null ? di.label() : null,
+                                section.hasAirConditioning()));
                     }
                 }
                 continue;
@@ -240,7 +254,8 @@ public class PrimApiClientImpl implements PrimApiClient {
                 to != null ? to.name() : null,
                 extractLatitude(to),
                 extractLongitude(to),
-                displayInformations != null ? displayInformations.label() : null);
+                displayInformations != null ? displayInformations.label() : null,
+                section.hasAirConditioning());
     }
 
     private OffsetDateTime toOffset(LocalDateTime dateTime) {

@@ -1,8 +1,8 @@
 package org.marly.mavigo.service.stoparea;
 
 import org.marly.mavigo.client.prim.PrimApiClient;
-import org.marly.mavigo.client.prim.PrimCoordinates;
-import org.marly.mavigo.client.prim.PrimPlace;
+import org.marly.mavigo.client.prim.model.PrimCoordinates;
+import org.marly.mavigo.client.prim.model.PrimPlace;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.stoparea.StopArea;
 import org.marly.mavigo.repository.StopAreaRepository;
