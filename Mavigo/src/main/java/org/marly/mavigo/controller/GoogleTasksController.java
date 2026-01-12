@@ -1,7 +1,5 @@
 package org.marly.mavigo.controller;
 
-import static org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction.oauth2AuthorizedClient;
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -11,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.marly.mavigo.client.google.dto.TaskDto;
 import org.marly.mavigo.client.google.dto.TaskListDto;
@@ -35,9 +34,18 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
+import static org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction.oauth2AuthorizedClient;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
@@ -140,13 +148,55 @@ public class GoogleTasksController {
     }
 
     @GetMapping("/users/{userId}/lists/{listId}/tasks")
-    public List<TaskDto> tasksForUser(
+    public List<Map<String, Object>> tasksForUser(
             @PathVariable UUID userId,
             @PathVariable String listId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(defaultValue = "false") boolean includeCompleted) {
         OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
-        return fetchTasks(client, listId, date, includeCompleted);
+        List<TaskDto> googleTasks = fetchTasks(client, listId, date, includeCompleted);
+        Map<String, UserTask> localTasksByGoogleId = buildLocalTaskLookup(userId);
+
+        return googleTasks.stream()
+                .map(task -> enrichWithLocalData(task, localTasksByGoogleId))
+                .toList();
+    }
+
+    /**
+     * Builds a lookup map of local UserTask records keyed by their Google Task ID.
+     * Used to efficiently merge local data (like locationQuery) with Google Tasks API responses.
+     */
+    private Map<String, UserTask> buildLocalTaskLookup(UUID userId) {
+        return userTaskRepository.findByUser_Id(userId)
+                .stream()
+                .collect(Collectors.toMap(UserTask::getSourceTaskId, t -> t, (a, b) -> a));
+    }
+
+    /**
+     * Enriches a Google Task with local data (locationQuery, locationHint) if available.
+     * Google Tasks API doesn't support location, so we store it locally and merge here.
+     */
+    private Map<String, Object> enrichWithLocalData(TaskDto googleTask, Map<String, UserTask> localTaskLookup) {
+        Map<String, Object> enriched = new LinkedHashMap<>();
+        enriched.put("id", googleTask.id());
+        enriched.put("title", googleTask.title());
+        enriched.put("notes", googleTask.notes());
+        enriched.put("status", googleTask.status());
+        enriched.put("due", googleTask.due());
+        enriched.put("completed", googleTask.completed());
+        enriched.put("updated", googleTask.updated());
+
+        UserTask localTask = localTaskLookup.get(googleTask.id());
+        if (localTask != null) {
+            enriched.put("locationQuery", localTask.getLocationQuery());
+            if (localTask.getLocationHint() != null) {
+                enriched.put("locationHint", Map.of(
+                        "lat", localTask.getLocationHint().getLatitude(),
+                        "lng", localTask.getLocationHint().getLongitude()));
+            }
+        }
+
+        return enriched;
     }
 
     @GetMapping("/users/{userId}/local")
@@ -170,6 +220,7 @@ public class GoogleTasksController {
                     } else {
                         m.put("locationHint", null);
                     }
+                    m.put("locationQuery", t.getLocationQuery());
                     return m;
                 })
                 .toList();
@@ -279,6 +330,9 @@ public class GoogleTasksController {
                 ut.setLocationHint(locationHint);
             } else {
                 ut.setLocationHint(null);
+            }
+            if (StringUtils.hasText(request.locationQuery())) {
+                ut.setLocationQuery(request.locationQuery());
             }
 
             UserTask saved = userTaskRepository.save(ut);
