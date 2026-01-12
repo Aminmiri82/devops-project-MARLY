@@ -584,7 +584,7 @@ async function reportDisruption() {
 
         resultsDiv.innerHTML = '';
         if (newJourneys && newJourneys.length > 0) {
-            newJourneys.forEach(displayJourney);
+            displayJourneyResults(newJourneys);
             showToast('Disruption reported. Choose an alternative route below.', { variant: 'warning', durationMs: 6000 });
         } else {
             showToast('Disruption reported, but no alternative routes found.', { variant: 'warning' });
@@ -654,7 +654,7 @@ async function handleJourneySubmit(e) {
       return;
     }
 
-    list.forEach(displayJourney);
+    displayJourneyResults(list);
     if (list.length > 0) notifyTasksOnRouteIfAny(list[0]);
   } catch (err) {
     if (resultsDiv)
@@ -663,30 +663,90 @@ async function handleJourneySubmit(e) {
   }
 }
 
-function displayJourney(journey) {
+/**
+ * Displays journey results with shared info (tasks, modes) shown once at top
+ */
+function displayJourneyResults(journeys) {
+  if (!resultsDiv || !journeys.length) return;
+
+  const firstJourney = journeys[0];
+  const allTasks = collectUniqueTasksFromJourneys(journeys);
+
+  // Build header with shared info (tasks banner + modes)
+  const tasksBannerHtml = allTasks.length
+    ? `
+      <div class="tasks-on-route-banner">
+        <div>
+          <div class="tasks-on-route-title">${allTasks.length} task${allTasks.length > 1 ? "s" : ""} on your route</div>
+          <div class="tasks-on-route-sub">${escapeHtml(allTasks[0]?.title || "Task")}</div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn">View</button>
+      </div>
+    `
+    : "";
+
+  const modesHtml = `
+    <div class="journey-modes">
+      <span>Comfort: ${firstJourney?.comfortModeEnabled ? "On" : "Off"}</span>
+      <span>Touristic: ${firstJourney?.touristicModeEnabled ? "On" : "Off"}</span>
+    </div>
+  `;
+
+  resultsDiv.innerHTML = `
+    <div class="journey-results-header">
+      ${tasksBannerHtml}
+      ${modesHtml}
+    </div>
+  `;
+
+  if (allTasks.length) {
+    document.getElementById("viewTasksOnRouteBtn")
+      ?.addEventListener("click", () => openTasksModal(allTasks));
+  }
+
+  journeys.forEach((journey, index) => displayJourneyCard(journey, index + 1, journeys.length));
+}
+
+/**
+ * Collects unique tasks from all journeys (deduped by ID or title)
+ */
+function collectUniqueTasksFromJourneys(journeys) {
+  const seen = new Set();
+  const uniqueTasks = [];
+
+  for (const journey of journeys) {
+    const tasks = Array.isArray(journey?.tasksOnRoute) ? journey.tasksOnRoute : [];
+    for (const task of tasks) {
+      const key = task?.id || task?.taskId || task?.title || JSON.stringify(task);
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueTasks.push(task);
+      }
+    }
+  }
+
+  return uniqueTasks;
+}
+
+/**
+ * Displays a single journey card (without shared info)
+ */
+function displayJourneyCard(journey, index, total) {
   if (!resultsDiv) return;
 
-  const departure = journey?.plannedDeparture
-    ? formatDateTime(journey.plannedDeparture)
-    : "—";
-  const arrival = journey?.plannedArrival
-    ? formatDateTime(journey.plannedArrival)
-    : "—";
+  const departure = journey?.plannedDeparture ? formatDateTime(journey.plannedDeparture) : "—";
+  const arrival = journey?.plannedArrival ? formatDateTime(journey.plannedArrival) : "—";
   const legs = Array.isArray(journey?.legs) ? journey.legs : [];
 
-  // Process legs based on rules (from reroutage-task):
-  // 1. If duration < 60s AND origin == destination -> Filter out
-  // 2. If duration >= 60s AND origin == destination AND mode == 'OTHER' -> Change mode to 'WALK'
+  // Process legs: filter short same-place legs, convert long same-place OTHER to WALK
   const processedLegs = legs.filter(leg => {
     const duration = leg.durationSeconds || 0;
     const samePlace = leg.originLabel === leg.destinationLabel;
-    if (duration < 60 && samePlace) return false;
-    return true;
+    return !(duration < 60 && samePlace);
   }).map(leg => {
     const duration = leg.durationSeconds || 0;
     const samePlace = leg.originLabel === leg.destinationLabel;
     if (duration >= 60 && samePlace && leg.mode === 'OTHER') {
-      // Return a copy with modified mode
       return { ...leg, mode: 'WALK' };
     }
     return leg;
@@ -709,39 +769,12 @@ function displayJourney(journey) {
     `).join('')
     : '<li>No route details available</li>';
 
-  // Tasks on route banner (from fix-task-api)
-  const tasks = Array.isArray(journey?.tasksOnRoute)
-    ? journey.tasksOnRoute
-    : [];
-  const tasksBannerHtml = tasks.length
-    ? `
-      <div class="tasks-on-route-banner">
-        <div>
-          <div class="tasks-on-route-title">${tasks.length} task${
-        tasks.length > 1 ? "s" : ""
-      } on your route</div>
-          <div class="tasks-on-route-sub">${escapeHtml(
-            tasks[0]?.title || "Task"
-          )}</div>
-        </div>
-        <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn_${journey.journeyId}">View</button>
-      </div>
-    `
-    : "";
+  const optionLabel = total > 1 ? `<span class="route-option-label">Option ${index}</span> ` : '';
 
   const html = `
     <div class="journey-result">
-      <h3>${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(
-    journey?.destinationLabel || "—"
-  )}</h3>
+      <h3>${optionLabel}${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
       <p class="journey-meta">Depart: ${departure} • Arrive: ${arrival}</p>
-
-      ${tasksBannerHtml}
-
-      <div class="journey-modes">
-        <span>Comfort: ${journey?.comfortModeEnabled ? "On" : "Off"}</span>
-        <span>Touristic: ${journey?.touristicModeEnabled ? "On" : "Off"}</span>
-      </div>
       <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${journey.journeyId}', this)">Start Journey</button>
       <h4>Itinerary Steps:</h4>
       <ul class="journey-legs">${legsHtml}</ul>
@@ -749,13 +782,6 @@ function displayJourney(journey) {
   `;
 
   resultsDiv.insertAdjacentHTML('beforeend', html);
-
-  // Attach event listener for tasks modal if there are tasks
-  if (tasks.length) {
-    document
-      .getElementById(`viewTasksOnRouteBtn_${journey.journeyId}`)
-      ?.addEventListener("click", () => openTasksModal(tasks));
-  }
 }
 
 // ============================================================
@@ -891,6 +917,7 @@ function renderTasks(tasks) {
       const due = t?.due ? formatDateTime(t.due) : "—";
       const statusRaw = (t?.status || "needsAction").toLowerCase();
       const completed = statusRaw === "completed";
+      const location = t?.locationQuery ? escapeHtml(t.locationQuery) : null;
 
       const completeBtn = completed
         ? `<button type="button" class="btn btn-success btn-sm" disabled>Completed</button>`
@@ -901,9 +928,7 @@ function renderTasks(tasks) {
       return `
         <div class="task-card ${completed ? "completed" : ""}">
           <h3 class="task-title">${title}</h3>
-          <p class="task-meta">Due: ${escapeHtml(due)} • Status: ${escapeHtml(
-        statusRaw
-      )}</p>
+          <p class="task-meta">Due: ${escapeHtml(due)} • Status: ${escapeHtml(statusRaw)}${location ? ` • Location: ${location}` : ''}</p>
           <div class="task-actions">
             ${completeBtn}
             <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-task-id="${escapeHtml(

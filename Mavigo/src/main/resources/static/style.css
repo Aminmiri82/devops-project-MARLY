@@ -396,6 +396,34 @@ body {
     margin: 0;
 }
 
+.journey-results-header {
+    margin-bottom: 16px;
+}
+
+.journey-results-header .journey-modes {
+    display: flex;
+    gap: 12px;
+    font-size: 0.8125rem;
+}
+
+.journey-results-header .journey-modes span {
+    padding: 4px 8px;
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+}
+
+.route-option-label {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--color-primary);
+    color: var(--color-bg);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
 .journey-result {
     background: var(--color-bg);
     border-radius: var(--radius-md);
