@@ -26,18 +26,42 @@
       <button type="button" id="showRegisterBtn" class="btn btn-primary">Sign Up</button>
     </div>
     <div id="loggedInView" class="hidden">
-      <span id="userGreeting"></span>
-      <button type="button" id="logoutBtn" class="btn btn-outline btn-sm">Log Out</button>
+      <div class="user-dropdown-wrapper">
+        <button type="button" class="user-dropdown-trigger" id="userDropdownTrigger">
+          <span id="userGreeting"></span>
+          <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 12 12">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="user-dropdown" id="userDropdown">
+          <div class="dropdown-header">
+            <span class="dropdown-user-name" id="dropdownUserName"></span>
+            <span class="dropdown-user-email" id="dropdownUserEmail"></span>
+          </div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-actions">
+            <button type="button" class="dropdown-action-btn" id="linkGoogleTasksBtn">
+              <span>Link Google Tasks</span>
+              <span class="dropdown-status" id="googleLinkStatusBadge"></span>
+            </button>
+            <button type="button" class="dropdown-action-btn" id="editComfortProfileBtn">
+              <span>Comfort Settings</span>
+            </button>
+          </div>
+          <div class="dropdown-divider"></div>
+          <button type="button" class="dropdown-logout-btn" id="logoutBtn">Log Out</button>
+        </div>
+      </div>
     </div>
   </div>
 </header>
 
-<div class="modal-overlay hidden" id="authModal">
+<div class="modal-overlay hidden" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
   <div class="modal">
-    <button type="button" class="modal-close" id="closeAuthModal">&times;</button>
+    <button type="button" class="modal-close" id="closeAuthModal" aria-label="Close dialog">&times;</button>
 
     <div id="loginForm" class="auth-form">
-      <h2>Welcome Back</h2>
+      <h2 id="authModalTitle">Welcome Back</h2>
       <p class="form-subtitle">Log in with your email</p>
       <form id="loginFormEl">
         <div class="form-group">
@@ -70,11 +94,11 @@
   </div>
 </div>
 
-<div class="modal-overlay hidden" id="comfortProfileModal">
+<div class="modal-overlay hidden" id="comfortProfileModal" role="dialog" aria-modal="true" aria-labelledby="comfortModalTitle">
   <div class="modal">
-    <button type="button" class="modal-close" id="closeComfortProfileModal">&times;</button>
+    <button type="button" class="modal-close" id="closeComfortProfileModal" aria-label="Close dialog">&times;</button>
     <div class="auth-form">
-      <h2>Comfort Mode Settings</h2>
+      <h2 id="comfortModalTitle">Comfort Mode Settings</h2>
       <p class="form-subtitle">Set your travel preferences</p>
       <form id="comfortProfileForm">
         <div class="form-group">
@@ -106,22 +130,22 @@
           <input type="number" id="maxWalkingDuration" min="0" max="60" placeholder="e.g. 10">
         </div>
         <button type="submit" class="btn btn-primary btn-block">Save Settings</button>
-        <button type="button" id="clearComfortProfileBtn" class="btn btn-outline btn-block" style="margin-top: 8px;">Clear Settings</button>
+        <button type="button" id="clearComfortProfileBtn" class="btn btn-outline btn-block mt-2">Clear Settings</button>
       </form>
       <p id="comfortProfileError" class="form-error hidden"></p>
     </div>
   </div>
 </div>
 
-<div class="modal-overlay hidden" id="disruptionModal">
+<div class="modal-overlay hidden" id="disruptionModal" role="dialog" aria-modal="true" aria-labelledby="disruptionModalTitle">
   <div class="modal">
-    <button type="button" class="modal-close" id="closeDisruptionModal">&times;</button>
+    <button type="button" class="modal-close" id="closeDisruptionModal" aria-label="Close dialog">&times;</button>
     <div class="auth-form">
-      <h2>Reroute Journey</h2>
+      <h2 id="disruptionModalTitle">Reroute Journey</h2>
       <p class="form-subtitle">Choose how to start your new journey</p>
 
-      <button type="button" id="useGpsBtn" class="btn btn-primary btn-block" style="margin-bottom: 12px;">Use Current GPS Location</button>
-      <div style="text-align: center; margin-bottom: 12px; color: var(--color-text-muted); font-size: 0.8rem;">— OR —</div>
+      <button type="button" id="useGpsBtn" class="btn btn-primary btn-block mb-3">Use Current GPS Location</button>
+      <div class="divider-text" aria-hidden="true">— OR —</div>
       <button type="button" id="useManualBtn" class="btn btn-outline btn-block">Enter Departure Station Name</button>
     </div>
   </div>
@@ -135,39 +159,6 @@
   </div>
 
   <div id="mainContent" class="hidden">
-
-    <section class="user-panel">
-      <div class="panel-header">
-        <h2>Your Account</h2>
-      </div>
-      <div class="panel-body">
-        <div class="user-info">
-          <p><strong>Name:</strong> <span id="displayUserName">—</span></p>
-          <p><strong>Email:</strong> <span id="displayUserEmail">—</span></p>
-          <p><strong>User ID:</strong> <code id="displayUserId">—</code></p>
-        </div>
-
-        <div class="google-link-section">
-          <h3>Google Tasks</h3>
-          <p class="section-desc">Link your Google account to sync tasks with your journeys.</p>
-          <div class="google-link-actions">
-            <button type="button" id="linkGoogleTasksBtn" class="btn btn-outline">Link Google Tasks</button>
-            <button type="button" id="refreshGoogleLinkBtn" class="btn btn-ghost btn-sm">Refresh</button>
-          </div>
-          <p id="googleLinkStatus" class="link-status">Not linked</p>
-        </div>
-
-        <div class="comfort-profile-section">
-          <h3>Comfort Mode Settings</h3>
-          <p class="section-desc">Configure your travel preferences for comfort mode journeys.</p>
-          <div id="comfortProfileSummary" class="comfort-summary">
-            <p>No comfort profile configured.</p>
-          </div>
-          <button type="button" id="editComfortProfileBtn" class="btn btn-outline">Edit Comfort Profile</button>
-        </div>
-      </div>
-    </section>
-
     <!-- VIEW: Journey -->
     <div id="journeyView">
       <section class="journey-panel hidden" id="currentJourneyPanel">
@@ -256,8 +247,8 @@
             </div>
           </div>
 
-          <div class="panel-header" style="padding: 0; border: none; margin: 10px 0 12px;">
-            <h2 style="font-size: 1rem;">Create a Task</h2>
+          <div class="panel-header panel-header-inline">
+            <h2>Create a Task</h2>
           </div>
 
           <form id="createTaskForm">
