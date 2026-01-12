@@ -1,9 +1,70 @@
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const CONFIG = {
+  TOAST_DURATION_MS: 4500,
+  TOAST_IMPORTANT_DURATION_MS: 12000,
+  POPUP_CHECK_INTERVAL_MS: 1200,
+  POPUP_DIMENSIONS: 'width=600,height=700',
+  TOAST_HIDE_DELAY_MS: 200,
+};
+
+// ============================================================
+// API CLIENT
+// ============================================================
+const api = {
+  async get(url) {
+    return this.request(url, 'GET');
+  },
+  async post(url, body) {
+    return this.request(url, 'POST', body);
+  },
+  async put(url, body) {
+    return this.request(url, 'PUT', body);
+  },
+  async patch(url, body) {
+    return this.request(url, 'PATCH', body);
+  },
+  async delete(url) {
+    return this.request(url, 'DELETE');
+  },
+  async request(url, method, body) {
+    const opts = { method, headers: {} };
+    if (body !== undefined) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    const resp = await fetch(url, opts);
+    if (!resp.ok) {
+      if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
+        const error = new Error('Google Tasks not authorized');
+        error.authError = true;
+        throw error;
+      }
+      const text = await resp.text();
+      throw new Error(text || `Request failed: ${resp.status}`);
+    }
+    const contentType = resp.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      return resp.json();
+    }
+    return resp.text();
+  }
+};
+
+// ============================================================
+// STATE MANAGEMENT
+// ============================================================
 let currentUser = null;
 let currentView = localStorage.getItem("mavigo_view") || "journey";
 let defaultTaskList = null;
 let currentJourney = null;
+let lastNotifiedJourneyId = null;
+let lastTasksSignature = null;
 
-// DOM Elements
+// ============================================================
+// DOM ELEMENTS
+// ============================================================
 const authModal = document.getElementById("authModal");
 const loginFormEl = document.getElementById("loginFormEl");
 const registerFormEl = document.getElementById("registerFormEl");
@@ -49,6 +110,16 @@ const closeComfortProfileModal = document.getElementById("closeComfortProfileMod
 const clearComfortProfileBtn = document.getElementById("clearComfortProfileBtn");
 const comfortCheckbox = document.getElementById("comfort");
 
+// User Dropdown Elements
+const userDropdownTrigger = document.getElementById("userDropdownTrigger");
+const userDropdown = document.getElementById("userDropdown");
+const dropdownUserName = document.getElementById("dropdownUserName");
+const dropdownUserEmail = document.getElementById("dropdownUserEmail");
+const googleLinkStatusBadge = document.getElementById("googleLinkStatusBadge");
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
 init();
 
 function init() {
@@ -59,12 +130,16 @@ function init() {
   setupComfortProfileListeners();
   setupNav();
   setupTasks();
+  setupDropdown();
   setDefaultDepartureTime();
   ensureToastUI();
   ensureTasksModalUI();
   restoreSession();
 }
 
+// ============================================================
+// NAVIGATION
+// ============================================================
 function setupNav() {
   navJourneyBtn?.addEventListener("click", () => setView("journey"));
   navTasksBtn?.addEventListener("click", () => setView("tasks"));
@@ -91,6 +166,55 @@ function setView(view) {
   if (currentView === "tasks") ensureDefaultTaskListLoaded({ force: false });
 }
 
+// ============================================================
+// USER DROPDOWN
+// ============================================================
+function setupDropdown() {
+  if (!userDropdownTrigger || !userDropdown) return;
+
+  userDropdownTrigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleDropdown();
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!userDropdown.classList.contains("open")) return;
+    if (!userDropdown.contains(e.target) && e.target !== userDropdownTrigger) {
+      closeDropdown();
+    }
+  });
+
+  // Close dropdown on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && userDropdown.classList.contains("open")) {
+      closeDropdown();
+    }
+  });
+}
+
+function toggleDropdown() {
+  const isOpen = userDropdown.classList.contains("open");
+  if (isOpen) {
+    closeDropdown();
+  } else {
+    openDropdown();
+  }
+}
+
+function openDropdown() {
+  userDropdown.classList.add("open");
+  userDropdownTrigger.classList.add("open");
+}
+
+function closeDropdown() {
+  userDropdown.classList.remove("open");
+  userDropdownTrigger.classList.remove("open");
+}
+
+// ============================================================
+// AUTHENTICATION
+// ============================================================
 function setupAuthListeners() {
   document
     .getElementById("showLoginBtn")
@@ -166,18 +290,7 @@ async function handleLogin(e) {
   if (!email) return showError(errorEl, "Please enter your email.");
 
   try {
-    const resp = await fetch("/api/users/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Login failed");
-    }
-
-    const user = await resp.json();
+    const user = await api.post("/api/users/login", { email });
     setCurrentUser(user, { preferredView: "tasks" });
     closeAuthModal();
     loginFormEl?.reset();
@@ -198,18 +311,7 @@ async function handleRegister(e) {
   const payload = { displayName: name, email, externalId: generateId() };
 
   try {
-    const resp = await fetch("/api/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Registration failed");
-    }
-
-    const user = await resp.json();
+    const user = await api.post("/api/users", payload);
     setCurrentUser(user, { preferredView: "tasks" });
     closeAuthModal();
     registerFormEl?.reset();
@@ -237,24 +339,21 @@ function setCurrentUser(user, opts = {}) {
   updateUI();
 }
 
-function restoreSession() {
+async function restoreSession() {
   const savedUserId = localStorage.getItem("mavigo_user_id");
   if (!savedUserId) return updateUI();
 
-  fetch(`/api/users/${savedUserId}`)
-    .then((resp) => (resp.ok ? resp.json() : Promise.reject(resp)))
-    .then((user) => {
-      currentUser = user;
-      updateUI();
-      if (currentView === "tasks")
-        ensureDefaultTaskListLoaded({ force: false });
-    })
-    .catch(() => {
-      localStorage.removeItem("mavigo_user_id");
-      currentUser = null;
-      defaultTaskList = null;
-      updateUI();
-    });
+  try {
+    const user = await api.get(`/api/users/${savedUserId}`);
+    currentUser = user;
+    updateUI();
+    if (currentView === "tasks") ensureDefaultTaskListLoaded({ force: false });
+  } catch {
+    localStorage.removeItem("mavigo_user_id");
+    currentUser = null;
+    defaultTaskList = null;
+    updateUI();
+  }
 }
 
 function updateUI() {
@@ -280,15 +379,13 @@ function updateUI() {
 }
 
 function renderUserInfo() {
-  document.getElementById("displayUserName") &&
-    (document.getElementById("displayUserName").textContent =
-      currentUser?.displayName || "—");
-  document.getElementById("displayUserEmail") &&
-    (document.getElementById("displayUserEmail").textContent =
-      currentUser?.email || "—");
-  document.getElementById("displayUserId") &&
-    (document.getElementById("displayUserId").textContent =
-      currentUser?.userId || "—");
+  // Update dropdown user info
+  if (dropdownUserName) {
+    dropdownUserName.textContent = currentUser?.displayName || "—";
+  }
+  if (dropdownUserEmail) {
+    dropdownUserEmail.textContent = currentUser?.email || "—";
+  }
 }
 
 function showError(el, message) {
@@ -297,6 +394,9 @@ function showError(el, message) {
   el.classList.remove("hidden");
 }
 
+// ============================================================
+// JOURNEY MANAGEMENT
+// ============================================================
 function setupJourneyForm() {
   journeyForm?.addEventListener("submit", handleJourneySubmit);
 }
@@ -312,7 +412,6 @@ function setupJourneyActions() {
 async function startJourney(journeyId, btnElement) {
     if (!currentUser) return;
 
-    // Collect all start buttons
     const allButtons = document.querySelectorAll('.start-journey-btn');
 
     if (btnElement) {
@@ -320,32 +419,19 @@ async function startJourney(journeyId, btnElement) {
         btnElement.textContent = 'Starting...';
     }
 
-    // Hide other buttons
     allButtons.forEach(btn => {
-        if (btn !== btnElement) {
-            btn.classList.add('hidden');
-        }
+        if (btn !== btnElement) btn.classList.add('hidden');
     });
 
     try {
-        const url = `/api/journeys/${journeyId}/start`;
-        console.log('Fetching:', url);
-        const resp = await fetch(url, { method: 'POST' });
-        if (!resp.ok) {
-            const body = await resp.text();
-            throw new Error(body || 'Failed to start journey');
-        }
-        const journey = await resp.json();
+        const journey = await api.post(`/api/journeys/${journeyId}/start`);
         updateCurrentJourney(journey);
     } catch (err) {
-        alert(err.message);
-        // Restore buttons on error
+        showToast(err.message, { variant: 'warning' });
         allButtons.forEach(btn => {
             btn.classList.remove('hidden');
             btn.disabled = false;
-            if (btn === btnElement) {
-                btn.textContent = 'Start Journey';
-            }
+            if (btn === btnElement) btn.textContent = 'Start Journey';
         });
     }
 }
@@ -353,18 +439,11 @@ async function startJourney(journeyId, btnElement) {
 async function completeJourney() {
     if (!currentJourney) return;
     try {
-        const url = `/api/journeys/${currentJourney.journeyId}/complete`;
-        console.log('Fetching:', url);
-        const resp = await fetch(url, { method: 'POST' });
-        if (!resp.ok) {
-            const body = await resp.text();
-            throw new Error(body || 'Failed to complete journey');
-        }
-        const journey = await resp.json();
+        const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/complete`);
         updateCurrentJourney(journey);
-        alert('Journey completed!');
+        showToast('Journey completed!', { variant: 'success' });
     } catch (err) {
-        alert(err.message);
+        showToast(err.message, { variant: 'warning' });
     }
 }
 
@@ -373,17 +452,10 @@ async function cancelJourney() {
     if (!confirm('Are you sure you want to cancel this journey?')) return;
 
     try {
-        const url = `/api/journeys/${currentJourney.journeyId}/cancel`;
-        console.log('Fetching:', url);
-        const resp = await fetch(url, { method: 'POST' });
-        if (!resp.ok) {
-            const body = await resp.text();
-            throw new Error(body || 'Failed to cancel journey');
-        }
-        const journey = await resp.json();
+        const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/cancel`);
         updateCurrentJourney(journey);
     } catch (err) {
-        alert(err.message);
+        showToast(err.message, { variant: 'warning' });
     }
 }
 
@@ -505,32 +577,25 @@ async function reportDisruption() {
             url += `&newOrigin=${encodeURIComponent(manualOrigin)}`;
         }
 
-        const resp = await fetch(url, { method: 'POST' });
-        if (!resp.ok) {
-            const body = await resp.text();
-            throw new Error(body || 'Failed to report disruption');
-        }
+        const newJourneys = await api.post(url);
 
-        const newJourneys = await resp.json();
-
-        // Switch back to results view to let user choose
         currentJourneyPanel.classList.add('hidden');
         document.querySelector('.results-panel').classList.remove('hidden');
 
         resultsDiv.innerHTML = '';
         if (newJourneys && newJourneys.length > 0) {
             newJourneys.forEach(displayJourney);
-            alert('Disruption reported. Please choose an alternative route from the list below.');
+            showToast('Disruption reported. Choose an alternative route below.', { variant: 'warning', durationMs: 6000 });
         } else {
-            alert('Disruption reported, but no alternative routes found.');
+            showToast('Disruption reported, but no alternative routes found.', { variant: 'warning' });
         }
     } catch (err) {
-        // Simple warning as requested if journey cannot be found or location is invalid
         const msg = err.message || "";
         if (msg.includes("No places") || msg.includes("No stop area") || msg.includes("No journey options") || msg.includes("Failed to calculate journey")) {
-            alert("No journey found.");
+            showToast("No journey found.", { variant: 'warning' });
         } else {
-            alert("No journey found. (Technical detail: " + msg + ")");
+            showToast("No journey found.", { variant: 'warning' });
+            console.error("Disruption error:", msg);
         }
     }
 }
@@ -579,23 +644,9 @@ async function handleJourneySubmit(e) {
     resultsDiv.innerHTML = '<p class="loading">Planning your journey...</p>';
 
   try {
-    const resp = await fetch("/api/journeys", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const journeys = await api.post("/api/journeys", payload);
 
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Failed to plan journey");
-    }
-
-    const journeys = await resp.json();
-
-    // Clear previous results
     resultsDiv.innerHTML = '';
-
-    // Handle both single object (legacy) and array
     const list = Array.isArray(journeys) ? journeys : [journeys];
 
     if (list.length === 0) {
@@ -603,16 +654,11 @@ async function handleJourneySubmit(e) {
       return;
     }
 
-    // Display all journeys
     list.forEach(displayJourney);
-
-    // Notify for tasks on route for the first journey (or all if you prefer)
-    if (list.length > 0) {
-      notifyTasksOnRouteIfAny(list[0]);
-    }
+    if (list.length > 0) notifyTasksOnRouteIfAny(list[0]);
   } catch (err) {
     if (resultsDiv)
-      resultsDiv.innerHTML = `<p class="error-message">No journey found.</p>`;
+      resultsDiv.innerHTML = '<p class="error-message">No journey found.</p>';
     console.error("Journey planning error:", err);
   }
 }
@@ -712,6 +758,9 @@ function displayJourney(journey) {
   }
 }
 
+// ============================================================
+// GOOGLE TASKS
+// ============================================================
 function setupTasks() {
   refreshTasksBtn?.addEventListener("click", () =>
     ensureDefaultTaskListLoaded({ force: true })
@@ -783,35 +832,21 @@ async function ensureDefaultTaskListLoaded({ force }) {
   updateTasksUIState();
 
   try {
-    const resp = await fetch(
-      `/api/google/tasks/users/${currentUser.userId}/default-list`
-    );
-
-    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
-      defaultTaskList = null;
-      if (tasksResults)
-        tasksResults.innerHTML = `<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>`;
-      showToast("Link Google Tasks first.", { variant: "warning" });
-      updateTasksUIState();
-      return;
-    }
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Failed to load default list");
-    }
-
-    const list = await resp.json();
+    const list = await api.get(`/api/google/tasks/users/${currentUser.userId}/default-list`);
     defaultTaskList = { id: list.id, title: list.title || "Default" };
     updateTasksUIState();
     await loadTasksFromDefaultList();
   } catch (err) {
     defaultTaskList = null;
-    if (tasksResults)
-      tasksResults.innerHTML = `<p class="error-message">Could not load default list.</p>`;
-    showToast(err?.message || "Could not load default list.", {
-      variant: "warning",
-    });
+    if (err.authError) {
+      if (tasksResults)
+        tasksResults.innerHTML = '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
+      showToast("Link Google Tasks first.", { variant: "warning" });
+    } else {
+      if (tasksResults)
+        tasksResults.innerHTML = '<p class="error-message">Could not load default list.</p>';
+      showToast(err?.message || "Could not load default list.", { variant: "warning" });
+    }
     updateTasksUIState();
   }
 }
@@ -826,33 +861,18 @@ async function loadTasksFromDefaultList() {
 
   try {
     const includeCompleted = !!tasksIncludeCompleted?.checked;
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(
-      defaultTaskList.id
-    )}/tasks?includeCompleted=${includeCompleted}`;
-
-    const resp = await fetch(url);
-
-    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
-      if (tasksResults)
-        tasksResults.innerHTML = `<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>`;
-      showToast("Link Google Tasks first.", { variant: "warning" });
-      return;
-    }
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Failed to load tasks");
-    }
-
-    const tasks = await resp.json();
+    const url = `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(defaultTaskList.id)}/tasks?includeCompleted=${includeCompleted}`;
+    const tasks = await api.get(url);
     renderTasks(tasks);
   } catch (err) {
-    if (tasksResults)
-      tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
-        err?.message || "Unknown error"
-      )}</p>`;
+    if (err.authError) {
+      if (tasksResults)
+        tasksResults.innerHTML = '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
+      showToast("Link Google Tasks first.", { variant: "warning" });
+    } else {
+      if (tasksResults)
+        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(err?.message || "Unknown error")}</p>`;
+    }
   }
 }
 
@@ -918,59 +938,34 @@ async function completeTask(taskId) {
   if (!currentUser || !defaultTaskList?.id) return;
 
   try {
-    const resp = await fetch(
-      `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(
-        defaultTaskList.id
-      )}/tasks/${encodeURIComponent(taskId)}/complete`,
-      { method: "PATCH" }
-    );
-
-    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
-      showToast("Link Google Tasks first.", { variant: "warning" });
-      return;
-    }
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Failed to complete task");
-    }
-
+    const url = `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(defaultTaskList.id)}/tasks/${encodeURIComponent(taskId)}/complete`;
+    await api.patch(url);
     showToast("Task completed!", { variant: "success" });
     await loadTasksFromDefaultList();
   } catch (err) {
-    showToast(err?.message || "Failed to complete task", {
-      variant: "warning",
-    });
+    if (err.authError) {
+      showToast("Link Google Tasks first.", { variant: "warning" });
+    } else {
+      showToast(err?.message || "Failed to complete task", { variant: "warning" });
+    }
   }
 }
 
 async function deleteTask(taskId) {
   if (!currentUser || !defaultTaskList?.id) return;
-
   if (!confirm("Delete this task?")) return;
 
   try {
-    const resp = await fetch(
-      `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(
-        defaultTaskList.id
-      )}/tasks/${encodeURIComponent(taskId)}`,
-      { method: "DELETE" }
-    );
-
-    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
-      showToast("Link Google Tasks first.", { variant: "warning" });
-      return;
-    }
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Failed to delete task");
-    }
-
+    const url = `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(defaultTaskList.id)}/tasks/${encodeURIComponent(taskId)}`;
+    await api.delete(url);
     showToast("Task deleted.", { variant: "success" });
     await loadTasksFromDefaultList();
   } catch (err) {
-    showToast(err?.message || "Failed to delete task", { variant: "warning" });
+    if (err.authError) {
+      showToast("Link Google Tasks first.", { variant: "warning" });
+    } else {
+      showToast(err?.message || "Failed to delete task", { variant: "warning" });
+    }
   }
 }
 
@@ -998,36 +993,11 @@ async function createTask(e) {
     tasksResults.innerHTML = '<p class="loading">Creating task...</p>';
 
   try {
-    const resp = await fetch(
-      `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(
-        defaultTaskList.id
-      )}/tasks`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
-      if (tasksResults)
-        tasksResults.innerHTML = `<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>`;
-      showToast("Link Google Tasks first.", { variant: "warning" });
-      return;
-    }
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Failed to create task");
-    }
-
-    const created = await resp.json();
+    const url = `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(defaultTaskList.id)}/tasks`;
+    const created = await api.post(url, payload);
 
     if (created?.locationWarning) {
-      showToast(
-        `Task created, but location failed: ${created.locationWarning}`,
-        { variant: "warning", durationMs: 6000 }
-      );
+      showToast(`Task created, but location failed: ${created.locationWarning}`, { variant: "warning", durationMs: 6000 });
     } else {
       showToast("Task created!", { variant: "success" });
     }
@@ -1035,13 +1005,20 @@ async function createTask(e) {
     createTaskForm?.reset();
     await loadTasksFromDefaultList();
   } catch (err) {
-    if (tasksResults)
-      tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
-        err?.message || "Unknown error"
-      )}</p>`;
+    if (err.authError) {
+      if (tasksResults)
+        tasksResults.innerHTML = '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
+      showToast("Link Google Tasks first.", { variant: "warning" });
+    } else {
+      if (tasksResults)
+        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(err?.message || "Unknown error")}</p>`;
+    }
   }
 }
 
+// ============================================================
+// GOOGLE ACCOUNT LINKING
+// ============================================================
 function setupGoogleLinkListeners() {
   document
     .getElementById("linkGoogleTasksBtn")
@@ -1060,15 +1037,11 @@ function startGoogleLinkFlow() {
     return;
   }
 
-  const linkUrl = `/api/google/tasks/link?userId=${encodeURIComponent(
-    currentUser.userId
-  )}`;
-  const popup = window.open(linkUrl, "googleTasksLink", "width=600,height=700");
+  const linkUrl = `/api/google/tasks/link?userId=${encodeURIComponent(currentUser.userId)}`;
+  const popup = window.open(linkUrl, "googleTasksLink", CONFIG.POPUP_DIMENSIONS);
 
   if (!popup) {
-    if (statusEl)
-      statusEl.textContent =
-        "Popup blocked. Please allow popups for this site.";
+    if (statusEl) statusEl.textContent = "Popup blocked. Please allow popups for this site.";
     return;
   }
 
@@ -1079,44 +1052,41 @@ function startGoogleLinkFlow() {
       clearInterval(watcher);
       refreshGoogleLink();
     }
-  }, 1200);
+  }, CONFIG.POPUP_CHECK_INTERVAL_MS);
 }
 
 async function refreshGoogleLink() {
   if (!currentUser?.userId) return;
 
   try {
-    const resp = await fetch(`/api/users/${currentUser.userId}`);
-    if (!resp.ok) return;
-
-    const user = await resp.json();
+    const user = await api.get(`/api/users/${currentUser.userId}`);
     currentUser = user;
     renderGoogleLinkStatus(user);
     updateTasksUIState();
     if (currentView === "tasks") ensureDefaultTaskListLoaded({ force: true });
-  } catch (_) {}
+  } catch {
+    // Silently fail on refresh
+  }
 }
 
 function clearGoogleLinkStatus() {
-  const statusEl = document.getElementById("googleLinkStatus");
-  if (!statusEl) return;
-  statusEl.textContent = "";
-  statusEl.classList.remove("linked");
+  if (!googleLinkStatusBadge) return;
+  googleLinkStatusBadge.textContent = "";
+  googleLinkStatusBadge.classList.remove("linked");
 }
 
 function renderGoogleLinkStatus(user) {
-  const statusEl = document.getElementById("googleLinkStatus");
-  if (!statusEl) return;
+  if (!googleLinkStatusBadge) return;
   if (!user) return clearGoogleLinkStatus();
 
   const linked = !!(user.googleAccountLinkedAt || user.googleAccountSubject);
 
   if (!linked) {
-    statusEl.textContent = "Compte Google non lié.";
-    statusEl.classList.remove("linked");
+    googleLinkStatusBadge.textContent = "";
+    googleLinkStatusBadge.classList.remove("linked");
   } else {
-    statusEl.textContent = "Compte Google lié.";
-    statusEl.classList.add("linked");
+    googleLinkStatusBadge.textContent = "Linked";
+    googleLinkStatusBadge.classList.add("linked");
   }
 }
 
@@ -1126,6 +1096,9 @@ function handleGoogleLinkMessage(event) {
     refreshGoogleLink();
 }
 
+// ============================================================
+// COMFORT PROFILE
+// ============================================================
 function setupComfortProfileListeners() {
   editComfortProfileBtn?.addEventListener("click", openComfortProfileModal);
   closeComfortProfileModal?.addEventListener("click", closeComfortProfileModalFn);
@@ -1168,7 +1141,6 @@ function loadComfortProfileIntoForm() {
 
 async function saveComfortProfile(e) {
   e.preventDefault();
-
   if (!currentUser) return;
 
   const directPath = document.getElementById("directPath")?.value || null;
@@ -1188,18 +1160,7 @@ async function saveComfortProfile(e) {
   const errorEl = document.getElementById("comfortProfileError");
 
   try {
-    const resp = await fetch(`/api/users/${currentUser.userId}/comfort-profile`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Failed to save comfort profile");
-    }
-
-    const updated = await resp.json();
+    const updated = await api.put(`/api/users/${currentUser.userId}/comfort-profile`, payload);
     currentUser.comfortProfile = updated;
     renderComfortProfileSummary();
     closeComfortProfileModalFn();
@@ -1214,19 +1175,10 @@ async function saveComfortProfile(e) {
 
 async function clearComfortProfile() {
   if (!currentUser) return;
-
   if (!confirm("Clear all comfort profile settings?")) return;
 
   try {
-    const resp = await fetch(`/api/users/${currentUser.userId}/comfort-profile`, {
-      method: "DELETE",
-    });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(body || "Failed to clear comfort profile");
-    }
-
+    await api.delete(`/api/users/${currentUser.userId}/comfort-profile`);
     currentUser.comfortProfile = null;
     renderComfortProfileSummary();
     closeComfortProfileModalFn();
@@ -1303,9 +1255,9 @@ function validateComfortMode() {
   return true;
 }
 
-let lastNotifiedJourneyId = null;
-let lastTasksSignature = null;
-
+// ============================================================
+// TASK NOTIFICATIONS
+// ============================================================
 function notifyTasksOnRouteIfAny(journey) {
   const tasks =
     journey && Array.isArray(journey.tasksOnRoute) ? journey.tasksOnRoute : [];
@@ -1354,6 +1306,9 @@ function notifyTasksOnRouteIfAny(journey) {
   });
 }
 
+// ============================================================
+// UI UTILITIES
+// ============================================================
 function ensureToastUI() {
   if (!document.getElementById("toastContainer")) {
     const container = document.createElement("div");
@@ -1417,8 +1372,8 @@ function showToast(message, opts = {}) {
     typeof opts.durationMs === "number"
       ? opts.durationMs
       : opts.important
-      ? 12000
-      : 4500;
+      ? CONFIG.TOAST_IMPORTANT_DURATION_MS
+      : CONFIG.TOAST_DURATION_MS;
   const timer = setTimeout(() => removeToast(toast), ttl);
 
   toast.addEventListener("mouseenter", () => clearTimeout(timer));
@@ -1427,7 +1382,7 @@ function showToast(message, opts = {}) {
 function removeToast(toastEl) {
   if (!toastEl) return;
   toastEl.classList.add("toast-hide");
-  setTimeout(() => toastEl.remove(), 200);
+  setTimeout(() => toastEl.remove(), CONFIG.TOAST_HIDE_DELAY_MS);
 }
 
 function ensureTasksModalUI() {
@@ -1436,11 +1391,14 @@ function ensureTasksModalUI() {
   const overlay = document.createElement("div");
   overlay.id = "tasksModal";
   overlay.className = "tasks-modal-overlay hidden";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "tasksModalTitle");
 
   overlay.innerHTML = `
     <div class="tasks-modal">
-      <button type="button" class="tasks-modal-close" id="tasksModalClose">&times;</button>
-      <h3 class="tasks-modal-title">Tasks on your route</h3>
+      <button type="button" class="tasks-modal-close" id="tasksModalClose" aria-label="Close dialog">&times;</button>
+      <h3 class="tasks-modal-title" id="tasksModalTitle">Tasks on your route</h3>
       <p class="tasks-modal-subtitle">These tasks are close to your planned journey.</p>
       <div id="tasksModalList" class="tasks-modal-list"></div>
       <div class="tasks-modal-footer">
