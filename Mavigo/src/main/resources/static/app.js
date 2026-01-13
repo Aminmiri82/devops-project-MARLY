@@ -5,7 +5,7 @@ const CONFIG = {
   TOAST_DURATION_MS: 4500,
   TOAST_IMPORTANT_DURATION_MS: 12000,
   POPUP_CHECK_INTERVAL_MS: 1200,
-  POPUP_DIMENSIONS: 'width=600,height=700',
+  POPUP_DIMENSIONS: "width=600,height=700",
   TOAST_HIDE_DELAY_MS: 200,
 };
 
@@ -14,42 +14,42 @@ const CONFIG = {
 // ============================================================
 const api = {
   async get(url) {
-    return this.request(url, 'GET');
+    return this.request(url, "GET");
   },
   async post(url, body) {
-    return this.request(url, 'POST', body);
+    return this.request(url, "POST", body);
   },
   async put(url, body) {
-    return this.request(url, 'PUT', body);
+    return this.request(url, "PUT", body);
   },
   async patch(url, body) {
-    return this.request(url, 'PATCH', body);
+    return this.request(url, "PATCH", body);
   },
   async delete(url) {
-    return this.request(url, 'DELETE');
+    return this.request(url, "DELETE");
   },
   async request(url, method, body) {
     const opts = { method, headers: {} };
     if (body !== undefined) {
-      opts.headers['Content-Type'] = 'application/json';
+      opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
     const resp = await fetch(url, opts);
     if (!resp.ok) {
       if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
-        const error = new Error('Google Tasks not authorized');
+        const error = new Error("Google Tasks not authorized");
         error.authError = true;
         throw error;
       }
       const text = await resp.text();
       throw new Error(text || `Request failed: ${resp.status}`);
     }
-    const contentType = resp.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
+    const contentType = resp.headers.get("content-type");
+    if (contentType?.includes("application/json")) {
       return resp.json();
     }
     return resp.text();
-  }
+  },
 };
 
 // ============================================================
@@ -84,7 +84,9 @@ const completeJourneyBtn = document.getElementById("completeJourneyBtn");
 const cancelJourneyBtn = document.getElementById("cancelJourneyBtn");
 const departureInput = document.getElementById("departure");
 const reportDisruptionBtn = document.getElementById("reportDisruptionBtn");
-const fetchShortDisruptionsBtn = document.getElementById("fetchShortDisruptionsBtn");
+const fetchShortDisruptionsBtn = document.getElementById(
+  "fetchShortDisruptionsBtn"
+);
 
 const navJourneyBtn = document.getElementById("navJourneyBtn");
 const navTasksBtn = document.getElementById("navTasksBtn");
@@ -106,8 +108,12 @@ const comfortProfileModal = document.getElementById("comfortProfileModal");
 const comfortProfileForm = document.getElementById("comfortProfileForm");
 const comfortProfileSummary = document.getElementById("comfortProfileSummary");
 const editComfortProfileBtn = document.getElementById("editComfortProfileBtn");
-const closeComfortProfileModal = document.getElementById("closeComfortProfileModal");
-const clearComfortProfileBtn = document.getElementById("clearComfortProfileBtn");
+const closeComfortProfileModal = document.getElementById(
+  "closeComfortProfileModal"
+);
+const clearComfortProfileBtn = document.getElementById(
+  "clearComfortProfileBtn"
+);
 const comfortCheckbox = document.getElementById("comfort");
 
 // User Dropdown Elements
@@ -123,6 +129,7 @@ const googleLinkStatusBadge = document.getElementById("googleLinkStatusBadge");
 init();
 
 function init() {
+  initTheme();
   setupAuthListeners();
   setupJourneyForm();
   setupJourneyActions();
@@ -402,202 +409,247 @@ function setupJourneyForm() {
 }
 
 function setupJourneyActions() {
-    completeJourneyBtn.addEventListener('click', completeJourney);
-    cancelJourneyBtn.addEventListener('click', cancelJourney);
-    if (reportDisruptionBtn) {
-        reportDisruptionBtn.addEventListener('click', reportDisruption);
-    }
+  completeJourneyBtn.addEventListener("click", completeJourney);
+  cancelJourneyBtn.addEventListener("click", cancelJourney);
+  if (reportDisruptionBtn) {
+    reportDisruptionBtn.addEventListener("click", reportDisruption);
+  }
 }
 
 async function startJourney(journeyId, btnElement) {
-    if (!currentUser) return;
+  if (!currentUser) return;
 
-    const allButtons = document.querySelectorAll('.start-journey-btn');
+  const allButtons = document.querySelectorAll(".start-journey-btn");
 
-    if (btnElement) {
-        btnElement.disabled = true;
-        btnElement.textContent = 'Starting...';
-    }
+  if (btnElement) {
+    btnElement.disabled = true;
+    btnElement.textContent = "Starting...";
+  }
 
-    allButtons.forEach(btn => {
-        if (btn !== btnElement) btn.classList.add('hidden');
+  allButtons.forEach((btn) => {
+    if (btn !== btnElement) btn.classList.add("hidden");
+  });
+
+  try {
+    const journey = await api.post(`/api/journeys/${journeyId}/start`);
+    updateCurrentJourney(journey);
+  } catch (err) {
+    showToast(err.message, { variant: "warning" });
+    allButtons.forEach((btn) => {
+      btn.classList.remove("hidden");
+      btn.disabled = false;
+      if (btn === btnElement) btn.textContent = "Start Journey";
     });
-
-    try {
-        const journey = await api.post(`/api/journeys/${journeyId}/start`);
-        updateCurrentJourney(journey);
-    } catch (err) {
-        showToast(err.message, { variant: 'warning' });
-        allButtons.forEach(btn => {
-            btn.classList.remove('hidden');
-            btn.disabled = false;
-            if (btn === btnElement) btn.textContent = 'Start Journey';
-        });
-    }
+  }
 }
 
 async function completeJourney() {
-    if (!currentJourney) return;
-    try {
-        const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/complete`);
-        updateCurrentJourney(journey);
-        showToast('Journey completed!', { variant: 'success' });
-    } catch (err) {
-        showToast(err.message, { variant: 'warning' });
-    }
+  if (!currentJourney) return;
+  try {
+    const journey = await api.post(
+      `/api/journeys/${currentJourney.journeyId}/complete`
+    );
+    updateCurrentJourney(journey);
+    showToast("Journey completed!", { variant: "success" });
+  } catch (err) {
+    showToast(err.message, { variant: "warning" });
+  }
 }
 
 async function cancelJourney() {
-    if (!currentJourney) return;
-    if (!confirm('Are you sure you want to cancel this journey?')) return;
+  if (!currentJourney) return;
+  if (!confirm("Are you sure you want to cancel this journey?")) return;
 
-    try {
-        const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/cancel`);
-        updateCurrentJourney(journey);
-    } catch (err) {
-        showToast(err.message, { variant: 'warning' });
-    }
+  try {
+    const journey = await api.post(
+      `/api/journeys/${currentJourney.journeyId}/cancel`
+    );
+    updateCurrentJourney(journey);
+  } catch (err) {
+    showToast(err.message, { variant: "warning" });
+  }
 }
 
 function updateCurrentJourney(journey) {
-    currentJourney = journey;
+  currentJourney = journey;
 
-    if (journey && (journey.status === 'PLANNED' || journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED')) {
-        currentJourneyPanel.classList.remove('hidden');
-        renderCurrentJourney(journey);
+  if (
+    journey &&
+    (journey.status === "PLANNED" ||
+      journey.status === "IN_PROGRESS" ||
+      journey.status === "REROUTED")
+  ) {
+    currentJourneyPanel.classList.remove("hidden");
+    renderCurrentJourney(journey);
 
-        // Hide results if we have an active journey
-        document.querySelector('.results-panel').classList.add('hidden');
-    } else {
-        // Journey finished or cancelled
-        currentJourneyPanel.classList.add('hidden');
-        document.querySelector('.results-panel').classList.remove('hidden');
-        resultsDiv.innerHTML = '<p class="results-placeholder">Your journey results will appear here.</p>';
-        currentJourney = null;
-    }
+    // Hide results if we have an active journey
+    document.querySelector(".results-panel").classList.add("hidden");
+  } else {
+    // Journey finished or cancelled
+    currentJourneyPanel.classList.add("hidden");
+    document.querySelector(".results-panel").classList.remove("hidden");
+    resultsDiv.innerHTML =
+      '<p class="results-placeholder">Your journey results will appear here.</p>';
+    currentJourney = null;
+  }
 }
 
 function calculateProgress(journey) {
-    if (journey.status !== 'IN_PROGRESS' && journey.status !== 'REROUTED') return 0;
+  if (journey.status !== "IN_PROGRESS" && journey.status !== "REROUTED")
+    return 0;
 
-    const now = new Date();
-    const start = new Date(journey.actualDeparture || journey.plannedDeparture);
-    const end = new Date(journey.plannedArrival);
+  const now = new Date();
+  const start = new Date(journey.actualDeparture || journey.plannedDeparture);
+  const end = new Date(journey.plannedArrival);
 
-    if (isNaN(start) || isNaN(end) || end <= start) return 0;
+  if (isNaN(start) || isNaN(end) || end <= start) return 0;
 
-    if (now < start) return 0;
-    if (now > end) return 100;
+  if (now < start) return 0;
+  if (now > end) return 100;
 
-    const progress = ((now - start) / (end - start)) * 100;
-    return Math.min(Math.max(Math.round(progress), 0), 100);
+  const progress = ((now - start) / (end - start)) * 100;
+  return Math.min(Math.max(Math.round(progress), 0), 100);
 }
 
 function renderCurrentJourney(journey) {
-    const statusClass = journey.status === 'IN_PROGRESS' ? 'status-active' : 'status-planned';
-    const progress = calculateProgress(journey);
+  const statusClass =
+    journey.status === "IN_PROGRESS" ? "status-active" : "status-planned";
+  const progress = calculateProgress(journey);
 
-    currentJourneyContent.innerHTML = `
+  currentJourneyContent.innerHTML = `
         <div class="journey-status-card">
             <div class="status-badge ${statusClass}">${journey.status}</div>
-            ${journey.status === 'REROUTED' || journey.disruptionCount > 0 ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>' : ''}
+            ${
+              journey.status === "REROUTED" || journey.disruptionCount > 0
+                ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>'
+                : ""
+            }
             <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
             
-            ${journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED' ? `
+            ${
+              journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
+                ? `
                 <div class="progress-container">
                     <div class="progress-bar" style="width: ${progress}%"></div>
                 </div>
                 <span class="progress-text">${progress}% Completed</span>
-            ` : ''}
+            `
+                : ""
+            }
 
-            <p><strong>Planned Departure:</strong> ${formatDateTime(journey.plannedDeparture)}</p>
-            ${journey.actualDeparture ? `<p><strong>Started:</strong> ${formatDateTime(journey.actualDeparture)}</p>` : ''}
-            <p><strong>Planned Arrival:</strong> ${formatDateTime(journey.plannedArrival)}</p>
+            <p><strong>Planned Departure:</strong> ${formatDateTime(
+              journey.plannedDeparture
+            )}</p>
+            ${
+              journey.actualDeparture
+                ? `<p><strong>Started:</strong> ${formatDateTime(
+                    journey.actualDeparture
+                  )}</p>`
+                : ""
+            }
+            <p><strong>Planned Arrival:</strong> ${formatDateTime(
+              journey.plannedArrival
+            )}</p>
         </div>
     `;
 
-    if (journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED') {
-        completeJourneyBtn.classList.remove('hidden');
-        cancelJourneyBtn.classList.remove('hidden');
-        if (reportDisruptionBtn) reportDisruptionBtn.classList.remove('hidden');
-    } else {
-        completeJourneyBtn.classList.add('hidden');
-        cancelJourneyBtn.classList.add('hidden');
-        if (reportDisruptionBtn) reportDisruptionBtn.classList.add('hidden');
-    }
+  if (journey.status === "IN_PROGRESS" || journey.status === "REROUTED") {
+    completeJourneyBtn.classList.remove("hidden");
+    cancelJourneyBtn.classList.remove("hidden");
+    if (reportDisruptionBtn) reportDisruptionBtn.classList.remove("hidden");
+  } else {
+    completeJourneyBtn.classList.add("hidden");
+    cancelJourneyBtn.classList.add("hidden");
+    if (reportDisruptionBtn) reportDisruptionBtn.classList.add("hidden");
+  }
 }
 
 async function reportDisruption() {
-    if (!currentJourney) return;
+  if (!currentJourney) return;
 
-    // Ask user for rerouting method
-    const choice = confirm("Report disruption: Use current GPS location? (Click 'OK' for GPS, 'Cancel' to enter a station name)");
+  // Ask user for rerouting method
+  const choice = confirm(
+    "Report disruption: Use current GPS location? (Click 'OK' for GPS, 'Cancel' to enter a station name)"
+  );
 
-    let lat = '';
-    let lng = '';
-    let manualOrigin = '';
+  let lat = "";
+  let lng = "";
+  let manualOrigin = "";
 
-    if (choice) {
-        // Use GPS
-        const getPosition = () => new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject(new Error('Geolocation is not supported by your browser'));
-            } else {
-                navigator.geolocation.getCurrentPosition(resolve, reject);
-            }
-        });
-
-        try {
-            const position = await getPosition();
-            lat = position.coords.latitude;
-            lng = position.coords.longitude;
-            console.log('Got user location:', lat, lng);
-        } catch (geoErr) {
-            console.warn('Could not get location:', geoErr);
-            if (confirm("Could not get GPS location. Enter a station manually?")) {
-                manualOrigin = prompt("Enter new departure station:");
-                if (!manualOrigin) return;
-            } else {
-                return;
-            }
+  if (choice) {
+    // Use GPS
+    const getPosition = () =>
+      new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation is not supported by your browser"));
+        } else {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
         }
-    } else {
-        // Manual entry
-        manualOrigin = prompt("Enter new departure station:");
-        if (!manualOrigin) return;
-    }
+      });
 
     try {
-        const creator = currentUser ? currentUser.displayName : 'Anonymous';
-        let url = `/perturbations/apply?journeyId=${currentJourney.journeyId}&creator=${encodeURIComponent(creator)}`;
-
-        if (lat && lng) {
-            url += `&userLat=${lat}&userLng=${lng}`;
-        } else if (manualOrigin) {
-            url += `&newOrigin=${encodeURIComponent(manualOrigin)}`;
-        }
-
-        const newJourneys = await api.post(url);
-
-        currentJourneyPanel.classList.add('hidden');
-        document.querySelector('.results-panel').classList.remove('hidden');
-
-        resultsDiv.innerHTML = '';
-        if (newJourneys && newJourneys.length > 0) {
-            displayJourneyResults(newJourneys);
-            showToast('Disruption reported. Choose an alternative route below.', { variant: 'warning', durationMs: 6000 });
-        } else {
-            showToast('Disruption reported, but no alternative routes found.', { variant: 'warning' });
-        }
-    } catch (err) {
-        const msg = err.message || "";
-        if (msg.includes("No places") || msg.includes("No stop area") || msg.includes("No journey options") || msg.includes("Failed to calculate journey")) {
-            showToast("No journey found.", { variant: 'warning' });
-        } else {
-            showToast("No journey found.", { variant: 'warning' });
-            console.error("Disruption error:", msg);
-        }
+      const position = await getPosition();
+      lat = position.coords.latitude;
+      lng = position.coords.longitude;
+      console.log("Got user location:", lat, lng);
+    } catch (geoErr) {
+      console.warn("Could not get location:", geoErr);
+      if (confirm("Could not get GPS location. Enter a station manually?")) {
+        manualOrigin = prompt("Enter new departure station:");
+        if (!manualOrigin) return;
+      } else {
+        return;
+      }
     }
+  } else {
+    // Manual entry
+    manualOrigin = prompt("Enter new departure station:");
+    if (!manualOrigin) return;
+  }
+
+  try {
+    const creator = currentUser ? currentUser.displayName : "Anonymous";
+    let url = `/perturbations/apply?journeyId=${
+      currentJourney.journeyId
+    }&creator=${encodeURIComponent(creator)}`;
+
+    if (lat && lng) {
+      url += `&userLat=${lat}&userLng=${lng}`;
+    } else if (manualOrigin) {
+      url += `&newOrigin=${encodeURIComponent(manualOrigin)}`;
+    }
+
+    const newJourneys = await api.post(url);
+
+    currentJourneyPanel.classList.add("hidden");
+    document.querySelector(".results-panel").classList.remove("hidden");
+
+    resultsDiv.innerHTML = "";
+    if (newJourneys && newJourneys.length > 0) {
+      displayJourneyResults(newJourneys);
+      showToast("Disruption reported. Choose an alternative route below.", {
+        variant: "warning",
+        durationMs: 6000,
+      });
+    } else {
+      showToast("Disruption reported, but no alternative routes found.", {
+        variant: "warning",
+      });
+    }
+  } catch (err) {
+    const msg = err.message || "";
+    if (
+      msg.includes("No places") ||
+      msg.includes("No stop area") ||
+      msg.includes("No journey options") ||
+      msg.includes("Failed to calculate journey")
+    ) {
+      showToast("No journey found.", { variant: "warning" });
+    } else {
+      showToast("No journey found.", { variant: "warning" });
+      console.error("Disruption error:", msg);
+    }
+  }
 }
 
 async function handleJourneySubmit(e) {
@@ -646,7 +698,7 @@ async function handleJourneySubmit(e) {
   try {
     const journeys = await api.post("/api/journeys", payload);
 
-    resultsDiv.innerHTML = '';
+    resultsDiv.innerHTML = "";
     const list = Array.isArray(journeys) ? journeys : [journeys];
 
     if (list.length === 0) {
@@ -677,8 +729,12 @@ function displayJourneyResults(journeys) {
     ? `
       <div class="tasks-on-route-banner">
         <div>
-          <div class="tasks-on-route-title">${allTasks.length} task${allTasks.length > 1 ? "s" : ""} on your route</div>
-          <div class="tasks-on-route-sub">${escapeHtml(allTasks[0]?.title || "Task")}</div>
+          <div class="tasks-on-route-title">${allTasks.length} task${
+        allTasks.length > 1 ? "s" : ""
+      } on your route</div>
+          <div class="tasks-on-route-sub">${escapeHtml(
+            allTasks[0]?.title || "Task"
+          )}</div>
         </div>
         <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn">View</button>
       </div>
@@ -688,7 +744,9 @@ function displayJourneyResults(journeys) {
   const modesHtml = `
     <div class="journey-modes">
       <span>Comfort: ${firstJourney?.comfortModeEnabled ? "On" : "Off"}</span>
-      <span>Touristic: ${firstJourney?.touristicModeEnabled ? "On" : "Off"}</span>
+      <span>Touristic: ${
+        firstJourney?.touristicModeEnabled ? "On" : "Off"
+      }</span>
     </div>
   `;
 
@@ -700,11 +758,14 @@ function displayJourneyResults(journeys) {
   `;
 
   if (allTasks.length) {
-    document.getElementById("viewTasksOnRouteBtn")
+    document
+      .getElementById("viewTasksOnRouteBtn")
       ?.addEventListener("click", () => openTasksModal(allTasks));
   }
 
-  journeys.forEach((journey, index) => displayJourneyCard(journey, index + 1, journeys.length));
+  journeys.forEach((journey, index) =>
+    displayJourneyCard(journey, index + 1, journeys.length)
+  );
 }
 
 /**
@@ -715,9 +776,12 @@ function collectUniqueTasksFromJourneys(journeys) {
   const uniqueTasks = [];
 
   for (const journey of journeys) {
-    const tasks = Array.isArray(journey?.tasksOnRoute) ? journey.tasksOnRoute : [];
+    const tasks = Array.isArray(journey?.tasksOnRoute)
+      ? journey.tasksOnRoute
+      : [];
     for (const task of tasks) {
-      const key = task?.id || task?.taskId || task?.title || JSON.stringify(task);
+      const key =
+        task?.id || task?.taskId || task?.title || JSON.stringify(task);
       if (!seen.has(key)) {
         seen.add(key);
         uniqueTasks.push(task);
@@ -734,54 +798,85 @@ function collectUniqueTasksFromJourneys(journeys) {
 function displayJourneyCard(journey, index, total) {
   if (!resultsDiv) return;
 
-  const departure = journey?.plannedDeparture ? formatDateTime(journey.plannedDeparture) : "—";
-  const arrival = journey?.plannedArrival ? formatDateTime(journey.plannedArrival) : "—";
+  const departure = journey?.plannedDeparture
+    ? formatDateTime(journey.plannedDeparture)
+    : "—";
+  const arrival = journey?.plannedArrival
+    ? formatDateTime(journey.plannedArrival)
+    : "—";
   const legs = Array.isArray(journey?.legs) ? journey.legs : [];
 
   // Process legs: filter short same-place legs, convert long same-place OTHER to WALK
-  const processedLegs = legs.filter(leg => {
-    const duration = leg.durationSeconds || 0;
-    const samePlace = leg.originLabel === leg.destinationLabel;
-    return !(duration < 60 && samePlace);
-  }).map(leg => {
-    const duration = leg.durationSeconds || 0;
-    const samePlace = leg.originLabel === leg.destinationLabel;
-    if (duration >= 60 && samePlace && leg.mode === 'OTHER') {
-      return { ...leg, mode: 'WALK' };
-    }
-    return leg;
-  });
+  const processedLegs = legs
+    .filter((leg) => {
+      const duration = leg.durationSeconds || 0;
+      const samePlace = leg.originLabel === leg.destinationLabel;
+      return !(duration < 60 && samePlace);
+    })
+    .map((leg) => {
+      const duration = leg.durationSeconds || 0;
+      const samePlace = leg.originLabel === leg.destinationLabel;
+      if (duration >= 60 && samePlace && leg.mode === "OTHER") {
+        return { ...leg, mode: "WALK" };
+      }
+      return leg;
+    });
 
   const legsHtml = processedLegs.length
-    ? processedLegs.map(leg => `
+    ? processedLegs
+        .map(
+          (leg) => `
         <li class="journey-leg-item">
             <div class="leg-marker"></div>
             <div class="leg-content">
-                <span class="leg-mode">${formatMode(leg.mode)} ${leg.lineCode ? `<span class="leg-line">${leg.lineCode}</span>` : ''}</span>
-                <span class="leg-route">${leg.originLabel || '?'} → ${leg.destinationLabel || '?'}</span>
+                <span class="leg-mode">${formatMode(leg.mode)} ${
+            leg.lineCode ? `<span class="leg-line">${leg.lineCode}</span>` : ""
+          }</span>
+                <span class="leg-route">${leg.originLabel || "?"} → ${
+            leg.destinationLabel || "?"
+          }</span>
                 <div class="leg-times">
-                    ${leg.estimatedDeparture ? formatDateTime(leg.estimatedDeparture) : '?'} -
-                    ${leg.estimatedArrival ? formatDateTime(leg.estimatedArrival) : '?'}
-                    <span class="leg-duration">(${leg.durationSeconds ? formatDuration(leg.durationSeconds) : '?'})</span>
+                    ${
+                      leg.estimatedDeparture
+                        ? formatDateTime(leg.estimatedDeparture)
+                        : "?"
+                    } -
+                    ${
+                      leg.estimatedArrival
+                        ? formatDateTime(leg.estimatedArrival)
+                        : "?"
+                    }
+                    <span class="leg-duration">(${
+                      leg.durationSeconds
+                        ? formatDuration(leg.durationSeconds)
+                        : "?"
+                    })</span>
                 </div>
             </div>
         </li>
-    `).join('')
-    : '<li>No route details available</li>';
+    `
+        )
+        .join("")
+    : "<li>No route details available</li>";
 
-  const optionLabel = total > 1 ? `<span class="route-option-label">Option ${index}</span> ` : '';
+  const optionLabel =
+    total > 1 ? `<span class="route-option-label">Option ${index}</span> ` : "";
 
   const html = `
     <div class="journey-result">
-      <h3>${optionLabel}${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
+      <h3>${optionLabel}${escapeHtml(
+    journey?.originLabel || "—"
+  )} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
       <p class="journey-meta">Depart: ${departure} • Arrive: ${arrival}</p>
-      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${journey.journeyId}', this)">Start Journey</button>
+      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${
+        journey.journeyId
+      }', this)">Start Journey</button>
       <h4>Itinerary Steps:</h4>
       <ul class="journey-legs">${legsHtml}</ul>
     </div>
   `;
 
-  resultsDiv.insertAdjacentHTML('beforeend', html);
+  resultsDiv.insertAdjacentHTML("beforeend", html);
 }
 
 // ============================================================
@@ -858,7 +953,9 @@ async function ensureDefaultTaskListLoaded({ force }) {
   updateTasksUIState();
 
   try {
-    const list = await api.get(`/api/google/tasks/users/${currentUser.userId}/default-list`);
+    const list = await api.get(
+      `/api/google/tasks/users/${currentUser.userId}/default-list`
+    );
     defaultTaskList = { id: list.id, title: list.title || "Default" };
     updateTasksUIState();
     await loadTasksFromDefaultList();
@@ -866,12 +963,16 @@ async function ensureDefaultTaskListLoaded({ force }) {
     defaultTaskList = null;
     if (err.authError) {
       if (tasksResults)
-        tasksResults.innerHTML = '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
+        tasksResults.innerHTML =
+          '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
       showToast("Link Google Tasks first.", { variant: "warning" });
     } else {
       if (tasksResults)
-        tasksResults.innerHTML = '<p class="error-message">Could not load default list.</p>';
-      showToast(err?.message || "Could not load default list.", { variant: "warning" });
+        tasksResults.innerHTML =
+          '<p class="error-message">Could not load default list.</p>';
+      showToast(err?.message || "Could not load default list.", {
+        variant: "warning",
+      });
     }
     updateTasksUIState();
   }
@@ -887,17 +988,24 @@ async function loadTasksFromDefaultList() {
 
   try {
     const includeCompleted = !!tasksIncludeCompleted?.checked;
-    const url = `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(defaultTaskList.id)}/tasks?includeCompleted=${includeCompleted}`;
+    const url = `/api/google/tasks/users/${
+      currentUser.userId
+    }/lists/${encodeURIComponent(
+      defaultTaskList.id
+    )}/tasks?includeCompleted=${includeCompleted}`;
     const tasks = await api.get(url);
     renderTasks(tasks);
   } catch (err) {
     if (err.authError) {
       if (tasksResults)
-        tasksResults.innerHTML = '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
+        tasksResults.innerHTML =
+          '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
       showToast("Link Google Tasks first.", { variant: "warning" });
     } else {
       if (tasksResults)
-        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(err?.message || "Unknown error")}</p>`;
+        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
+          err?.message || "Unknown error"
+        )}</p>`;
     }
   }
 }
@@ -928,7 +1036,9 @@ function renderTasks(tasks) {
       return `
         <div class="task-card ${completed ? "completed" : ""}">
           <h3 class="task-title">${title}</h3>
-          <p class="task-meta">Due: ${escapeHtml(due)} • Status: ${escapeHtml(statusRaw)}${location ? ` • Location: ${location}` : ''}</p>
+          <p class="task-meta">Due: ${escapeHtml(due)} • Status: ${escapeHtml(
+        statusRaw
+      )}${location ? ` • Location: ${location}` : ""}</p>
           <div class="task-actions">
             ${completeBtn}
             <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-task-id="${escapeHtml(
@@ -963,7 +1073,11 @@ async function completeTask(taskId) {
   if (!currentUser || !defaultTaskList?.id) return;
 
   try {
-    const url = `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(defaultTaskList.id)}/tasks/${encodeURIComponent(taskId)}/complete`;
+    const url = `/api/google/tasks/users/${
+      currentUser.userId
+    }/lists/${encodeURIComponent(
+      defaultTaskList.id
+    )}/tasks/${encodeURIComponent(taskId)}/complete`;
     await api.patch(url);
     showToast("Task completed!", { variant: "success" });
     await loadTasksFromDefaultList();
@@ -971,7 +1085,9 @@ async function completeTask(taskId) {
     if (err.authError) {
       showToast("Link Google Tasks first.", { variant: "warning" });
     } else {
-      showToast(err?.message || "Failed to complete task", { variant: "warning" });
+      showToast(err?.message || "Failed to complete task", {
+        variant: "warning",
+      });
     }
   }
 }
@@ -981,7 +1097,11 @@ async function deleteTask(taskId) {
   if (!confirm("Delete this task?")) return;
 
   try {
-    const url = `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(defaultTaskList.id)}/tasks/${encodeURIComponent(taskId)}`;
+    const url = `/api/google/tasks/users/${
+      currentUser.userId
+    }/lists/${encodeURIComponent(
+      defaultTaskList.id
+    )}/tasks/${encodeURIComponent(taskId)}`;
     await api.delete(url);
     showToast("Task deleted.", { variant: "success" });
     await loadTasksFromDefaultList();
@@ -989,7 +1109,9 @@ async function deleteTask(taskId) {
     if (err.authError) {
       showToast("Link Google Tasks first.", { variant: "warning" });
     } else {
-      showToast(err?.message || "Failed to delete task", { variant: "warning" });
+      showToast(err?.message || "Failed to delete task", {
+        variant: "warning",
+      });
     }
   }
 }
@@ -1018,11 +1140,16 @@ async function createTask(e) {
     tasksResults.innerHTML = '<p class="loading">Creating task...</p>';
 
   try {
-    const url = `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(defaultTaskList.id)}/tasks`;
+    const url = `/api/google/tasks/users/${
+      currentUser.userId
+    }/lists/${encodeURIComponent(defaultTaskList.id)}/tasks`;
     const created = await api.post(url, payload);
 
     if (created?.locationWarning) {
-      showToast(`Task created, but location failed: ${created.locationWarning}`, { variant: "warning", durationMs: 6000 });
+      showToast(
+        `Task created, but location failed: ${created.locationWarning}`,
+        { variant: "warning", durationMs: 6000 }
+      );
     } else {
       showToast("Task created!", { variant: "success" });
     }
@@ -1032,11 +1159,14 @@ async function createTask(e) {
   } catch (err) {
     if (err.authError) {
       if (tasksResults)
-        tasksResults.innerHTML = '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
+        tasksResults.innerHTML =
+          '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
       showToast("Link Google Tasks first.", { variant: "warning" });
     } else {
       if (tasksResults)
-        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(err?.message || "Unknown error")}</p>`;
+        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
+          err?.message || "Unknown error"
+        )}</p>`;
     }
   }
 }
@@ -1062,11 +1192,19 @@ function startGoogleLinkFlow() {
     return;
   }
 
-  const linkUrl = `/api/google/tasks/link?userId=${encodeURIComponent(currentUser.userId)}`;
-  const popup = window.open(linkUrl, "googleTasksLink", CONFIG.POPUP_DIMENSIONS);
+  const linkUrl = `/api/google/tasks/link?userId=${encodeURIComponent(
+    currentUser.userId
+  )}`;
+  const popup = window.open(
+    linkUrl,
+    "googleTasksLink",
+    CONFIG.POPUP_DIMENSIONS
+  );
 
   if (!popup) {
-    if (statusEl) statusEl.textContent = "Popup blocked. Please allow popups for this site.";
+    if (statusEl)
+      statusEl.textContent =
+        "Popup blocked. Please allow popups for this site.";
     return;
   }
 
@@ -1126,7 +1264,10 @@ function handleGoogleLinkMessage(event) {
 // ============================================================
 function setupComfortProfileListeners() {
   editComfortProfileBtn?.addEventListener("click", openComfortProfileModal);
-  closeComfortProfileModal?.addEventListener("click", closeComfortProfileModalFn);
+  closeComfortProfileModal?.addEventListener(
+    "click",
+    closeComfortProfileModalFn
+  );
   clearComfortProfileBtn?.addEventListener("click", clearComfortProfile);
   comfortProfileForm?.addEventListener("submit", saveComfortProfile);
 
@@ -1160,8 +1301,14 @@ function loadComfortProfileIntoForm() {
   if (directPath) directPath.value = profile.directPath || "";
   if (requireAC) requireAC.checked = !!profile.requireAirConditioning;
   if (maxTransfers) maxTransfers.value = profile.maxNbTransfers ?? "";
-  if (maxWaiting) maxWaiting.value = profile.maxWaitingDuration ? Math.round(profile.maxWaitingDuration / 60) : "";
-  if (maxWalking) maxWalking.value = profile.maxWalkingDuration ? Math.round(profile.maxWalkingDuration / 60) : "";
+  if (maxWaiting)
+    maxWaiting.value = profile.maxWaitingDuration
+      ? Math.round(profile.maxWaitingDuration / 60)
+      : "";
+  if (maxWalking)
+    maxWalking.value = profile.maxWalkingDuration
+      ? Math.round(profile.maxWalkingDuration / 60)
+      : "";
 }
 
 async function saveComfortProfile(e) {
@@ -1169,7 +1316,8 @@ async function saveComfortProfile(e) {
   if (!currentUser) return;
 
   const directPath = document.getElementById("directPath")?.value || null;
-  const requireAC = !!document.getElementById("requireAirConditioning")?.checked;
+  const requireAC = !!document.getElementById("requireAirConditioning")
+    ?.checked;
   const maxTransfersVal = document.getElementById("maxNbTransfers")?.value;
   const maxWaitingVal = document.getElementById("maxWaitingDuration")?.value;
   const maxWalkingVal = document.getElementById("maxWalkingDuration")?.value;
@@ -1185,7 +1333,10 @@ async function saveComfortProfile(e) {
   const errorEl = document.getElementById("comfortProfileError");
 
   try {
-    const updated = await api.put(`/api/users/${currentUser.userId}/comfort-profile`, payload);
+    const updated = await api.put(
+      `/api/users/${currentUser.userId}/comfort-profile`,
+      payload
+    );
     currentUser.comfortProfile = updated;
     renderComfortProfileSummary();
     closeComfortProfileModalFn();
@@ -1209,7 +1360,9 @@ async function clearComfortProfile() {
     closeComfortProfileModalFn();
     showToast("Comfort profile cleared.", { variant: "success" });
   } catch (err) {
-    showToast(err?.message || "Failed to clear profile", { variant: "warning" });
+    showToast(err?.message || "Failed to clear profile", {
+      variant: "warning",
+    });
   }
 }
 
@@ -1232,7 +1385,11 @@ function renderComfortProfileSummary() {
       only: "Direct path only",
       only_with_alternatives: "Direct with alternatives",
     };
-    items.push(`<li>Direct Path: ${labels[profile.directPath] || profile.directPath}</li>`);
+    items.push(
+      `<li>Direct Path: ${
+        labels[profile.directPath] || profile.directPath
+      }</li>`
+    );
   }
 
   if (profile.requireAirConditioning) {
@@ -1253,7 +1410,9 @@ function renderComfortProfileSummary() {
     items.push(`<li>Max Walking: ${mins} min</li>`);
   }
 
-  comfortProfileSummary.innerHTML = `<ul class="comfort-summary-list">${items.join("")}</ul>`;
+  comfortProfileSummary.innerHTML = `<ul class="comfort-summary-list">${items.join(
+    ""
+  )}</ul>`;
 }
 
 function hasComfortSettings(profile) {
@@ -1272,7 +1431,10 @@ function validateComfortMode() {
 
   const profile = currentUser?.comfortProfile;
   if (!hasComfortSettings(profile)) {
-    showToast("Please configure your comfort profile first.", { variant: "warning", durationMs: 5000 });
+    showToast("Please configure your comfort profile first.", {
+      variant: "warning",
+      durationMs: 5000,
+    });
     openComfortProfileModal();
     return false;
   }
@@ -1500,15 +1662,64 @@ function formatDateTime(dt) {
 }
 
 function formatMode(mode) {
-    if (!mode) return 'Unknown';
-    if (mode === 'OTHER') return 'Connection';
-    if (mode === 'WALK') return 'Walk';
-    // Capitalize first letter, lowercase rest for others
-    return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
+  if (!mode) return "Unknown";
+  if (mode === "OTHER") return "Connection";
+  if (mode === "WALK") return "Walk";
+  // Capitalize first letter, lowercase rest for others
+  return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
 }
 
 function generateId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function")
     return window.crypto.randomUUID();
   return `user-${Date.now()}`;
+}
+
+// ============================================
+// GESTION DU THÈME (MODE CLAIR/SOMBRE)
+// ============================================
+
+function initTheme() {
+  const themeToggle = document.getElementById("themeToggle");
+  const themeIcon = document.getElementById("themeIcon");
+
+  // Récupérer le thème sauvegardé ou utiliser le thème système
+  const savedTheme = localStorage.getItem("mavigo_theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const initialTheme = savedTheme || (prefersDark ? "dark" : "light");
+
+  // Appliquer le thème initial
+  setTheme(initialTheme);
+
+  // Afficher le bouton de thème
+  if (themeToggle) {
+    themeToggle.classList.remove("hidden");
+  }
+
+  // Écouter les changements de préférence système
+  window
+    .matchMedia("(prefers-color-scheme: dark)")
+    .addEventListener("change", (e) => {
+      if (!localStorage.getItem("mavigo_theme")) {
+        setTheme(e.matches ? "dark" : "light");
+      }
+    });
+
+  // Écouter le clic sur le bouton toggle
+  themeToggle?.addEventListener("click", () => {
+    const currentTheme =
+      document.documentElement.getAttribute("data-theme") || "light";
+    const newTheme = currentTheme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    localStorage.setItem("mavigo_theme", newTheme);
+  });
+}
+
+function setTheme(theme) {
+  const themeIcon = document.getElementById("themeIcon");
+  document.documentElement.setAttribute("data-theme", theme);
+
+  if (themeIcon) {
+    themeIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+  }
 }
