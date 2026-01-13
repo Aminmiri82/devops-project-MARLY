@@ -79,6 +79,7 @@ const mainContent = document.getElementById("mainContent");
 const journeyForm = document.getElementById("journeyForm");
 const resultsDiv = document.getElementById("results");
 const currentJourneyPanel = document.getElementById("currentJourneyPanel");
+const planJourneyPanel = document.getElementById("planJourneyPanel");
 const currentJourneyContent = document.getElementById("currentJourneyContent");
 const completeJourneyBtn = document.getElementById("completeJourneyBtn");
 const cancelJourneyBtn = document.getElementById("cancelJourneyBtn");
@@ -402,113 +403,97 @@ function setupJourneyForm() {
 }
 
 function setupJourneyActions() {
-    completeJourneyBtn.addEventListener('click', completeJourney);
-    cancelJourneyBtn.addEventListener('click', cancelJourney);
-    if (reportDisruptionBtn) {
-        reportDisruptionBtn.addEventListener('click', reportDisruption);
-    }
+  completeJourneyBtn.addEventListener('click', completeJourney);
+  cancelJourneyBtn.addEventListener('click', cancelJourney);
+  if (reportDisruptionBtn) {
+    reportDisruptionBtn.addEventListener('click', reportDisruption);
+  }
 }
 
 async function startJourney(journeyId, btnElement) {
-    if (!currentUser) return;
+  if (!currentUser) return;
 
-    const allButtons = document.querySelectorAll('.start-journey-btn');
+  const allButtons = document.querySelectorAll('.start-journey-btn');
 
-    if (btnElement) {
-        btnElement.disabled = true;
-        btnElement.textContent = 'Starting...';
-    }
+  if (btnElement) {
+    btnElement.disabled = true;
+    btnElement.textContent = 'Starting...';
+  }
 
+  allButtons.forEach(btn => {
+    if (btn !== btnElement) btn.classList.add('hidden');
+  });
+
+  try {
+    const journey = await api.post(`/api/journeys/${journeyId}/start`);
+    updateCurrentJourney(journey);
+  } catch (err) {
+    showToast(err.message, { variant: 'warning' });
     allButtons.forEach(btn => {
-        if (btn !== btnElement) btn.classList.add('hidden');
+      btn.classList.remove('hidden');
+      btn.disabled = false;
+      if (btn === btnElement) btn.textContent = 'Start Journey';
     });
-
-    try {
-        const journey = await api.post(`/api/journeys/${journeyId}/start`);
-        updateCurrentJourney(journey);
-    } catch (err) {
-        showToast(err.message, { variant: 'warning' });
-        allButtons.forEach(btn => {
-            btn.classList.remove('hidden');
-            btn.disabled = false;
-            if (btn === btnElement) btn.textContent = 'Start Journey';
-        });
-    }
+  }
 }
 
 async function completeJourney() {
-    if (!currentJourney) return;
-    try {
-        const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/complete`);
-        updateCurrentJourney(journey);
-        showToast('Journey completed!', { variant: 'success' });
-    } catch (err) {
-        showToast(err.message, { variant: 'warning' });
-    }
+  if (!currentJourney) return;
+  try {
+    const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/complete`);
+    updateCurrentJourney(journey);
+    showToast('Journey completed!', { variant: 'success' });
+  } catch (err) {
+    showToast(err.message, { variant: 'warning' });
+  }
 }
 
 async function cancelJourney() {
-    if (!currentJourney) return;
-    if (!confirm('Are you sure you want to cancel this journey?')) return;
+  if (!currentJourney) return;
+  if (!confirm('Are you sure you want to cancel this journey?')) return;
 
-    try {
-        const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/cancel`);
-        updateCurrentJourney(journey);
-    } catch (err) {
-        showToast(err.message, { variant: 'warning' });
-    }
+  try {
+    const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/cancel`);
+    updateCurrentJourney(journey);
+  } catch (err) {
+    showToast(err.message, { variant: 'warning' });
+  }
 }
 
 function updateCurrentJourney(journey) {
-    currentJourney = journey;
+  currentJourney = journey;
 
-    if (journey && (journey.status === 'PLANNED' || journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED')) {
-        currentJourneyPanel.classList.remove('hidden');
-        renderCurrentJourney(journey);
+  if (journey && (journey.status === 'PLANNED' || journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED')) {
+    currentJourneyPanel.classList.remove('hidden');
+    renderCurrentJourney(journey);
 
-        // Hide results if we have an active journey
-        document.querySelector('.results-panel').classList.add('hidden');
+    // Hide results and planning form if we have an active journey
+    document.querySelector('.results-panel').classList.add('hidden');
+    if (journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED') {
+      planJourneyPanel?.classList.add('hidden');
     } else {
-        // Journey finished or cancelled
-        currentJourneyPanel.classList.add('hidden');
-        document.querySelector('.results-panel').classList.remove('hidden');
-        resultsDiv.innerHTML = '<p class="results-placeholder">Your journey results will appear here.</p>';
-        currentJourney = null;
+      planJourneyPanel?.classList.remove('hidden');
     }
+  } else {
+    // Journey finished or cancelled
+    currentJourneyPanel.classList.add('hidden');
+    planJourneyPanel?.classList.remove('hidden');
+    document.querySelector('.results-panel').classList.remove('hidden');
+    resultsDiv.innerHTML = '<p class="results-placeholder">Your journey results will appear here.</p>';
+    currentJourney = null;
+  }
 }
 
-function calculateProgress(journey) {
-    if (journey.status !== 'IN_PROGRESS' && journey.status !== 'REROUTED') return 0;
-
-    const now = new Date();
-    const start = new Date(journey.actualDeparture || journey.plannedDeparture);
-    const end = new Date(journey.plannedArrival);
-
-    if (isNaN(start) || isNaN(end) || end <= start) return 0;
-
-    if (now < start) return 0;
-    if (now > end) return 100;
-
-    const progress = ((now - start) / (end - start)) * 100;
-    return Math.min(Math.max(Math.round(progress), 0), 100);
-}
 
 function renderCurrentJourney(journey) {
-    const statusClass = journey.status === 'IN_PROGRESS' ? 'status-active' : 'status-planned';
-    const progress = calculateProgress(journey);
+  const statusClass = journey.status === 'IN_PROGRESS' ? 'status-active' : 'status-planned';
 
-    currentJourneyContent.innerHTML = `
+  currentJourneyContent.innerHTML = `
         <div class="journey-status-card">
             <div class="status-badge ${statusClass}">${journey.status}</div>
             ${journey.status === 'REROUTED' || journey.disruptionCount > 0 ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>' : ''}
             <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
             
-            ${journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED' ? `
-                <div class="progress-container">
-                    <div class="progress-bar" style="width: ${progress}%"></div>
-                </div>
-                <span class="progress-text">${progress}% Completed</span>
-            ` : ''}
 
             <p><strong>Planned Departure:</strong> ${formatDateTime(journey.plannedDeparture)}</p>
             ${journey.actualDeparture ? `<p><strong>Started:</strong> ${formatDateTime(journey.actualDeparture)}</p>` : ''}
@@ -516,88 +501,48 @@ function renderCurrentJourney(journey) {
         </div>
     `;
 
-    if (journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED') {
-        completeJourneyBtn.classList.remove('hidden');
-        cancelJourneyBtn.classList.remove('hidden');
-        if (reportDisruptionBtn) reportDisruptionBtn.classList.remove('hidden');
-    } else {
-        completeJourneyBtn.classList.add('hidden');
-        cancelJourneyBtn.classList.add('hidden');
-        if (reportDisruptionBtn) reportDisruptionBtn.classList.add('hidden');
-    }
+  if (journey.status === 'IN_PROGRESS' || journey.status === 'REROUTED') {
+    completeJourneyBtn.classList.remove('hidden');
+    cancelJourneyBtn.classList.remove('hidden');
+    if (reportDisruptionBtn) reportDisruptionBtn.classList.remove('hidden');
+  } else {
+    completeJourneyBtn.classList.add('hidden');
+    cancelJourneyBtn.classList.add('hidden');
+    if (reportDisruptionBtn) reportDisruptionBtn.classList.add('hidden');
+  }
 }
 
 async function reportDisruption() {
-    if (!currentJourney) return;
+  if (!currentJourney) return;
 
-    // Ask user for rerouting method
-    const choice = confirm("Report disruption: Use current GPS location? (Click 'OK' for GPS, 'Cancel' to enter a station name)");
+  const manualOrigin = prompt("Enter new departure station for rerouting:");
+  if (!manualOrigin) return;
 
-    let lat = '';
-    let lng = '';
-    let manualOrigin = '';
+  try {
+    const creator = currentUser ? currentUser.displayName : 'Anonymous';
+    let url = `/perturbations/apply?journeyId=${currentJourney.journeyId}&creator=${encodeURIComponent(creator)}&newOrigin=${encodeURIComponent(manualOrigin)}`;
 
-    if (choice) {
-        // Use GPS
-        const getPosition = () => new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject(new Error('Geolocation is not supported by your browser'));
-            } else {
-                navigator.geolocation.getCurrentPosition(resolve, reject);
-            }
-        });
+    const newJourneys = await api.post(url);
 
-        try {
-            const position = await getPosition();
-            lat = position.coords.latitude;
-            lng = position.coords.longitude;
-            console.log('Got user location:', lat, lng);
-        } catch (geoErr) {
-            console.warn('Could not get location:', geoErr);
-            if (confirm("Could not get GPS location. Enter a station manually?")) {
-                manualOrigin = prompt("Enter new departure station:");
-                if (!manualOrigin) return;
-            } else {
-                return;
-            }
-        }
+    currentJourneyPanel.classList.add('hidden');
+    document.querySelector('.results-panel').classList.remove('hidden');
+
+    resultsDiv.innerHTML = '';
+    if (newJourneys && newJourneys.length > 0) {
+      displayJourneyResults(newJourneys);
+      showToast('Disruption reported. Choose an alternative route below.', { variant: 'warning', durationMs: 6000 });
     } else {
-        // Manual entry
-        manualOrigin = prompt("Enter new departure station:");
-        if (!manualOrigin) return;
+      showToast('Disruption reported, but no alternative routes found.', { variant: 'warning' });
     }
-
-    try {
-        const creator = currentUser ? currentUser.displayName : 'Anonymous';
-        let url = `/perturbations/apply?journeyId=${currentJourney.journeyId}&creator=${encodeURIComponent(creator)}`;
-
-        if (lat && lng) {
-            url += `&userLat=${lat}&userLng=${lng}`;
-        } else if (manualOrigin) {
-            url += `&newOrigin=${encodeURIComponent(manualOrigin)}`;
-        }
-
-        const newJourneys = await api.post(url);
-
-        currentJourneyPanel.classList.add('hidden');
-        document.querySelector('.results-panel').classList.remove('hidden');
-
-        resultsDiv.innerHTML = '';
-        if (newJourneys && newJourneys.length > 0) {
-            displayJourneyResults(newJourneys);
-            showToast('Disruption reported. Choose an alternative route below.', { variant: 'warning', durationMs: 6000 });
-        } else {
-            showToast('Disruption reported, but no alternative routes found.', { variant: 'warning' });
-        }
-    } catch (err) {
-        const msg = err.message || "";
-        if (msg.includes("No places") || msg.includes("No stop area") || msg.includes("No journey options") || msg.includes("Failed to calculate journey")) {
-            showToast("No journey found.", { variant: 'warning' });
-        } else {
-            showToast("No journey found.", { variant: 'warning' });
-            console.error("Disruption error:", msg);
-        }
+  } catch (err) {
+    const msg = err.message || "";
+    if (msg.includes("No places") || msg.includes("No stop area") || msg.includes("No journey options") || msg.includes("Failed to calculate journey")) {
+      showToast("No journey found.", { variant: 'warning' });
+    } else {
+      showToast("No journey found.", { variant: 'warning' });
+      console.error("Disruption error:", msg);
     }
+  }
 }
 
 async function handleJourneySubmit(e) {
@@ -922,8 +867,8 @@ function renderTasks(tasks) {
       const completeBtn = completed
         ? `<button type="button" class="btn btn-success btn-sm" disabled>Completed</button>`
         : `<button type="button" class="btn btn-success btn-sm" data-action="complete" data-task-id="${escapeHtml(
-            id
-          )}">Complete</button>`;
+          id
+        )}">Complete</button>`;
 
       return `
         <div class="task-card ${completed ? "completed" : ""}">
@@ -932,8 +877,8 @@ function renderTasks(tasks) {
           <div class="task-actions">
             ${completeBtn}
             <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-task-id="${escapeHtml(
-              id
-            )}">Delete</button>
+        id
+      )}">Delete</button>
           </div>
         </div>
       `;
@@ -1297,11 +1242,11 @@ function notifyTasksOnRouteIfAny(journey) {
     .map((t) =>
       String(
         t?.taskId ||
-          t?.id ||
-          t?.googleTaskId ||
-          t?.sourceTaskId ||
-          t?.title ||
-          ""
+        t?.id ||
+        t?.googleTaskId ||
+        t?.sourceTaskId ||
+        t?.title ||
+        ""
       )
     )
     .filter(Boolean)
@@ -1358,9 +1303,8 @@ function showToast(message, opts = {}) {
   if (!container) return;
 
   const toast = document.createElement("div");
-  toast.className = `toast ${opts.variant ? `toast-${opts.variant}` : ""} ${
-    opts.important ? "toast-important" : ""
-  }`.trim();
+  toast.className = `toast ${opts.variant ? `toast-${opts.variant}` : ""} ${opts.important ? "toast-important" : ""
+    }`.trim();
 
   const text = document.createElement("div");
   text.className = "toast-text";
@@ -1397,8 +1341,8 @@ function showToast(message, opts = {}) {
     typeof opts.durationMs === "number"
       ? opts.durationMs
       : opts.important
-      ? CONFIG.TOAST_IMPORTANT_DURATION_MS
-      : CONFIG.TOAST_DURATION_MS;
+        ? CONFIG.TOAST_IMPORTANT_DURATION_MS
+        : CONFIG.TOAST_DURATION_MS;
   const timer = setTimeout(() => removeToast(toast), ttl);
 
   toast.addEventListener("mouseenter", () => clearTimeout(timer));
@@ -1500,11 +1444,11 @@ function formatDateTime(dt) {
 }
 
 function formatMode(mode) {
-    if (!mode) return 'Unknown';
-    if (mode === 'OTHER') return 'Connection';
-    if (mode === 'WALK') return 'Walk';
-    // Capitalize first letter, lowercase rest for others
-    return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
+  if (!mode) return 'Unknown';
+  if (mode === 'OTHER') return 'Connection';
+  if (mode === 'WALK') return 'Walk';
+  // Capitalize first letter, lowercase rest for others
+  return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
 }
 
 function generateId() {

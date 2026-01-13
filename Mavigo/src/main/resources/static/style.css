@@ -1025,33 +1025,6 @@ select:disabled {
     justify-content: center;
 }
 
-/* ----------------------------- */
-/* PROGRESS BAR                  */
-/* ----------------------------- */
-
-.progress-container {
-    height: 8px;
-    background: var(--color-border);
-    border-radius: var(--radius-lg);
-    margin: 16px 0;
-    overflow: hidden;
-    position: relative;
-}
-
-.progress-bar {
-    height: 100%;
-    background: var(--color-primary);
-    width: 0%;
-    transition: width 0.5s ease;
-}
-
-.progress-text {
-    font-size: 0.8125rem;
-    color: var(--color-text-muted);
-    margin-top: -8px;
-    margin-bottom: 16px;
-    display: block;
-}
 
 .comfort-profile-section {
     padding-top: 20px;

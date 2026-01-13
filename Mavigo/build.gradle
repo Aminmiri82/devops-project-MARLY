@@ -9,6 +9,7 @@ sonar {
     properties {
         property "sonar.projectKey", "Aminmiri82_devops-project-MARLY"
         property "sonar.organization", "aminmiri82"
+        property "sonar.host.url", "https://sonarcloud.io"
     }
 }
 
