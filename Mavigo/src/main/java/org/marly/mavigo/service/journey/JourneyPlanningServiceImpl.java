@@ -1,6 +1,7 @@
 package org.marly.mavigo.service.journey;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.marly.mavigo.client.prim.PrimApiClient;
 import org.marly.mavigo.client.prim.PrimApiException;
@@ -139,7 +140,7 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         if (userLat != null && userLng != null) {
              // Create a temporary StopArea for the GPS location
              originQuery = "Current Location"; // Display label
-             String tempId = String.format("coord:%.6f;%.6f", userLng, userLat); 
+             String tempId = String.format(Locale.ROOT, "coord:%.6f;%.6f", userLng, userLat); 
              org.marly.mavigo.models.shared.GeoPoint location = new org.marly.mavigo.models.shared.GeoPoint(userLat, userLng);
              origin = new StopArea(tempId, "Current Location", location);
         } else if (manualOrigin != null && !manualOrigin.isBlank()) {
