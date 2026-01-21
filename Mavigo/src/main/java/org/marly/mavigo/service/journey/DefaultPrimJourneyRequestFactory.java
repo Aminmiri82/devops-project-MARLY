@@ -24,6 +24,13 @@ public class DefaultPrimJourneyRequestFactory implements PrimJourneyRequestFacto
                 context.destination().getExternalId(),
                 context.parameters().departureDateTime());
 
+        // Allow walking to reach the first/last stop when using coordinates
+        request.withFirstSectionModes(List.of("walking"));
+        request.withLastSectionModes(List.of("walking"));
+
+        // Autoriser plus de marche pour rejoindre un arrêt quand on part d'une adresse précise
+        request.withMaxWalkingDurationToPt(3600);
+
         JourneyPreferences preferences = context.parameters().preferences();
         for (JourneyPreferenceStrategy strategy : strategies) {
             if (strategy.supports(preferences)) {

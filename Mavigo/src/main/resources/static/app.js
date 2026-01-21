@@ -804,6 +804,25 @@ function displayJourneyCard(journey, index, total) {
   const arrival = journey?.plannedArrival
     ? formatDateTime(journey.plannedArrival)
     : "—";
+  
+  // Calculer la durée totale du trajet
+  let totalDuration = null;
+  if (journey?.plannedDeparture && journey?.plannedArrival) {
+    const depTime = new Date(journey.plannedDeparture).getTime();
+    const arrTime = new Date(journey.plannedArrival).getTime();
+    const durationSeconds = Math.round((arrTime - depTime) / 1000);
+    totalDuration = formatDuration(durationSeconds);
+  } else {
+    // Fallback: additionner les durées des legs
+    const legs = Array.isArray(journey?.legs) ? journey.legs : [];
+    const totalSeconds = legs.reduce((sum, leg) => {
+      return sum + (leg.durationSeconds || 0);
+    }, 0);
+    if (totalSeconds > 0) {
+      totalDuration = formatDuration(totalSeconds);
+    }
+  }
+  
   const legs = Array.isArray(journey?.legs) ? journey.legs : [];
 
   // Process legs: filter short same-place legs, convert long same-place OTHER to WALK
@@ -862,12 +881,16 @@ function displayJourneyCard(journey, index, total) {
   const optionLabel =
     total > 1 ? `<span class="route-option-label">Option ${index}</span> ` : "";
 
+  const totalDurationHtml = totalDuration
+    ? ` • Durée: <strong>${totalDuration}</strong>`
+    : "";
+
   const html = `
     <div class="journey-result">
       <h3>${optionLabel}${escapeHtml(
     journey?.originLabel || "—"
   )} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
-      <p class="journey-meta">Depart: ${departure} • Arrive: ${arrival}</p>
+      <p class="journey-meta">Départ: ${departure} • Arrivée: ${arrival}${totalDurationHtml}</p>
       <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${
         journey.journeyId
       }', this)">Start Journey</button>
