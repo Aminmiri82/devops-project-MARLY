@@ -1,4 +1,4 @@
-package org.marly.mavigo.client.prim;
+package org.marly.mavigo.client.prim.model;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -20,6 +20,8 @@ public class PrimJourneyRequest {
     private Integer maxWalkingDurationToPt;
     private String directPath;
     private Boolean equipmentDetails;
+    private List<String> firstSectionModes;
+    private List<String> lastSectionModes;
 
     public PrimJourneyRequest(String fromStopAreaId, String toStopAreaId, LocalDateTime datetime) {
         this.fromStopAreaId = fromStopAreaId;
@@ -114,6 +116,35 @@ public class PrimJourneyRequest {
     public PrimJourneyRequest withEquipmentDetails(Boolean equipmentDetails) {
         this.equipmentDetails = equipmentDetails;
         return this;
+    }
+
+    public Optional<List<String>> getFirstSectionModes() {
+        return Optional.ofNullable(firstSectionModes);
+    }
+
+    public Optional<List<String>> getLastSectionModes() {
+        return Optional.ofNullable(lastSectionModes);
+    }
+
+    public PrimJourneyRequest withFirstSectionModes(List<String> modes) {
+        this.firstSectionModes = modes;
+        return this;
+    }
+
+    public PrimJourneyRequest withLastSectionModes(List<String> modes) {
+        this.lastSectionModes = modes;
+        return this;
+    }
+
+    // do we use these rn ?
+    private List<String> excludedLines = new ArrayList<>();
+
+    public void addExcludedLine(String lineCode) {
+        excludedLines.add(lineCode);
+    }
+
+    public List<String> getExcludedLines() {
+        return Collections.unmodifiableList(excludedLines);
     }
 
 }

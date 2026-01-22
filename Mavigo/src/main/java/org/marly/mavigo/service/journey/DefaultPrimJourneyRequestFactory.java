@@ -2,7 +2,7 @@ package org.marly.mavigo.service.journey;
 
 import java.util.List;
 
-import org.marly.mavigo.client.prim.PrimJourneyRequest;
+import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningContext;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
 import org.marly.mavigo.service.journey.preferences.JourneyPreferenceStrategy;
@@ -23,6 +23,13 @@ public class DefaultPrimJourneyRequestFactory implements PrimJourneyRequestFacto
                 context.origin().getExternalId(),
                 context.destination().getExternalId(),
                 context.parameters().departureDateTime());
+
+        // Allow walking to reach the first/last stop when using coordinates
+        request.withFirstSectionModes(List.of("walking"));
+        request.withLastSectionModes(List.of("walking"));
+
+        // Autoriser plus de marche pour rejoindre un arrêt quand on part d'une adresse précise
+        request.withMaxWalkingDurationToPt(3600);
 
         JourneyPreferences preferences = context.parameters().preferences();
         for (JourneyPreferenceStrategy strategy : strategies) {

@@ -1,6 +1,7 @@
 package org.marly.mavigo.service.journey;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.marly.mavigo.client.prim.PrimApiClient;
 import org.marly.mavigo.client.prim.PrimApiException;
@@ -33,19 +34,22 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
     private final UserRepository userRepository;
     private final JourneyAssembler journeyAssembler;
     private final PrimJourneyRequestFactory primJourneyRequestFactory;
+    private final JourneyResultFilter journeyResultFilter;
 
     public JourneyPlanningServiceImpl(PrimApiClient primApiClient,
             StopAreaService stopAreaService,
             JourneyRepository journeyRepository,
             UserRepository userRepository,
             JourneyAssembler journeyAssembler,
-            PrimJourneyRequestFactory primJourneyRequestFactory) {
+            PrimJourneyRequestFactory primJourneyRequestFactory,
+            JourneyResultFilter journeyResultFilter) {
         this.primApiClient = primApiClient;
         this.stopAreaService = stopAreaService;
         this.journeyRepository = journeyRepository;
         this.userRepository = userRepository;
         this.journeyAssembler = journeyAssembler;
         this.primJourneyRequestFactory = primJourneyRequestFactory;
+        this.journeyResultFilter = journeyResultFilter;
     }
 
     @Override
@@ -67,8 +71,12 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         var journeyRequest = primJourneyRequestFactory.create(context);
 
         List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(journeyRequest);
+
+        boolean comfortEnabled = parameters.preferences().comfortModeEnabled();
+        options = journeyResultFilter.filterByComfortProfile(options, user, comfortEnabled);
+
         if (options.isEmpty()) {
-            throw new PrimApiException("Prim API returned no journey options for the requested parameters");
+            throw new PrimApiException("No journey options match the requested parameters or comfort criteria");
         }
 
         // Select top 3 options
@@ -132,7 +140,7 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         if (userLat != null && userLng != null) {
              // Create a temporary StopArea for the GPS location
              originQuery = "Current Location"; // Display label
-             String tempId = String.format("coord:%.6f;%.6f", userLng, userLat); 
+             String tempId = String.format(Locale.ROOT, "coord:%.6f;%.6f", userLng, userLat); 
              org.marly.mavigo.models.shared.GeoPoint location = new org.marly.mavigo.models.shared.GeoPoint(userLat, userLng);
              origin = new StopArea(tempId, "Current Location", location);
         } else if (manualOrigin != null && !manualOrigin.isBlank()) {
@@ -171,8 +179,11 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         // request.addExcludedLine(disruption.getEffectedLine());
 
         // Recalculer les itinéraires
-        // Recalculer les itinéraires
         List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
+
+        boolean comfortEnabled = preferences.comfortModeEnabled();
+        options = journeyResultFilter.filterByComfortProfile(options, journey.getUser(), comfortEnabled);
+
         if (options.isEmpty()) {
             return java.util.Collections.singletonList(journey); // pas d'alternative trouvée
         }

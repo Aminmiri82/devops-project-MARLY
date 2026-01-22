@@ -1,7 +1,5 @@
 package org.marly.mavigo.controller;
 
-import static org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction.oauth2AuthorizedClient;
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -11,19 +9,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.marly.mavigo.client.google.dto.TaskDto;
 import org.marly.mavigo.client.google.dto.TaskListDto;
 import org.marly.mavigo.client.google.dto.TasksListsResponse;
 import org.marly.mavigo.client.google.dto.TasksPage;
 import org.marly.mavigo.client.prim.PrimApiClient;
-import org.marly.mavigo.client.prim.PrimPlace;
+import org.marly.mavigo.client.prim.model.PrimPlace;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.task.TaskSource;
 import org.marly.mavigo.models.task.UserTask;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.repository.UserTaskRepository;
+import org.marly.mavigo.service.tasks.GoogleTaskMapper;
 import org.marly.mavigo.service.user.UserService;
 import org.marly.mavigo.service.user.dto.GoogleAccountLink;
 import org.springframework.core.ParameterizedTypeReference;
@@ -35,9 +37,18 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
+import static org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction.oauth2AuthorizedClient;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
@@ -46,6 +57,13 @@ import org.springframework.web.util.HtmlUtils;
 @RestController
 @RequestMapping("/api/google/tasks")
 public class GoogleTasksController {
+
+    /**
+     * Balise de localisation dans les tâches Google.
+     * Exemple dans le titre ou les notes :
+     * "Acheter du lait #loc:Gare de Lyon"
+     */
+    private static final Pattern LOCATION_TAG = Pattern.compile("(?i)#mavigo:\\s*([^\\n#]+)");
 
     private final WebClient googleApiWebClient;
     private final OAuth2AuthorizedClientService authorizedClientService;
@@ -122,10 +140,6 @@ public class GoogleTasksController {
         return fetchLists(client, pageSize, pageToken);
     }
 
-    /**
-     * ✅ New: "one list" UX.
-     * Returns the default list used by the UI.
-     */
     @GetMapping("/users/{userId}/default-list")
     public Map<String, Object> defaultListForUser(@PathVariable UUID userId) {
         OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
@@ -140,13 +154,127 @@ public class GoogleTasksController {
     }
 
     @GetMapping("/users/{userId}/lists/{listId}/tasks")
-    public List<TaskDto> tasksForUser(
+    public List<Map<String, Object>> tasksForUser(
             @PathVariable UUID userId,
             @PathVariable String listId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(defaultValue = "false") boolean includeCompleted) {
         OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
-        return fetchTasks(client, listId, date, includeCompleted);
+        List<TaskDto> googleTasks = fetchTasks(client, listId, date, includeCompleted);
+        Map<String, UserTask> localTasksByGoogleId = buildLocalTaskLookup(userId);
+
+        // Synchronise les balises #loc:xxx des tâches Google -> UserTask (locationQuery
+        // + géocodage)
+        syncLocationTagsFromGoogle(userId, googleTasks, localTasksByGoogleId);
+
+        return googleTasks.stream()
+                .map(task -> enrichWithLocalData(task, localTasksByGoogleId))
+                .toList();
+    }
+
+    private Map<String, UserTask> buildLocalTaskLookup(UUID userId) {
+        return userTaskRepository.findByUser_Id(userId)
+                .stream()
+                .collect(Collectors.toMap(UserTask::getSourceTaskId, t -> t, (a, b) -> a));
+    }
+
+    private Map<String, Object> enrichWithLocalData(TaskDto googleTask, Map<String, UserTask> localTaskLookup) {
+        Map<String, Object> enriched = new LinkedHashMap<>();
+        enriched.put("id", googleTask.id());
+        enriched.put("title", googleTask.title());
+        enriched.put("notes", googleTask.notes());
+        enriched.put("status", googleTask.status());
+        enriched.put("due", googleTask.due());
+        enriched.put("completed", googleTask.completed());
+        enriched.put("updated", googleTask.updated());
+
+        UserTask localTask = localTaskLookup.get(googleTask.id());
+        if (localTask != null) {
+            enriched.put("locationQuery", localTask.getLocationQuery());
+            if (localTask.getLocationHint() != null) {
+                enriched.put("locationHint", Map.of(
+                        "lat", localTask.getLocationHint().getLatitude(),
+                        "lng", localTask.getLocationHint().getLongitude()));
+            }
+        }
+
+        return enriched;
+    }
+
+    /**
+     * Parcourt les tâches Google et, si on trouve une balise #mavigo:... dans la
+     * description (notes) ou le titre,
+     * on met à jour/persiste un UserTask avec locationQuery + locationHint géocodé.
+     *
+     * Convention : dans la description de la tâche Google Tasks, ajouter
+     * "#mavigo: Gare de Lyon" (ou "#mavigo:Gare de Lyon" sans espace).
+     * Exemple : Description = "Acheter du lait\n#mavigo: Gare de Lyon"
+     */
+    private void syncLocationTagsFromGoogle(UUID userId,
+            List<TaskDto> googleTasks,
+            Map<String, UserTask> localTasksByGoogleId) {
+        if (googleTasks == null || googleTasks.isEmpty())
+            return;
+
+        User user = userService.getUser(userId);
+
+        for (TaskDto dto : googleTasks) {
+            if (dto == null || dto.id() == null)
+                continue;
+
+            String locationQuery = extractLocationTag(dto);
+            if (!StringUtils.hasText(locationQuery))
+                continue;
+
+            UserTask ut = localTasksByGoogleId.get(dto.id());
+            if (ut == null) {
+                ut = GoogleTaskMapper.toEntity(dto, user);
+            }
+
+            ut.setLocationQuery(locationQuery);
+
+            // Géocodage best-effort via PRIM
+            try {
+                GeoPoint hint = resolveGeoPointFromQuery(locationQuery);
+                if (hint != null && hint.isComplete()) {
+                    ut.setLocationHint(hint);
+                }
+            } catch (ResponseStatusException ex) {
+                // On ne bloque pas si le géocodage échoue : la tâche restera sans locationHint
+            } catch (Exception ignore) {
+            }
+
+            UserTask saved = userTaskRepository.save(ut);
+            // Rafraîchir le lookup pour enrichWithLocalData()
+            localTasksByGoogleId.put(dto.id(), saved);
+        }
+    }
+
+    /**
+     * Extrait la balise #mavigo:... à partir des notes (description) ou du titre
+     * d'une tâche Google.
+     * Priorité : notes d'abord, puis titre si pas trouvé.
+     * Exemple supporté : "Description de la tâche\n#mavigo: Gare de Lyon"
+     */
+    private String extractLocationTag(TaskDto dto) {
+        String notes = dto.notes() == null ? "" : dto.notes();
+        String title = dto.title() == null ? "" : dto.title();
+
+        // Chercher d'abord dans les notes (description)
+        Matcher m = LOCATION_TAG.matcher(notes);
+        if (m.find()) {
+            String raw = m.group(1);
+            return raw == null ? null : raw.trim();
+        }
+
+        // Si pas trouvé dans les notes, chercher dans le titre
+        m = LOCATION_TAG.matcher(title);
+        if (m.find()) {
+            String raw = m.group(1);
+            return raw == null ? null : raw.trim();
+        }
+
+        return null;
     }
 
     @GetMapping("/users/{userId}/local")
@@ -170,6 +298,7 @@ public class GoogleTasksController {
                     } else {
                         m.put("locationHint", null);
                     }
+                    m.put("locationQuery", t.getLocationQuery());
                     return m;
                 })
                 .toList();
@@ -279,6 +408,9 @@ public class GoogleTasksController {
                 ut.setLocationHint(locationHint);
             } else {
                 ut.setLocationHint(null);
+            }
+            if (StringUtils.hasText(request.locationQuery())) {
+                ut.setLocationQuery(request.locationQuery());
             }
 
             UserTask saved = userTaskRepository.save(ut);
@@ -475,11 +607,14 @@ public class GoogleTasksController {
             }
 
             for (PrimPlace p : places) {
-                if (p == null || p.stopArea() == null || p.stopArea().coordinates() == null)
+                if (p == null)
                     continue;
-                var c = p.stopArea().coordinates();
-                if (c.latitude() != null && c.longitude() != null) {
-                    return new GeoPoint(c.latitude(), c.longitude());
+                var coords = p.coordinates() != null
+                        ? p.coordinates()
+                        : (p.stopArea() != null ? p.stopArea().coordinates()
+                                : (p.stopPoint() != null ? p.stopPoint().coordinates() : null));
+                if (coords != null && coords.latitude() != null && coords.longitude() != null) {
+                    return new GeoPoint(coords.latitude(), coords.longitude());
                 }
             }
 
