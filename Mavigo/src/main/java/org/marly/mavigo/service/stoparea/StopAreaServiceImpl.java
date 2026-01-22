@@ -1,6 +1,7 @@
 package org.marly.mavigo.service.stoparea;
 
 import org.marly.mavigo.client.prim.PrimApiClient;
+import org.marly.mavigo.client.prim.PrimPlaceUtils;
 import org.marly.mavigo.client.prim.model.PrimCoordinates;
 import org.marly.mavigo.client.prim.model.PrimPlace;
 import org.marly.mavigo.models.shared.GeoPoint;
@@ -14,13 +15,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 @Service
 public class StopAreaServiceImpl implements StopAreaService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(StopAreaServiceImpl.class);
+
+    private static final int INITIAL_RADIUS_METERS = 2000;
+    private static final int SECONDARY_RADIUS_METERS = 5000;
+    private static final int MAX_RADIUS_METERS = 20000;
 
     private final StopAreaRepository stopAreaRepository;
     private final PrimApiClient primApiClient;
@@ -74,7 +78,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                 // Search for nearest stop areas using coordinates
                 LOGGER.info("Searching PRIM for stop areas near coordinates: {}, {}", 
                         geocodedPoint.getLatitude(), geocodedPoint.getLongitude());
-                // Obtenir le nom de la ville via géocodage inverse
+                // Get city name via reverse geocoding
                 String cityName = null;
                 try {
                     String areaName = geocodingService.reverseGeocode(geocodedPoint);
@@ -85,13 +89,13 @@ public class StopAreaServiceImpl implements StopAreaService {
                 places = primApiClient.searchPlacesNearby(
                         geocodedPoint.getLatitude(),
                         geocodedPoint.getLongitude(),
-                        2000, // Rayon de 2km
+                        INITIAL_RADIUS_METERS,
                         cityName);
                 logPlaces("searchPlacesNearby", trimmedQuery, places);
                 
                 // If PRIM found places with stop areas, use the first one
                 PrimPlace nearestPlace = places.stream()
-                        .filter(this::hasStopAreaOrPoint)
+                        .filter(PrimPlaceUtils::hasStopAreaOrPoint)
                         .findFirst()
                         .orElse(null);
                 
@@ -112,7 +116,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                     StopArea saved = saveStopAreaIfNotExists(nearestPlace);
                     // Save remaining places
                     for (PrimPlace place : places) {
-                        if (place != nearestPlace && hasStopAreaOrPoint(place)) {
+                        if (place != nearestPlace && PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                             saveStopAreaIfNotExists(place);
                         }
                     }
@@ -123,21 +127,21 @@ public class StopAreaServiceImpl implements StopAreaService {
                     String areaName = geocodingService.reverseGeocode(geocodedPoint);
                     LOGGER.debug("Reverse geocoding returned: '{}'", areaName);
                     
-                    // Dernier recours: chercher avec des rayons croissants en utilisant le nom de ville
+                    // Last resort: search with increasing radius using city name
                     LOGGER.info("Trying iterative search with increasing radius using city name...");
                     String cityNameForSearch = areaName != null ? extractCityName(areaName) : null;
                     LOGGER.info("Extracted city name: '{}' from '{}'", cityNameForSearch, areaName);
                     
-                    // Si l'extraction a échoué ou retourné l'adresse complète, essayer "Sarcelles" directement
-                    if (cityNameForSearch == null || cityNameForSearch.isBlank() || 
+                    // If extraction failed or returned the full address, try "Sarcelles" directly
+                    if (cityNameForSearch == null || cityNameForSearch.isBlank() ||
                         cityNameForSearch.contains("Place") || cityNameForSearch.contains("95200") ||
                         cityNameForSearch.length() > 30) {
-                        // Le géocodage inverse a probablement retourné l'adresse complète
-                        // Chercher le nom de ville (le dernier mot qui n'est pas un code postal)
+                        // Reverse geocoding probably returned the full address
+                        // Find city name (the last word that is not a postal code)
                         String[] words = areaName != null ? areaName.split("\\s+") : new String[0];
                         for (int i = words.length - 1; i >= 0; i--) {
                             String word = words[i].trim().replaceAll("[^\\p{L}\\p{N}]", "");
-                            // Ignorer les codes postaux (5 chiffres)
+                            // Ignore postal codes (5 digits)
                             if (!word.matches("\\d{5}") && word.length() >= 3 && 
                                 !word.matches(".*\\d.*")) {
                                 cityNameForSearch = word;
@@ -145,7 +149,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                                 break;
                             }
                         }
-                        // Si toujours rien, essayer "Sarcelles" si l'adresse contient ce mot
+                        // If still nothing, try "Sarcelles" if the address contains that word
                         if ((cityNameForSearch == null || cityNameForSearch.isBlank()) && 
                             areaName != null && areaName.toLowerCase().contains("sarcelles")) {
                             cityNameForSearch = "Sarcelles";
@@ -153,7 +157,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                         }
                     }
                     
-                    for (int radius = 5000; radius <= 20000; radius += 5000) {
+                    for (int radius = SECONDARY_RADIUS_METERS; radius <= MAX_RADIUS_METERS; radius += SECONDARY_RADIUS_METERS) {
                         LOGGER.info("Searching with radius {}m, city: '{}'", radius, cityNameForSearch);
                         List<PrimPlace> nearbyPlaces = primApiClient.searchPlacesNearby(
                                 geocodedPoint.getLatitude(),
@@ -162,7 +166,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                                 cityNameForSearch);
                         
                         PrimPlace nearestNearbyPlace = nearbyPlaces.stream()
-                                .filter(this::hasStopAreaOrPoint)
+                                .filter(PrimPlaceUtils::hasStopAreaOrPoint)
                                 .findFirst()
                                 .orElse(null);
                         
@@ -178,7 +182,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                             
                             StopArea saved = saveStopAreaIfNotExists(nearestNearbyPlace);
                             for (PrimPlace place : nearbyPlaces) {
-                                if (place != nearestNearbyPlace && hasStopAreaOrPoint(place)) {
+                                if (place != nearestNearbyPlace && PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                                     saveStopAreaIfNotExists(place);
                                 }
                             }
@@ -186,8 +190,8 @@ public class StopAreaServiceImpl implements StopAreaService {
                         }
                     }
                     
-                    // Si on a un nom de ville mais que la recherche par rayon n'a rien donné,
-                    // essayer une recherche textuelle directe
+                    // If we have a city name but radius search found nothing,
+                    // try a direct text search
                     if (areaName != null && !areaName.isBlank()) {
                         LOGGER.info("Trying direct text search with area name: '{}'", areaName);
                         String[] searchTerms = {
@@ -202,16 +206,16 @@ public class StopAreaServiceImpl implements StopAreaService {
                             places = primApiClient.searchPlaces(searchTerm);
                             logPlaces("searchPlaces(areaName)", searchTerm, places);
                             
-                            // Filtrer les places valides et trouver la plus proche des coordonnées géocodées
+                            // Filter valid places and find the nearest to the geocoded coordinates
                             PrimPlace nearestByDistance = null;
                             double minDistance = Double.MAX_VALUE;
                             
                             for (PrimPlace place : places) {
-                                if (!hasStopAreaOrPoint(place)) continue;
+                                if (!PrimPlaceUtils.hasStopAreaOrPoint(place)) continue;
                                 
-                                PrimCoordinates coords = placeCoordinates(place);
+                                PrimCoordinates coords = PrimPlaceUtils.placeCoordinates(place);
                                 if (coords != null && coords.latitude() != null && coords.longitude() != null) {
-                                    double distance = calculateDistance(
+                                    double distance = PrimPlaceUtils.calculateDistance(
                                             geocodedPoint.getLatitude(), geocodedPoint.getLongitude(),
                                             coords.latitude(), coords.longitude());
                                     if (distance < minDistance) {
@@ -219,7 +223,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                                         nearestByDistance = place;
                                     }
                                 } else if (nearestByDistance == null) {
-                                    // Si pas de coordonnées mais c'est le premier arrêt valide, on le garde
+                                    // No coordinates but it's the first valid stop, keep it
                                     nearestByDistance = place;
                                 }
                             }
@@ -236,7 +240,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                                 
                                 StopArea saved = saveStopAreaIfNotExists(nearestByDistance);
                                 for (PrimPlace place : places) {
-                                    if (place != nearestByDistance && hasStopAreaOrPoint(place)) {
+                                    if (place != nearestByDistance && PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                                         saveStopAreaIfNotExists(place);
                                     }
                                 }
@@ -245,23 +249,23 @@ public class StopAreaServiceImpl implements StopAreaService {
                         }
                     }
                     
-                    // Si toujours rien trouvé, lancer une exception
+                    // If still nothing found, throw an exception
                     throw new IllegalArgumentException(
-                            "Aucun arrêt de transport trouvé pour : \"" + trimmedQuery + "\". " +
-                            "Aucun arrêt de transport n'a été trouvé dans un rayon de 10km autour de cette adresse. " +
-                            "Essayez d'utiliser un nom de station ou un lieu plus connu (ex: 'Gare de Lyon', 'Châtelet').");
+                            "No transit stop found for: \"" + trimmedQuery + "\". " +
+                            "No transit stop was found within 10km of this address. " +
+                            "Try using a station name or well-known location (e.g., 'Gare de Lyon', 'Châtelet').");
                 }
             } else {
                 throw new IllegalArgumentException(
-                        "Aucun lieu trouvé pour : \"" + trimmedQuery + "\". " +
-                        "Essayez d'utiliser un nom de station ou un lieu plus connu (ex: 'Gare de Lyon', 'Châtelet').");
+                        "No location found for: \"" + trimmedQuery + "\". " +
+                        "Try using a station name or well-known location (e.g., 'Gare de Lyon', 'Châtelet').");
             }
         }
 
         // Find the first place with a valid stopArea or stopPoint
         PrimPlace firstPlace = null;
         for (PrimPlace place : places) {
-            if (hasStopAreaOrPoint(place)) {
+            if (PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                 firstPlace = place;
                 break;
             }
@@ -271,22 +275,22 @@ public class StopAreaServiceImpl implements StopAreaService {
             // No valid stop area found in PRIM results
             // If we have coordinates from PRIM place results, use them directly
             PrimPlace placeWithCoords = places.stream()
-                    .filter(p -> placeCoordinates(p) != null)
+                    .filter(p -> PrimPlaceUtils.placeCoordinates(p) != null)
                     .findFirst()
                     .orElse(null);
             if (placeWithCoords != null) {
-                PrimCoordinates coords = placeCoordinates(placeWithCoords);
+                PrimCoordinates coords = PrimPlaceUtils.placeCoordinates(placeWithCoords);
                 if (coords != null && coords.latitude() != null && coords.longitude() != null) {
-                    // Au lieu d'utiliser coord:lon;lat, cherchons un arrêt proche de ces coordonnées
+                    // Instead of using coord:lon;lat, search for a stop near these coordinates
                     LOGGER.info("Found coordinates from PRIM place, searching for nearest stop area...");
                     List<PrimPlace> coordPlaces = primApiClient.searchPlacesNearby(
                             coords.latitude(),
                             coords.longitude(),
-                            5000, // 5km de rayon
-                            null); // Pas de nom de ville disponible
+                            SECONDARY_RADIUS_METERS,
+                            null); // No city name available
                     
                     PrimPlace nearestCoordPlace = coordPlaces.stream()
-                            .filter(this::hasStopAreaOrPoint)
+                            .filter(PrimPlaceUtils::hasStopAreaOrPoint)
                             .findFirst()
                             .orElse(null);
                     
@@ -302,7 +306,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                         
                         StopArea saved = saveStopAreaIfNotExists(nearestCoordPlace);
                         for (PrimPlace place : coordPlaces) {
-                            if (place != nearestCoordPlace && hasStopAreaOrPoint(place)) {
+                            if (place != nearestCoordPlace && PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                                 saveStopAreaIfNotExists(place);
                             }
                         }
@@ -319,7 +323,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                 LOGGER.info("Geocoded '{}' to coordinates: {}, {}", trimmedQuery, 
                         geocodedPoint.getLatitude(), geocodedPoint.getLongitude());
                 
-                // Obtenir le nom de la ville via géocodage inverse AVANT toute recherche
+                // Get city name via reverse geocoding AVANT toute recherche
                 String cityName = null;
                 try {
                     LOGGER.info("Getting city name via reverse geocoding...");
@@ -333,23 +337,23 @@ public class StopAreaServiceImpl implements StopAreaService {
                     LOGGER.warn("Reverse geocoding failed, continuing without city name: {}", e.getMessage());
                 }
                 
-                // Fallback: si l'extraction n'a pas fonctionné, essayer directement "Sarcelles"
+                // Fallback: if extraction didn't work, try "Sarcelles" directly
                 if (cityName == null || cityName.isBlank() || cityName.contains("Place") || cityName.contains("95200")) {
                     // Le géocodage inverse a probablement retourné l'adresse complète, essayons "Sarcelles"
                     LOGGER.info("City name extraction failed or returned full address, trying 'Sarcelles'...");
                     cityName = "Sarcelles";
                 }
                 
-                // Search for nearest stop areas avec un rayon initial plus large
+                // Search for nearest stop areas with a larger initial radius
                 List<PrimPlace> nearbyPlaces = primApiClient.searchPlacesNearby(
                         geocodedPoint.getLatitude(), 
                         geocodedPoint.getLongitude(), 
-                        5000, // Rayon initial de 5km
+                        SECONDARY_RADIUS_METERS,
                         cityName);
                 logPlaces("searchPlacesNearby(secondary)", trimmedQuery, nearbyPlaces);
                 
                 PrimPlace nearestSecondaryPlace = nearbyPlaces.stream()
-                        .filter(this::hasStopAreaOrPoint)
+                        .filter(PrimPlaceUtils::hasStopAreaOrPoint)
                         .findFirst()
                         .orElse(null);
                 
@@ -365,15 +369,15 @@ public class StopAreaServiceImpl implements StopAreaService {
                     
                     StopArea saved = saveStopAreaIfNotExists(nearestSecondaryPlace);
                     for (PrimPlace place : nearbyPlaces) {
-                        if (place != nearestSecondaryPlace && hasStopAreaOrPoint(place)) {
+                        if (place != nearestSecondaryPlace && PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                             saveStopAreaIfNotExists(place);
                         }
                     }
                     return saved;
                 }
-                // Si toujours rien: chercher avec des rayons croissants
+                // If still nothing: search with increasing radius
                 LOGGER.info("Trying iterative search with increasing radius (city: '{}')...", cityName);
-                for (int radius = 10000; radius <= 20000; radius += 5000) {
+                for (int radius = 2 * SECONDARY_RADIUS_METERS; radius <= MAX_RADIUS_METERS; radius += SECONDARY_RADIUS_METERS) {
                     LOGGER.info("Searching with radius {}m, city: '{}'", radius, cityName);
                     List<PrimPlace> radiusPlaces = primApiClient.searchPlacesNearby(
                             geocodedPoint.getLatitude(),
@@ -382,7 +386,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                             cityName);
                     
                     PrimPlace nearestRadiusPlace = radiusPlaces.stream()
-                            .filter(this::hasStopAreaOrPoint)
+                            .filter(PrimPlaceUtils::hasStopAreaOrPoint)
                             .findFirst()
                             .orElse(null);
                     
@@ -398,7 +402,7 @@ public class StopAreaServiceImpl implements StopAreaService {
                         
                         StopArea saved = saveStopAreaIfNotExists(nearestRadiusPlace);
                         for (PrimPlace place : radiusPlaces) {
-                            if (place != nearestRadiusPlace && hasStopAreaOrPoint(place)) {
+                            if (place != nearestRadiusPlace && PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                                 saveStopAreaIfNotExists(place);
                             }
                         }
@@ -406,17 +410,17 @@ public class StopAreaServiceImpl implements StopAreaService {
                     }
                 }
                 
-                // Si toujours rien trouvé, lancer une exception
+                // If still nothing found, throw an exception
                 throw new IllegalArgumentException(
-                        "Aucun arrêt de transport trouvé pour : \"" + trimmedQuery + "\". " +
-                        "Aucun arrêt de transport n'a été trouvé dans un rayon de 10km autour de cette adresse. " +
-                        "Essayez d'utiliser un nom de station ou un lieu plus connu (ex: 'Gare de Lyon', 'Châtelet').");
+                        "No transit stop found for: \"" + trimmedQuery + "\". " +
+                        "No transit stop was found within 10km of this address. " +
+                        "Try using a station name or well-known location (e.g., 'Gare de Lyon', 'Châtelet').");
             }
-            
+
             throw new IllegalArgumentException(
-                    "Aucun arrêt de transport trouvé pour : \"" + trimmedQuery + "\". " +
-                    "L'API PRIM n'a pas retourné d'arrêt de transport valide pour ce lieu. " +
-                    "Essayez d'utiliser un nom de station ou un lieu plus connu (ex: 'Gare de Lyon', 'Châtelet').");
+                    "No transit stop found for: \"" + trimmedQuery + "\". " +
+                    "The PRIM API did not return a valid transit stop for this location. " +
+                    "Try using a station name or well-known location (e.g., 'Gare de Lyon', 'Châtelet').");
         }
 
         String stopAreaId = placeId(firstPlace);
@@ -432,7 +436,7 @@ public class StopAreaServiceImpl implements StopAreaService {
         // Save remaining places (skip first since it's already saved)
         for (int i = 1; i < places.size(); i++) {
             PrimPlace place = places.get(i);
-            if (hasStopAreaOrPoint(place)) {
+            if (PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                 saveStopAreaIfNotExists(place);
             }
         }
@@ -441,8 +445,8 @@ public class StopAreaServiceImpl implements StopAreaService {
 
 
     /**
-     * Simplifie une adresse pour améliorer les chances de trouver un résultat dans PRIM.
-     * Exemples :
+     * Simplifies an address to improve chances of finding a result in PRIM.
+     * Examples:
      * - "21 place jean charcot" -> "place jean charcot"
      * - "21 place jean charcot, nanterre" -> "place jean charcot nanterre"
      */
@@ -463,8 +467,8 @@ public class StopAreaServiceImpl implements StopAreaService {
     }
 
     /**
-     * Extrait le nom de la ville depuis un nom de lieu (reverse geocoding result).
-     * Exemples:
+     * Extracts the city name from a place name (reverse geocoding result).
+     * Examples:
      * - "21 Place Jean Charcot 95200 Sarcelles" -> "Sarcelles"
      * - "Nanterre, Île-de-France, France" -> "Nanterre"
      * - "Sarcelles" -> "Sarcelles"
@@ -476,67 +480,43 @@ public class StopAreaServiceImpl implements StopAreaService {
         
         String trimmed = areaName.trim();
         
-        // Si le format est "Adresse CodePostal Ville" (format BAN typique)
-        // Exemple: "21 Place Jean Charcot 95200 Sarcelles"
-        // On cherche le code postal (5 chiffres) et on prend ce qui vient après
+        // If format is "Address PostalCode City" (typical BAN format)
+        // Example: "21 Place Jean Charcot 95200 Sarcelles"
+        // Look for the postal code (5 digits) and take what comes after
         java.util.regex.Pattern banPattern = java.util.regex.Pattern.compile("\\d{5}\\s+(.+)");
         java.util.regex.Matcher banMatcher = banPattern.matcher(trimmed);
         if (banMatcher.find()) {
             String city = banMatcher.group(1).trim();
-            // Nettoyer: enlever les virgules et parties supplémentaires
+            // Clean: remove commas and additional parts
             if (city.contains(",")) {
                 city = city.split(",")[0].trim();
             }
             return city;
         }
         
-        // Format classique avec virgules: "Ville, Région, Pays"
+        // Classic format with commas: "City, Region, Country"
         if (trimmed.contains(",")) {
             String[] parts = trimmed.split(",");
-            // Prendre la première partie qui ne contient pas de chiffre (c'est généralement la ville)
+            // Take the first part that doesn't contain a digit (usually the city)
             for (String part : parts) {
                 String cleaned = part.trim();
-                // Si la partie contient un code postal (5 chiffres), extraire la ville qui suit
+                // If the part contains a postal code (5 digits), extract the city that follows
                 java.util.regex.Pattern postalPattern = java.util.regex.Pattern.compile("\\d{5}\\s+(.+)");
                 java.util.regex.Matcher postalMatcher = postalPattern.matcher(cleaned);
                 if (postalMatcher.find()) {
                     return postalMatcher.group(1).trim();
                 }
-                // Sinon, si c'est une chaîne de texte sans chiffre, c'est probablement la ville
+                // Otherwise, if it's a text string without digits, it's probably the city
                 if (!cleaned.matches(".*\\d.*")) {
                     return cleaned;
                 }
             }
-            // Fallback: première partie
+            // Fallback: first part
             return parts[0].trim();
         }
         
-        // Pas de format spécial, retourner tel quel
+        // No special format, return as-is
         return trimmed;
-    }
-
-    /**
-     * Extrait le nom du quartier depuis un nom de lieu.
-     * Exemple: "Quartier Centre, Nanterre" -> "Quartier Centre"
-     */
-    private String extractNeighborhoodName(String areaName) {
-        if (areaName == null || areaName.isBlank()) {
-            return null;
-        }
-        
-        // Si le nom contient "Quartier" ou des mots similaires, essayer de l'extraire
-        String[] parts = areaName.split(",");
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (trimmed.toLowerCase().contains("quartier") || 
-                trimmed.toLowerCase().contains("neighborhood") ||
-                trimmed.toLowerCase().contains("sector")) {
-                return trimmed;
-            }
-        }
-        
-        // Sinon, retourner la première partie
-        return parts.length > 0 ? parts[0].trim() : null;
     }
 
     private void logPlaces(String source, String query, List<PrimPlace> places) {
@@ -555,30 +535,11 @@ public class StopAreaServiceImpl implements StopAreaService {
             }
             String stopAreaId = p.stopArea() != null ? p.stopArea().id() : null;
             String stopPointId = p.stopPoint() != null ? p.stopPoint().id() : null;
-            PrimCoordinates coords = placeCoordinates(p);
+            PrimCoordinates coords = PrimPlaceUtils.placeCoordinates(p);
             String coordText = coords == null ? null : (coords.latitude() + "," + coords.longitude());
             LOGGER.debug("  - id='{}' name='{}' type='{}' stopArea='{}' stopPoint='{}' coord='{}'",
                     p.id(), p.name(), p.embeddedType(), stopAreaId, stopPointId, coordText);
         }
-    }
-
-    private StopArea createCoordinateStopArea(String name, GeoPoint geoPoint) {
-        String externalId = String.format(Locale.ROOT, "coord:%.6f;%.6f", geoPoint.getLongitude(), geoPoint.getLatitude());
-        Optional<StopArea> existing = stopAreaRepository.findByExternalId(externalId);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-        String displayName = (name != null && !name.isBlank()) ? name : "Adresse";
-        StopArea stopArea = new StopArea(externalId, displayName, geoPoint);
-        return stopAreaRepository.save(stopArea);
-    }
-
-    private boolean hasStopAreaOrPoint(PrimPlace place) {
-        if (place == null) {
-            return false;
-        }
-        return (place.stopArea() != null && place.stopArea().id() != null)
-                || (place.stopPoint() != null && place.stopPoint().id() != null);
     }
 
     private String placeId(PrimPlace place) {
@@ -605,36 +566,6 @@ public class StopAreaServiceImpl implements StopAreaService {
             return place.stopPoint().name();
         }
         return place.name();
-    }
-
-    private PrimCoordinates placeCoordinates(PrimPlace place) {
-        if (place == null) {
-            return null;
-        }
-        if (place.coordinates() != null) {
-            return place.coordinates();
-        }
-        if (place.stopArea() != null && place.stopArea().coordinates() != null) {
-            return place.stopArea().coordinates();
-        }
-        if (place.stopPoint() != null && place.stopPoint().coordinates() != null) {
-            return place.stopPoint().coordinates();
-        }
-        return null;
-    }
-    
-    /**
-     * Calcule la distance en mètres entre deux points GPS (formule de Haversine).
-     */
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        final int R = 6371000; // Rayon de la Terre en mètres
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
     }
 
     @Override
@@ -665,7 +596,7 @@ public class StopAreaServiceImpl implements StopAreaService {
         
         // Save remaining places
         for (PrimPlace place : places) {
-            if (place != matchingPlace && hasStopAreaOrPoint(place)) {
+            if (place != matchingPlace && PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                 saveStopAreaIfNotExists(place);
             }
         }
@@ -676,7 +607,7 @@ public class StopAreaServiceImpl implements StopAreaService {
     @Transactional
     public void saveStopAreas(List<PrimPlace> places) {
         for (PrimPlace place : places) {
-            if (hasStopAreaOrPoint(place)) {
+            if (PrimPlaceUtils.hasStopAreaOrPoint(place)) {
                 saveStopAreaIfNotExists(place);
             }
         }
@@ -717,7 +648,7 @@ public class StopAreaServiceImpl implements StopAreaService {
         String stopAreaId = placeId(place);
         String name = placeName(place);
         
-        PrimCoordinates coords = placeCoordinates(place);
+        PrimCoordinates coords = PrimPlaceUtils.placeCoordinates(place);
         GeoPoint geoPoint = coords != null && coords.latitude() != null && coords.longitude() != null
                 ? new GeoPoint(coords.latitude(), coords.longitude())
                 : null;

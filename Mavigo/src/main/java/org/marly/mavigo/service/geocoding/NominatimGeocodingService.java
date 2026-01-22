@@ -52,7 +52,7 @@ public class NominatimGeocodingService implements GeocodingService {
                 }
             }
 
-            // Respecter la politique d'utilisation de Nominatim (User-Agent requis)
+            // Nominatim requires a User-Agent header per their usage policy
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.set("User-Agent", "Mavigo/1.0 (Transport Planning App)");
             org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
@@ -103,7 +103,7 @@ public class NominatimGeocodingService implements GeocodingService {
                     + "?lat=" + point.getLatitude()
                     + "&lon=" + point.getLongitude()
                     + "&format=json&addressdetails=1"
-                    + "&zoom=16"; // Niveau de détail : quartier/ville
+                    + "&zoom=16"; // Detail level: neighborhood/city
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.set("User-Agent", "Mavigo/1.0 (Transport Planning App)");
@@ -120,7 +120,7 @@ public class NominatimGeocodingService implements GeocodingService {
                 return null;
             }
 
-            // Extraire le nom du quartier, de la ville ou du lieu
+            // Extract the neighborhood, city, or place name
             Map<String, Object> address = result.address();
             String name = (String) address.get("neighbourhood");
             if (name == null || name.isBlank()) {

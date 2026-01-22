@@ -591,9 +591,7 @@ async function reportDisruption() {
       const position = await getPosition();
       lat = position.coords.latitude;
       lng = position.coords.longitude;
-      console.log("Got user location:", lat, lng);
     } catch (geoErr) {
-      console.warn("Could not get location:", geoErr);
       if (confirm("Could not get GPS location. Enter a station manually?")) {
         manualOrigin = prompt("Enter new departure station:");
         if (!manualOrigin) return;
@@ -647,7 +645,6 @@ async function reportDisruption() {
       showToast("No journey found.", { variant: "warning" });
     } else {
       showToast("No journey found.", { variant: "warning" });
-      console.error("Disruption error:", msg);
     }
   }
 }
@@ -711,7 +708,6 @@ async function handleJourneySubmit(e) {
   } catch (err) {
     if (resultsDiv)
       resultsDiv.innerHTML = '<p class="error-message">No journey found.</p>';
-    console.error("Journey planning error:", err);
   }
 }
 
