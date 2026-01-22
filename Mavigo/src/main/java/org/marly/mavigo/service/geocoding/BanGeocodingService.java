@@ -39,7 +39,7 @@ public class BanGeocodingService implements GeocodingService {
 
         try {
             String encoded = URLEncoder.encode(address, StandardCharsets.UTF_8);
-            String url = baseUrl + "/search/?q=" + encoded + "&limit=5&type=housenumber&autocomplete=0";
+            String url = baseUrl + "/search/?q=" + encoded + "&limit=5&autocomplete=0";
 
             BanResponse response = restTemplate.getForObject(url, BanResponse.class);
             if (response == null || response.features == null || response.features.isEmpty()) {
