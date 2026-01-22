@@ -28,7 +28,25 @@ public record PrimJourneyPlanDto(
             String destinationLabel,
             Double destinationLatitude,
             Double destinationLongitude,
-            String notes) {
+            String notes,
+            Boolean hasAirConditioning) {
+    }
+
+    public boolean hasAirConditioningOnAllTransitLegs() {
+        if (legs == null || legs.isEmpty()) {
+            return false;
+        }
+        return legs.stream()
+                .filter(this::isTransitLeg)
+                .allMatch(leg -> Boolean.TRUE.equals(leg.hasAirConditioning()));
+    }
+
+    private boolean isTransitLeg(LegDto leg) {
+        String type = leg.sectionType();
+        return type != null
+                && !type.equals("street_network")
+                && !type.equals("transfer")
+                && !type.equals("waiting")
+                && !type.equals("crow_fly");
     }
 }
-

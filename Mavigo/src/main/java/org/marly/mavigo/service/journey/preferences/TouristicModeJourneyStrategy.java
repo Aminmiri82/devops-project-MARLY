@@ -1,6 +1,6 @@
 package org.marly.mavigo.service.journey.preferences;
 
-import org.marly.mavigo.client.prim.PrimJourneyRequest;
+import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningContext;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
 import org.slf4j.Logger;
@@ -19,7 +19,8 @@ public class TouristicModeJourneyStrategy implements JourneyPreferenceStrategy {
 
     @Override
     public void apply(JourneyPlanningContext context, PrimJourneyRequest request) {
-        // TODO
+        LOGGER.debug("Applying touristic mode preferences to journey request");
+        // TODO: Implement touristic mode logic (e.g., prefer scenic routes, avoid
+        // transfers, etc.)
     }
 }
-

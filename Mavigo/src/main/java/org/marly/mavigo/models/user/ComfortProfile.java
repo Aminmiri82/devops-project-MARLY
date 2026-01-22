@@ -1,10 +1,74 @@
 package org.marly.mavigo.models.user;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-
 
 @Embeddable
 public class ComfortProfile {
-    // should have crowd tolerance, climate preference, prefer busses, avoid transfers, accessibility notes
-}
 
+    @Column(name = "direct_path")
+    private String directPath;
+
+    @Column(name = "require_air_conditioning")
+    private Boolean requireAirConditioning;
+
+    @Column(name = "max_nb_transfers")
+    private Integer maxNbTransfers;
+
+    @Column(name = "max_waiting_duration")
+    private Integer maxWaitingDuration;
+
+    @Column(name = "max_walking_duration")
+    private Integer maxWalkingDuration;
+
+    public ComfortProfile() {
+    }
+
+    public String getDirectPath() {
+        return directPath;
+    }
+
+    public void setDirectPath(String directPath) {
+        this.directPath = directPath;
+    }
+
+    public Boolean getRequireAirConditioning() {
+        return requireAirConditioning;
+    }
+
+    public void setRequireAirConditioning(Boolean requireAirConditioning) {
+        this.requireAirConditioning = requireAirConditioning;
+    }
+
+    public Integer getMaxNbTransfers() {
+        return maxNbTransfers;
+    }
+
+    public void setMaxNbTransfers(Integer maxNbTransfers) {
+        this.maxNbTransfers = maxNbTransfers;
+    }
+
+    public Integer getMaxWaitingDuration() {
+        return maxWaitingDuration;
+    }
+
+    public void setMaxWaitingDuration(Integer maxWaitingDuration) {
+        this.maxWaitingDuration = maxWaitingDuration;
+    }
+
+    public Integer getMaxWalkingDuration() {
+        return maxWalkingDuration;
+    }
+
+    public void setMaxWalkingDuration(Integer maxWalkingDuration) {
+        this.maxWalkingDuration = maxWalkingDuration;
+    }
+
+    public boolean hasSettings() {
+        return directPath != null
+                || requireAirConditioning != null
+                || maxNbTransfers != null
+                || maxWaitingDuration != null
+                || maxWalkingDuration != null;
+    }
+}

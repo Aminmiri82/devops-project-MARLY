@@ -1,6 +1,16 @@
 package org.marly.mavigo.client.prim;
 
 import org.marly.mavigo.client.prim.dto.PrimJourneyPlanDto;
+import org.marly.mavigo.client.prim.model.PrimCoordinates;
+import org.marly.mavigo.client.prim.model.PrimDisplayInformations;
+import org.marly.mavigo.client.prim.model.PrimJourney;
+import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
+import org.marly.mavigo.client.prim.model.PrimJourneyResponse;
+import org.marly.mavigo.client.prim.model.PrimPlace;
+import org.marly.mavigo.client.prim.model.PrimPlacesResponse;
+import org.marly.mavigo.client.prim.model.PrimSection;
+import org.marly.mavigo.client.prim.model.PrimStopDateTime;
+import org.marly.mavigo.client.prim.model.PrimStopPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,12 +19,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -77,6 +89,175 @@ public class PrimApiClientImpl implements PrimApiClient {
     }
 
     @Override
+    public List<PrimPlace> searchPlacesNearby(double latitude, double longitude, int radiusMeters) {
+        return searchPlacesNearby(latitude, longitude, radiusMeters, null);
+    }
+    
+    @Override
+    public List<PrimPlace> searchPlacesNearby(double latitude, double longitude, int radiusMeters, String cityName) {
+        // L'endpoint /places_nearby n'existe pas dans PRIM
+        // On utilise /places avec une recherche textuelle (nom de ville) puis on filtre par distance
+        
+        LOGGER.debug("Searching for places near coordinates {}, {} (radius: {}m, city: {})", 
+                latitude, longitude, radiusMeters, cityName);
+        
+        // Si on a un nom de ville, l'utiliser pour la recherche
+        if (cityName != null && !cityName.isBlank()) {
+            try {
+                String url = apiEndpoint + PLACES_ENDPOINT + "?q="
+                        + URLEncoder.encode(cityName, StandardCharsets.UTF_8)
+                        + "&count=200&type[]=stop_area&type[]=stop_point";
+
+                HttpHeaders headers = createHeaders();
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<PrimPlacesResponse> response = restTemplate.exchange(
+                        url,
+                        HttpMethod.GET,
+                        entity,
+                        PrimPlacesResponse.class);
+
+                PrimPlacesResponse placesResponse = response.getBody();
+                List<PrimPlace> places = placesResponse != null && placesResponse.places() != null
+                        ? placesResponse.places()
+                        : List.of();
+
+                LOGGER.debug("PRIM returned {} places for city '{}'", places.size(), cityName);
+
+                // Filtrer les places valides et calculer la distance
+                // Si le rayon est grand (>= 5000m), on accepte tous les arrêts de la ville, sinon on filtre par distance
+                List<PrimPlace> validPlaces = new ArrayList<>();
+                for (PrimPlace place : places) {
+                    if (place == null) continue;
+                    if (!hasStopAreaOrPoint(place)) continue;
+                    
+                    // Calculer la distance depuis les coordonnées cibles
+                    PrimCoordinates coords = placeCoordinates(place);
+                    if (coords != null && coords.latitude() != null && coords.longitude() != null) {
+                        double distance = calculateDistance(latitude, longitude, 
+                                coords.latitude(), coords.longitude());
+                        // Pour les grandes villes, accepter tous les arrêts si le rayon est >= 5000m
+                        // Sinon, filtrer strictement par distance
+                        if (radiusMeters >= 5000 || distance <= radiusMeters) {
+                            validPlaces.add(place);
+                        }
+                    } else {
+                        // Si pas de coordonnées mais qu'on a un arrêt valide, l'ajouter quand même
+                        // (utile pour les arrêts sans coordonnées précises)
+                        if (radiusMeters >= 5000) {
+                            validPlaces.add(place);
+                        }
+                    }
+                }
+                
+                // Trier par distance (les plus proches en premier)
+                validPlaces.sort((p1, p2) -> {
+                    PrimCoordinates c1 = placeCoordinates(p1);
+                    PrimCoordinates c2 = placeCoordinates(p2);
+                    if (c1 == null && c2 == null) return 0;
+                    if (c1 == null) return 1;
+                    if (c2 == null) return -1;
+                    double d1 = calculateDistance(latitude, longitude, c1.latitude(), c1.longitude());
+                    double d2 = calculateDistance(latitude, longitude, c2.latitude(), c2.longitude());
+                    return Double.compare(d1, d2);
+                });
+
+                if (!validPlaces.isEmpty()) {
+                    LOGGER.info("Found {} stop areas near coordinates {}, {} (radius: {}m) using city '{}'", 
+                            validPlaces.size(), latitude, longitude, radiusMeters, cityName);
+                    return validPlaces;
+                } else {
+                    LOGGER.warn("City search '{}' returned {} places but none within {}m of coordinates {}, {}", 
+                            cityName, places.size(), radiusMeters, latitude, longitude);
+                }
+            } catch (RestClientException e) {
+                LOGGER.warn("City search '{}' failed: {}", cityName, e.getMessage());
+            }
+        }
+        
+        // Fallback: Essayer avec coord:lon;lat (peu probable que ça fonctionne)
+        String coordQuery = String.format(Locale.ROOT, "coord:%.6f;%.6f", longitude, latitude);
+        try {
+            String url = apiEndpoint + PLACES_ENDPOINT + "?q="
+                    + URLEncoder.encode(coordQuery, StandardCharsets.UTF_8)
+                    + "&count=50&type[]=stop_area&type[]=stop_point";
+
+            HttpHeaders headers = createHeaders();
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<PrimPlacesResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    PrimPlacesResponse.class);
+
+            PrimPlacesResponse placesResponse = response.getBody();
+            List<PrimPlace> places = placesResponse != null && placesResponse.places() != null
+                    ? placesResponse.places()
+                    : List.of();
+
+            // Filtrer les places valides et calculer la distance
+            List<PrimPlace> validPlaces = new ArrayList<>();
+            for (PrimPlace place : places) {
+                if (place == null) continue;
+                if (!hasStopAreaOrPoint(place)) continue;
+                
+                PrimCoordinates coords = placeCoordinates(place);
+                if (coords != null && coords.latitude() != null && coords.longitude() != null) {
+                    double distance = calculateDistance(latitude, longitude, 
+                            coords.latitude(), coords.longitude());
+                    if (distance <= radiusMeters) {
+                        validPlaces.add(place);
+                    }
+                }
+            }
+            
+            if (!validPlaces.isEmpty()) {
+                LOGGER.info("Found {} stop areas near coordinates {}, {} (within {}m)", 
+                        validPlaces.size(), latitude, longitude, radiusMeters);
+                return validPlaces;
+            }
+        } catch (RestClientException e) {
+            LOGGER.debug("Coord query '{}' failed: {}", coordQuery, e.getMessage());
+        }
+        
+        LOGGER.warn("No stop areas found near coordinates {}, {} (radius: {}m)", latitude, longitude, radiusMeters);
+        return List.of();
+    }
+    
+    private boolean hasStopAreaOrPoint(PrimPlace place) {
+        if (place == null) return false;
+        return (place.stopArea() != null && place.stopArea().id() != null)
+                || (place.stopPoint() != null && place.stopPoint().id() != null);
+    }
+    
+    private PrimCoordinates placeCoordinates(PrimPlace place) {
+        if (place == null) return null;
+        if (place.coordinates() != null) return place.coordinates();
+        if (place.stopArea() != null && place.stopArea().coordinates() != null) {
+            return place.stopArea().coordinates();
+        }
+        if (place.stopPoint() != null && place.stopPoint().coordinates() != null) {
+            return place.stopPoint().coordinates();
+        }
+        return null;
+    }
+    
+    /**
+     * Calcule la distance en mètres entre deux points GPS (formule de Haversine).
+     */
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371000; // Rayon de la Terre en mètres
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    @Override
     public List<PrimJourneyPlanDto> calculateJourneyPlans(PrimJourneyRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("Journey request cannot be null");
@@ -92,40 +273,73 @@ public class PrimApiClientImpl implements PrimApiClient {
         }
 
         try {
-            LOGGER.info("Requesting journey from {} to {} at {}",
-                    request.getFromStopAreaId(),
-                    request.getToStopAreaId(),
-                    request.getDatetime());
-
-            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(apiEndpoint + JOURNEYS_ENDPOINT)
-                    .queryParam("from", request.getFromStopAreaId())
-                    .queryParam("to", request.getToStopAreaId())
-                    .queryParam("datetime", formatDateTime(request.getDatetime()))
-                    .queryParam("datetime_represents", request.getDatetimeRepresents());
-
-            request.getMaxDuration().ifPresent(duration -> uriBuilder.queryParam("max_duration", duration));
-            request.getMaxNbTransfers().ifPresent(transfers -> uriBuilder.queryParam("max_nb_transfers", transfers));
-            request.getWheelchair().ifPresent(wheelchair -> uriBuilder.queryParam("wheelchair", wheelchair));
-            request.getRealtime().ifPresent(realtime -> uriBuilder.queryParam("realtime", realtime));
-
-            String url = uriBuilder.toUriString();
-
-            HttpHeaders headers = createHeaders();
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            ResponseEntity<PrimJourneyResponse> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    entity,
-                    PrimJourneyResponse.class);
-
-            PrimJourneyResponse journeyResponse = response.getBody();
-            List<PrimJourneyPlanDto> plans = toJourneyPlanDtos(journeyResponse);
-            LOGGER.info("Prim journeys API returned {} option(s)", plans.size());
-            return plans;
+            return executeJourneyRequest(request);
         } catch (RestClientException e) {
+            if (isNoOriginError(e)) {
+                LOGGER.warn("PRIM returned no_origin. Retrying with direct_path=only and higher walking limit.");
+                PrimJourneyRequest fallback = new PrimJourneyRequest(
+                        request.getFromStopAreaId(),
+                        request.getToStopAreaId(),
+                        request.getDatetime());
+                fallback.withDirectPath("only");
+                fallback.withMaxWalkingDurationToPt(7200);
+                fallback.withMaxDuration(14400);
+                try {
+                    return executeJourneyRequest(fallback);
+                } catch (RestClientException ex) {
+                    throw new PrimApiException("Failed to calculate journey (fallback): " + ex.getMessage(), ex);
+                }
+            }
             throw new PrimApiException("Failed to calculate journey: " + e.getMessage(), e);
         }
+    }
+
+    private List<PrimJourneyPlanDto> executeJourneyRequest(PrimJourneyRequest request) {
+        LOGGER.info("Requesting journey from {} to {} at {}",
+                request.getFromStopAreaId(),
+                request.getToStopAreaId(),
+                request.getDatetime());
+
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(apiEndpoint + JOURNEYS_ENDPOINT)
+                .queryParam("from", request.getFromStopAreaId())
+                .queryParam("to", request.getToStopAreaId())
+                .queryParam("datetime", formatDateTime(request.getDatetime()))
+                .queryParam("datetime_represents", request.getDatetimeRepresents());
+
+        request.getMaxDuration().ifPresent(duration -> uriBuilder.queryParam("max_duration", duration));
+        request.getMaxNbTransfers().ifPresent(transfers -> uriBuilder.queryParam("max_nb_transfers", transfers));
+        request.getWheelchair().ifPresent(wheelchair -> uriBuilder.queryParam("wheelchair", wheelchair));
+        request.getRealtime().ifPresent(realtime -> uriBuilder.queryParam("realtime", realtime));
+        request.getMaxWaitingDuration().ifPresent(duration -> uriBuilder.queryParam("max_waiting_duration", duration));
+        request.getMaxWalkingDurationToPt().ifPresent(duration -> uriBuilder.queryParam("max_walking_duration_to_pt", duration));
+        request.getDirectPath().ifPresent(path -> uriBuilder.queryParam("direct_path", path));
+        request.getEquipmentDetails().ifPresent(details -> uriBuilder.queryParam("equipment_details", details));
+        request.getFirstSectionModes().ifPresent(modes -> modes.forEach(mode -> uriBuilder.queryParam("first_section_mode[]", mode)));
+        request.getLastSectionModes().ifPresent(modes -> modes.forEach(mode -> uriBuilder.queryParam("last_section_mode[]", mode)));
+
+        String url = uriBuilder.toUriString();
+
+        HttpHeaders headers = createHeaders();
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<PrimJourneyResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                PrimJourneyResponse.class);
+
+        PrimJourneyResponse journeyResponse = response.getBody();
+        List<PrimJourneyPlanDto> plans = toJourneyPlanDtos(journeyResponse);
+        LOGGER.info("Prim journeys API returned {} option(s)", plans.size());
+        return plans;
+    }
+
+    private boolean isNoOriginError(RestClientException e) {
+        if (e instanceof HttpClientErrorException httpEx) {
+            String body = httpEx.getResponseBodyAsString();
+            return body != null && body.contains("\"id\":\"no_origin\"");
+        }
+        return false;
     }
 
     private HttpHeaders createHeaders() {
@@ -206,7 +420,8 @@ public class PrimApiClientImpl implements PrimApiClient {
                                 to.name(),
                                 extractLatitude(to),
                                 extractLongitude(to),
-                                di != null ? di.label() : null));
+                                di != null ? di.label() : null,
+                                section.hasAirConditioning()));
                     }
                 }
                 continue;
@@ -240,7 +455,8 @@ public class PrimApiClientImpl implements PrimApiClient {
                 to != null ? to.name() : null,
                 extractLatitude(to),
                 extractLongitude(to),
-                displayInformations != null ? displayInformations.label() : null);
+                displayInformations != null ? displayInformations.label() : null,
+                section.hasAirConditioning());
     }
 
     private OffsetDateTime toOffset(LocalDateTime dateTime) {

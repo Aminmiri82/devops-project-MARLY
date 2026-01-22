@@ -60,6 +60,10 @@ public class UserTask {
     })
     private GeoPoint locationHint;
 
+    // original location query string (e.g., "Châtelet")
+    @Column(name = "location_query")
+    private String locationQuery;
+
     @Column(name = "last_synced_at")
     private OffsetDateTime lastSyncedAt = OffsetDateTime.now();
 
@@ -139,6 +143,14 @@ public class UserTask {
 
     public void setLocationHint(GeoPoint locationHint) {
         this.locationHint = locationHint;
+    }
+
+    public String getLocationQuery() {
+        return locationQuery;
+    }
+
+    public void setLocationQuery(String locationQuery) {
+        this.locationQuery = locationQuery;
     }
 
     public OffsetDateTime getLastSyncedAt() {

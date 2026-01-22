@@ -1,4 +1,4 @@
-package org.marly.mavigo.client.prim;
+package org.marly.mavigo.client.prim.model;
 
 import org.marly.mavigo.client.prim.deserializer.PrimCoordinatesDeserializer;
 
