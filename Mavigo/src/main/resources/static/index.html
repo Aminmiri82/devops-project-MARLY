@@ -140,16 +140,12 @@
   </div>
 </div>
 
-<div class="modal-overlay hidden" id="disruptionModal" role="dialog" aria-modal="true" aria-labelledby="disruptionModalTitle">
-  <div class="modal">
-    <button type="button" class="modal-close" id="closeDisruptionModal" aria-label="Close dialog">&times;</button>
-    <div class="auth-form">
-      <h2 id="disruptionModalTitle">Reroute Journey</h2>
-      <p class="form-subtitle">Choose how to start your new journey</p>
-
-      <button type="button" id="useGpsBtn" class="btn btn-primary btn-block mb-3">Use Current GPS Location</button>
-      <div class="divider-text" aria-hidden="true">— OR —</div>
-      <button type="button" id="useManualBtn" class="btn btn-outline btn-block">Enter Departure Station Name</button>
+<div class="disruption-modal-overlay hidden" id="disruptionModal" role="dialog" aria-modal="true" aria-labelledby="disruptionModalTitle">
+  <div class="disruption-modal">
+    <button type="button" class="disruption-modal-close" id="disruptionModalClose" aria-label="Close">&times;</button>
+    <h3 class="disruption-modal-title" id="disruptionModalTitle">Report Disruption</h3>
+    <div id="disruptionModalContent" class="disruption-modal-content">
+      <!-- Content populated by JavaScript -->
     </div>
   </div>
 </div>

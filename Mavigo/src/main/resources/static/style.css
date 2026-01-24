@@ -2037,3 +2037,295 @@ body {
     gap: var(--spacing-sm);
     align-items: center;
 }
+
+/* ============================================
+   DISRUPTION REPORTING MODAL
+   ============================================ */
+
+.disruption-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2500;
+    padding: var(--spacing-lg);
+    animation: fadeIn 0.2s ease-out;
+}
+
+.disruption-modal {
+    width: 100%;
+    max-width: 480px;
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-xl);
+    padding: var(--spacing-xl);
+    position: relative;
+    animation: slideUp 0.3s ease-out;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.disruption-modal-close {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 1.6rem;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    transition: all var(--transition-fast);
+}
+
+.disruption-modal-close:hover {
+    color: var(--color-text);
+    background: var(--color-surface-hover);
+}
+
+.disruption-modal-title {
+    margin: 0 0 var(--spacing-md);
+    font-size: 1.375rem;
+    color: var(--color-accent);
+    font-weight: 700;
+}
+
+.disruption-modal-subtitle {
+    margin: 0 0 var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+}
+
+.disruption-modal-content {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Choice buttons for line vs station */
+.disruption-choice-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.disruption-choice-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--spacing-lg);
+    text-align: left;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-base);
+}
+
+.disruption-choice-btn:hover {
+    border-color: var(--color-primary);
+    background: var(--color-surface-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.disruption-choice-icon {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+.disruption-choice-label {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-xs);
+}
+
+.disruption-choice-desc {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    font-weight: 400;
+}
+
+/* Lines list */
+.disruption-lines-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    max-height: 50vh;
+    overflow-y: auto;
+    margin-bottom: var(--spacing-lg);
+}
+
+.disruption-line-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-align: left;
+    width: 100%;
+}
+
+.disruption-line-btn:hover {
+    border-color: var(--color-primary);
+    background: var(--color-surface-hover);
+    transform: translateX(4px);
+}
+
+.line-color-badge {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.line-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.line-code {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.line-name {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.line-mode {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-surface-hover);
+    border-radius: var(--radius-sm);
+}
+
+/* Stations list */
+.disruption-stations-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    max-height: 50vh;
+    overflow-y: auto;
+    margin-bottom: var(--spacing-lg);
+}
+
+.disruption-station-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-align: left;
+    width: 100%;
+}
+
+.disruption-station-btn:hover {
+    border-color: var(--color-primary);
+    background: var(--color-surface-hover);
+    transform: translateX(4px);
+}
+
+.station-sequence {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.station-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.station-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.station-line {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+}
+
+/* Reroute result header */
+.reroute-header {
+    margin-bottom: var(--spacing-lg);
+}
+
+.reroute-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background: var(--color-warning-light);
+    border: 2px solid var(--color-warning);
+    border-radius: var(--radius-lg);
+}
+
+.reroute-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.reroute-info {
+    flex: 1;
+}
+
+.reroute-info strong {
+    display: block;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-xs);
+}
+
+.reroute-info p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+}
+
+/* Route option label */
+.route-option-label {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-right: var(--spacing-sm);
+}

@@ -3,15 +3,18 @@ package org.marly.mavigo.service.journey;
 import java.text.Normalizer;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
 import org.marly.mavigo.client.prim.dto.PrimJourneyPlanDto;
 import org.marly.mavigo.models.journey.Journey;
+import org.marly.mavigo.models.journey.JourneyPoint;
+import org.marly.mavigo.models.journey.JourneyPointStatus;
+import org.marly.mavigo.models.journey.JourneyPointType;
+import org.marly.mavigo.models.journey.JourneySegment;
 import org.marly.mavigo.models.journey.JourneyStatus;
-import org.marly.mavigo.models.journey.Leg;
+import org.marly.mavigo.models.journey.SegmentType;
 import org.marly.mavigo.models.journey.TransitMode;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.stoparea.StopArea;
@@ -19,14 +22,21 @@ import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
 import org.springframework.stereotype.Component;
 
+/**
+ * Assembles Journey entities from PRIM API responses.
+ * Creates JourneySegment and JourneyPoint entities for the new architecture.
+ */
 @Component
 public class JourneyAssembler {
 
-    Journey assemble(User user,
-                     StopArea origin,
-                     StopArea destination,
-                     PrimJourneyPlanDto plan,
-                     JourneyPreferences preferences) {
+    /**
+     * Assembles a Journey entity from PRIM response data.
+     */
+    public Journey assemble(User user,
+                           StopArea origin,
+                           StopArea destination,
+                           PrimJourneyPlanDto plan,
+                           JourneyPreferences preferences) {
 
         Objects.requireNonNull(user, "User is required when creating a journey");
         Objects.requireNonNull(origin, "Origin stop area is required");
@@ -49,37 +59,215 @@ public class JourneyAssembler {
         journey.setTouristicModeEnabled(preferences != null && preferences.touristicModeEnabled());
         journey.setPrimItineraryId(plan.journeyId());
         journey.setStatus(JourneyStatus.PLANNED);
-        journey.replaceLegs(mapLegs(plan.legs()));
+
+        // Create segments and points
+        List<JourneySegment> segments = mapSegments(journey, plan.legs());
+        for (JourneySegment segment : segments) {
+            journey.addSegment(segment);
+        }
+
+        // Mark transfer points
+        markTransferPoints(journey);
 
         return journey;
     }
 
-    private List<Leg> mapLegs(List<PrimJourneyPlanDto.LegDto> legDtos) {
+    /**
+     * Creates JourneySegment entities from leg DTOs.
+     * Filters out WAITING segments (they don't provide navigation value).
+     */
+    private List<JourneySegment> mapSegments(Journey journey, List<PrimJourneyPlanDto.LegDto> legDtos) {
         if (legDtos == null || legDtos.isEmpty()) {
-            return Collections.emptyList();
+            return new ArrayList<>();
         }
 
-        List<Leg> legs = new ArrayList<>(legDtos.size());
+        List<JourneySegment> segments = new ArrayList<>(legDtos.size());
+        int segmentOrder = 0;
+
         for (PrimJourneyPlanDto.LegDto dto : legDtos) {
-            legs.add(mapLeg(dto));
+            // Skip WAITING segments - they don't provide useful navigation info
+            if ("waiting".equalsIgnoreCase(dto.sectionType())) {
+                continue;
+            }
+
+            JourneySegment segment = mapSegment(journey, dto, segmentOrder++);
+
+            // Skip segments with no points (malformed data)
+            if (segment.getPoints().isEmpty()) {
+                continue;
+            }
+
+            segments.add(segment);
         }
-        return legs;
+
+        return segments;
     }
 
-    private Leg mapLeg(PrimJourneyPlanDto.LegDto dto) {
-        Leg leg = new Leg();
-        leg.setSequenceOrder(dto.sequenceOrder());
-        leg.setMode(resolveTransitMode(dto));
-        leg.setLineCode(dto.lineCode());
-        leg.setOriginLabel(defaultString(dto.originLabel(), "Unknown origin"));
-        leg.setDestinationLabel(defaultString(dto.destinationLabel(), "Unknown destination"));
-        leg.setOriginCoordinate(toGeoPoint(dto.originLatitude(), dto.originLongitude()));
-        leg.setDestinationCoordinate(toGeoPoint(dto.destinationLatitude(), dto.destinationLongitude()));
-        leg.setEstimatedDeparture(dto.departureDateTime());
-        leg.setEstimatedArrival(dto.arrivalDateTime());
-        leg.setDurationSeconds(dto.durationSeconds());
-        leg.setNotes(dto.notes());
-        return leg;
+    /**
+     * Creates a single JourneySegment from a leg DTO.
+     */
+    private JourneySegment mapSegment(Journey journey, PrimJourneyPlanDto.LegDto dto, int sequenceOrder) {
+        SegmentType segmentType = resolveSegmentType(dto.sectionType());
+        TransitMode transitMode = resolveTransitMode(dto);
+
+        JourneySegment segment = new JourneySegment(journey, sequenceOrder, segmentType);
+        segment.setTransitMode(transitMode);
+        segment.setPrimSectionId(dto.sectionId());
+        segment.setLineCode(dto.lineCode());
+        segment.setLineName(dto.lineName());
+        segment.setLineColor(dto.lineColor());
+        segment.setNetworkName(dto.networkName());
+        segment.setScheduledDeparture(dto.departureDateTime());
+        segment.setScheduledArrival(dto.arrivalDateTime());
+        segment.setDurationSeconds(dto.durationSeconds());
+        segment.setHasAirConditioning(dto.hasAirConditioning());
+
+        // Create points for the segment
+        List<JourneyPoint> points = createPointsForSegment(segment, dto);
+        for (JourneyPoint point : points) {
+            segment.addPoint(point);
+        }
+
+        return segment;
+    }
+
+    /**
+     * Creates JourneyPoint entities for a segment.
+     * Uses stop_date_times if available, otherwise falls back to origin/destination only.
+     */
+    private List<JourneyPoint> createPointsForSegment(JourneySegment segment, PrimJourneyPlanDto.LegDto dto) {
+        List<JourneyPoint> points = new ArrayList<>();
+
+        if (dto.stopDateTimes() != null && !dto.stopDateTimes().isEmpty()) {
+            // Use all intermediate stops from stop_date_times
+            int pointSequence = 0;
+            int totalStops = dto.stopDateTimes().size();
+
+            for (int i = 0; i < totalStops; i++) {
+                PrimJourneyPlanDto.StopDateTimeDto sdt = dto.stopDateTimes().get(i);
+                JourneyPointType pointType = determinePointType(i, totalStops, segment);
+
+                JourneyPoint point = new JourneyPoint(segment, pointSequence++, pointType,
+                        defaultString(sdt.stopPointName(), "Unknown stop"));
+
+                point.setPrimStopPointId(sdt.stopPointId());
+                point.setPrimStopAreaId(sdt.stopAreaId());
+                point.setCoordinates(toGeoPoint(sdt.latitude(), sdt.longitude()));
+                point.setScheduledArrival(sdt.arrivalDateTime());
+                point.setScheduledDeparture(sdt.departureDateTime());
+                point.setStatus(JourneyPointStatus.NORMAL);
+
+                points.add(point);
+            }
+        } else {
+            // Fallback: create origin and destination points from leg data
+            String originName = resolvePointName(dto.originLabel(), dto.lineName(), "Origin");
+            String destName = resolvePointName(dto.destinationLabel(), dto.lineName(), "Destination");
+
+            // Always create origin point if we have any data
+            JourneyPoint origin = new JourneyPoint(segment, 0, JourneyPointType.ORIGIN, originName);
+            origin.setPrimStopPointId(dto.originStopId());
+            origin.setCoordinates(toGeoPoint(dto.originLatitude(), dto.originLongitude()));
+            origin.setScheduledDeparture(dto.departureDateTime());
+            origin.setStatus(JourneyPointStatus.NORMAL);
+            points.add(origin);
+
+            // Only add destination if it's different from origin (avoid same-place duplicates)
+            boolean samePlace = originName.equals(destName)
+                    && (dto.durationSeconds() == null || dto.durationSeconds() < 60);
+
+            if (!samePlace) {
+                JourneyPoint destination = new JourneyPoint(segment, 1, JourneyPointType.DESTINATION, destName);
+                destination.setPrimStopPointId(dto.destinationStopId());
+                destination.setCoordinates(toGeoPoint(dto.destinationLatitude(), dto.destinationLongitude()));
+                destination.setScheduledArrival(dto.arrivalDateTime());
+                destination.setStatus(JourneyPointStatus.NORMAL);
+                points.add(destination);
+            }
+        }
+
+        return points;
+    }
+
+    /**
+     * Resolves a point name from available data.
+     */
+    private String resolvePointName(String label, String lineName, String fallback) {
+        if (label != null && !label.isBlank()) {
+            return label;
+        }
+        if (lineName != null && !lineName.isBlank()) {
+            return lineName;
+        }
+        return fallback;
+    }
+
+    /**
+     * Determines the point type based on position within the segment.
+     */
+    private JourneyPointType determinePointType(int index, int totalStops, JourneySegment segment) {
+        if (index == 0) {
+            return JourneyPointType.ORIGIN;
+        } else if (index == totalStops - 1) {
+            return JourneyPointType.DESTINATION;
+        } else if (segment.getSegmentType() == SegmentType.WALKING ||
+                   segment.getSegmentType() == SegmentType.TRANSFER) {
+            return JourneyPointType.WALKING_WAYPOINT;
+        } else {
+            return JourneyPointType.INTERMEDIATE_STOP;
+        }
+    }
+
+    /**
+     * Marks transfer points where the journey changes from one segment to another.
+     * The last point of segment N and first point of segment N+1 at a transfer
+     * are marked as TRANSFER_ARRIVAL and TRANSFER_DEPARTURE respectively.
+     */
+    private void markTransferPoints(Journey journey) {
+        List<JourneySegment> segments = journey.getSegments();
+        if (segments.size() < 2) {
+            return;
+        }
+
+        for (int i = 0; i < segments.size() - 1; i++) {
+            JourneySegment currentSegment = segments.get(i);
+            JourneySegment nextSegment = segments.get(i + 1);
+
+            // Check if this is a transfer (walking/transfer segment followed by another)
+            // or a change between public transport lines
+            boolean isTransfer = currentSegment.getSegmentType() == SegmentType.TRANSFER
+                    || currentSegment.getSegmentType() == SegmentType.WALKING
+                    || nextSegment.getSegmentType() == SegmentType.TRANSFER
+                    || nextSegment.getSegmentType() == SegmentType.WALKING
+                    || (currentSegment.getSegmentType() == SegmentType.PUBLIC_TRANSPORT
+                        && nextSegment.getSegmentType() == SegmentType.PUBLIC_TRANSPORT);
+
+            if (isTransfer) {
+                JourneyPoint arrivalPoint = currentSegment.getDestinationPoint();
+                JourneyPoint departurePoint = nextSegment.getOriginPoint();
+
+                if (arrivalPoint != null) {
+                    arrivalPoint.setPointType(JourneyPointType.TRANSFER_ARRIVAL);
+                }
+                if (departurePoint != null) {
+                    departurePoint.setPointType(JourneyPointType.TRANSFER_DEPARTURE);
+                }
+            }
+        }
+    }
+
+    private SegmentType resolveSegmentType(String sectionType) {
+        if (sectionType == null) {
+            return SegmentType.PUBLIC_TRANSPORT;
+        }
+
+        return switch (sectionType.toLowerCase(Locale.ROOT)) {
+            case "street_network", "walking" -> SegmentType.WALKING;
+            case "transfer" -> SegmentType.TRANSFER;
+            case "waiting" -> SegmentType.WAITING;
+            case "crow_fly" -> SegmentType.CROW_FLY;
+            default -> SegmentType.PUBLIC_TRANSPORT;
+        };
     }
 
     private TransitMode resolveTransitMode(PrimJourneyPlanDto.LegDto dto) {
@@ -189,4 +377,3 @@ public class JourneyAssembler {
         return null;
     }
 }
-

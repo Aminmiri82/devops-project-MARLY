@@ -1,14 +1,21 @@
 package org.marly.mavigo.service.journey;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.hibernate.Hibernate;
 import org.marly.mavigo.client.prim.PrimApiClient;
 import org.marly.mavigo.client.prim.PrimApiException;
 import org.marly.mavigo.client.prim.dto.PrimJourneyPlanDto;
+import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
 import org.marly.mavigo.models.disruption.Disruption;
 import org.marly.mavigo.models.journey.Journey;
+import org.marly.mavigo.models.journey.JourneySegment;
 import org.marly.mavigo.models.journey.JourneyStatus;
+import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.stoparea.StopArea;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.JourneyRepository;
@@ -84,7 +91,7 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         List<Journey> savedJourneys = new java.util.ArrayList<>();
 
         for (PrimJourneyPlanDto selected : topOptions) {
-             Journey journey = journeyAssembler.assemble(
+            Journey journey = journeyAssembler.assemble(
                     user,
                     origin,
                     destination,
@@ -93,77 +100,73 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
 
             journey.setStatus(JourneyStatus.PLANNED);
             Journey savedJourney = journeyRepository.save(journey);
-            org.hibernate.Hibernate.initialize(savedJourney.getLegs()); // Eager load for return
-            org.hibernate.Hibernate.initialize(savedJourney.getUser());
+
+            // Initialize lazy collections (entity already has all data from assembly)
+            Hibernate.initialize(savedJourney.getDisruptions());
+            for (JourneySegment segment : savedJourney.getSegments()) {
+                Hibernate.initialize(segment.getPoints());
+            }
+
             savedJourneys.add(savedJourney);
-            
+
             LOGGER.info("Persisted journey {} using Prim itinerary {}", savedJourney.getId(), selected.journeyId());
         }
 
         return savedJourneys;
     }
 
-    private PrimJourneyPlanDto selectFirstJourney(List<PrimJourneyPlanDto> options) {
-        return options.get(0);
-    }
-
     /**
-     * Met à jour un trajet existant lorsqu'une perturbation est signalée.
+     * Updates an existing journey when a disruption is reported.
      */
     @Transactional
-    public List<Journey> updateJourneyWithDisruption(java.util.UUID journeyId, Disruption disruption, Double userLat, Double userLng, String manualOrigin) {
-        
-        Journey journey = journeyRepository.findWithLegsById(journeyId)
-             .orElseThrow(() -> new IllegalArgumentException("Journey not found: " + journeyId));
+    public List<Journey> updateJourneyWithDisruption(UUID journeyId, Disruption disruption,
+            Double userLat, Double userLng, String manualOrigin) {
 
-        // Initialize User to avoid LazyInitializationException during JSON serialization
-        org.hibernate.Hibernate.initialize(journey.getUser());
+        Journey journey = journeyRepository.findWithSegmentsById(journeyId)
+                .orElseThrow(() -> new IllegalArgumentException("Journey not found: " + journeyId));
+        // Initialize points separately to avoid MultipleBagFetchException
+        for (JourneySegment segment : journey.getSegments()) {
+            Hibernate.initialize(segment.getPoints());
+        }
 
-        // Vérifie si le trajet est impacté par la perturbation
-        // If line is "General Disruption", we skip check and force reroute
+        // Check if journey is impacted by the disruption
         boolean isGeneric = "General Disruption".equals(disruption.getEffectedLine());
-        boolean impacted = isGeneric || journey.getLegs().stream()
-                .anyMatch(leg -> leg.getLineCode() != null && leg.getLineCode().equals(disruption.getEffectedLine()));
+        boolean impacted = isGeneric || journey.isLineUsed(disruption.getEffectedLine());
 
         if (!impacted) {
-            // Aucun impact, on retourne le trajet tel quel (dans une liste)
             return java.util.Collections.singletonList(journey);
         }
 
-        // Ajouter la perturbation
         journey.addDisruption(disruption);
 
         // Determine new origin: GPS > manual override > original origin
         StopArea origin;
         String originQuery;
-        
+
         if (userLat != null && userLng != null) {
-             // Create a temporary StopArea for the GPS location
-             originQuery = "Current Location"; // Display label
-             String tempId = String.format(Locale.ROOT, "coord:%.6f;%.6f", userLng, userLat); 
-             org.marly.mavigo.models.shared.GeoPoint location = new org.marly.mavigo.models.shared.GeoPoint(userLat, userLng);
-             origin = new StopArea(tempId, "Current Location", location);
+            originQuery = "Current Location";
+            String tempId = String.format(Locale.ROOT, "coord:%.6f;%.6f", userLng, userLat);
+            GeoPoint location = new GeoPoint(userLat, userLng);
+            origin = new StopArea(tempId, "Current Location", location);
         } else if (manualOrigin != null && !manualOrigin.isBlank()) {
-             originQuery = manualOrigin;
-             origin = stopAreaService.findOrCreateByQuery(originQuery);
+            originQuery = manualOrigin;
+            origin = stopAreaService.findOrCreateByQuery(originQuery);
         } else {
-             originQuery = journey.getOriginLabel();
-             origin = stopAreaService.findOrCreateByQuery(originQuery);
+            originQuery = journey.getOriginLabel();
+            origin = stopAreaService.findOrCreateByQuery(originQuery);
         }
 
         StopArea destination = stopAreaService.findOrCreateByQuery(journey.getDestinationLabel());
 
-        // Créer JourneyPreferences à partir des flags existants
         JourneyPreferences preferences = new JourneyPreferences(
                 journey.isComfortModeEnabled(),
                 journey.isTouristicModeEnabled());
 
-        // Créer les paramètres pour recalculer le trajet
         JourneyPlanningParameters params = new JourneyPlanningParameters(
                 journey.getUser().getId(),
                 originQuery,
                 journey.getDestinationLabel(),
-                java.time.LocalDateTime.now(), // Use NOW as departure time for rerouting
+                LocalDateTime.now(),
                 preferences);
 
         JourneyPlanningContext context = new JourneyPlanningContext(
@@ -172,32 +175,23 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
                 destination,
                 params);
 
-        // Créer la requête Prim
         var request = primJourneyRequestFactory.create(context);
 
-        // TODO : exclure la ligne perturbée si PrimJourneyRequest le supporte
-        // request.addExcludedLine(disruption.getEffectedLine());
-
-        // Recalculer les itinéraires
         List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
 
         boolean comfortEnabled = preferences.comfortModeEnabled();
         options = journeyResultFilter.filterByComfortProfile(options, journey.getUser(), comfortEnabled);
 
         if (options.isEmpty()) {
-            return java.util.Collections.singletonList(journey); // pas d'alternative trouvée
+            return java.util.Collections.singletonList(journey);
         }
 
         // Select top 3 options
         List<PrimJourneyPlanDto> topOptions = options.stream().limit(3).toList();
         List<Journey> newJourneys = new java.util.ArrayList<>();
 
-        // Le premier scénario peut remplacer le trajet actuel s'il est jugé "meilleur" ou on crée de nouvelles entités
-        // Pour simplifier et permettre le choix utilisateur, on crée de nouvelles entités Journey PLANNED
-        // L'utilisateur choisira ensuite laquelle activer.
-        
         for (PrimJourneyPlanDto selected : topOptions) {
-             Journey newJourney = journeyAssembler.assemble(
+            Journey newJourney = journeyAssembler.assemble(
                     journey.getUser(),
                     origin,
                     destination,
@@ -206,14 +200,74 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
 
             newJourney.setStatus(JourneyStatus.PLANNED);
             newJourney.addDisruption(disruption);
-            
+
             Journey savedJourney = journeyRepository.save(newJourney);
-            org.hibernate.Hibernate.initialize(savedJourney.getLegs()); 
-            org.hibernate.Hibernate.initialize(savedJourney.getUser());
-            org.hibernate.Hibernate.initialize(savedJourney.getDisruptions());
+            // Initialize lazy collections (entity already has all data from assembly)
+            Hibernate.initialize(savedJourney.getDisruptions());
+            for (JourneySegment segment : savedJourney.getSegments()) {
+                Hibernate.initialize(segment.getPoints());
+            }
             newJourneys.add(savedJourney);
         }
 
         return newJourneys;
+    }
+
+    /**
+     * Recalculates journey from a new origin (the station after the disrupted one).
+     */
+    public List<Journey> recalculateFromNewOrigin(
+            UUID userId,
+            String newOriginStopAreaId,
+            String destinationStopAreaId,
+            JourneyPreferences preferences) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+
+        StopArea origin = stopAreaService.findOrCreateByQuery(newOriginStopAreaId);
+        StopArea destination = stopAreaService.findOrCreateByQuery(destinationStopAreaId);
+
+        PrimJourneyRequest request = new PrimJourneyRequest(
+                origin.getExternalId(),
+                destination.getExternalId(),
+                LocalDateTime.now());
+
+        List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
+
+        boolean comfortEnabled = preferences != null && preferences.comfortModeEnabled();
+        options = journeyResultFilter.filterByComfortProfile(options, user, comfortEnabled);
+
+        if (options.isEmpty()) {
+            throw new PrimApiException("No journey options found from new origin");
+        }
+
+        List<PrimJourneyPlanDto> topOptions = options.stream().limit(3).toList();
+        List<Journey> savedJourneys = new java.util.ArrayList<>();
+
+        for (PrimJourneyPlanDto selected : topOptions) {
+            Journey journey = journeyAssembler.assemble(user, origin, destination, selected, preferences);
+            journey.setStatus(JourneyStatus.PLANNED);
+
+            Journey savedJourney = journeyRepository.save(journey);
+            // Initialize lazy collections (entity already has all data from assembly)
+            Hibernate.initialize(savedJourney.getDisruptions());
+            for (JourneySegment segment : savedJourney.getSegments()) {
+                Hibernate.initialize(segment.getPoints());
+            }
+
+            savedJourneys.add(savedJourney);
+        }
+
+        return savedJourneys;
+    }
+
+    /**
+     * Filters journey results to exclude journeys using a specific line.
+     */
+    public List<Journey> filterJourneysExcludingLine(List<Journey> journeys, String excludedLineCode) {
+        return journeys.stream()
+                .filter(j -> !j.isLineUsed(excludedLineCode))
+                .collect(Collectors.toList());
     }
 }
