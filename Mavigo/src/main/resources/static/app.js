@@ -135,6 +135,7 @@ function init() {
   setupJourneyActions();
   setupGoogleLinkListeners();
   setupComfortProfileListeners();
+  setupDisruptionModal();
   setupNav();
   setupTasks();
   setupDropdown();
@@ -409,11 +410,9 @@ function setupJourneyForm() {
 }
 
 function setupJourneyActions() {
-  completeJourneyBtn.addEventListener("click", completeJourney);
-  cancelJourneyBtn.addEventListener("click", cancelJourney);
-  if (reportDisruptionBtn) {
-    reportDisruptionBtn.addEventListener("click", reportDisruption);
-  }
+  completeJourneyBtn?.addEventListener("click", completeJourney);
+  cancelJourneyBtn?.addEventListener("click", cancelJourney);
+  reportDisruptionBtn?.addEventListener("click", reportDisruption);
 }
 
 async function startJourney(journeyId, btnElement) {
@@ -566,87 +565,254 @@ function renderCurrentJourney(journey) {
 
 async function reportDisruption() {
   if (!currentJourney) return;
+  openDisruptionModal();
+}
 
-  // Ask user for rerouting method
-  const choice = confirm(
-    "Report disruption: Use current GPS location? (Click 'OK' for GPS, 'Cancel' to enter a station name)"
-  );
+// ============================================================
+// DISRUPTION REPORTING MODAL
+// ============================================================
+function setupDisruptionModal() {
+  const overlay = document.getElementById("disruptionModal");
+  if (!overlay) return;
 
-  let lat = "";
-  let lng = "";
-  let manualOrigin = "";
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeDisruptionModal();
+  });
 
-  if (choice) {
-    // Use GPS
-    const getPosition = () =>
-      new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject(new Error("Geolocation is not supported by your browser"));
-        } else {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
-        }
-      });
+  document.getElementById("disruptionModalClose")?.addEventListener("click", closeDisruptionModal);
+}
 
-    try {
-      const position = await getPosition();
-      lat = position.coords.latitude;
-      lng = position.coords.longitude;
-    } catch (geoErr) {
-      if (confirm("Could not get GPS location. Enter a station manually?")) {
-        manualOrigin = prompt("Enter new departure station:");
-        if (!manualOrigin) return;
-      } else {
-        return;
-      }
-    }
-  } else {
-    // Manual entry
-    manualOrigin = prompt("Enter new departure station:");
-    if (!manualOrigin) return;
-  }
+function openDisruptionModal() {
+  const overlay = document.getElementById("disruptionModal");
+  const content = document.getElementById("disruptionModalContent");
+  const title = document.getElementById("disruptionModalTitle");
+
+  if (!overlay || !content) return;
+
+  title.textContent = "Report Disruption";
+  content.innerHTML = `
+    <p class="disruption-modal-subtitle">What type of disruption are you experiencing?</p>
+    <div class="disruption-choice-buttons">
+      <button type="button" class="btn btn-primary disruption-choice-btn" id="chooseLineDisruption">
+        <span class="disruption-choice-icon">🚇</span>
+        <span class="disruption-choice-label">Line Disruption</span>
+        <span class="disruption-choice-desc">A metro/bus/train line is disrupted</span>
+      </button>
+      <button type="button" class="btn btn-primary disruption-choice-btn" id="chooseStationDisruption">
+        <span class="disruption-choice-icon">🚉</span>
+        <span class="disruption-choice-label">Station Disruption</span>
+        <span class="disruption-choice-desc">A specific station is closed or inaccessible</span>
+      </button>
+    </div>
+  `;
+
+  document.getElementById("chooseLineDisruption")?.addEventListener("click", showLineSelection);
+  document.getElementById("chooseStationDisruption")?.addEventListener("click", showStationSelection);
+
+  overlay.classList.remove("hidden");
+}
+
+function closeDisruptionModal() {
+  const overlay = document.getElementById("disruptionModal");
+  if (overlay) overlay.classList.add("hidden");
+}
+
+async function showLineSelection() {
+  const content = document.getElementById("disruptionModalContent");
+  const title = document.getElementById("disruptionModalTitle");
+  if (!content || !currentJourney) return;
+
+  title.textContent = "Select Disrupted Line";
+  content.innerHTML = '<p class="loading">Loading lines...</p>';
 
   try {
-    const creator = currentUser ? currentUser.displayName : "Anonymous";
-    let url = `/perturbations/apply?journeyId=${
-      currentJourney.journeyId
-    }&creator=${encodeURIComponent(creator)}`;
+    const lines = await api.get(`/api/journeys/${currentJourney.journeyId}/lines`);
 
-    if (lat && lng) {
-      url += `&userLat=${lat}&userLng=${lng}`;
-    } else if (manualOrigin) {
-      url += `&newOrigin=${encodeURIComponent(manualOrigin)}`;
+    if (!lines || lines.length === 0) {
+      content.innerHTML = `
+        <p class="disruption-modal-subtitle">No transit lines found in your journey.</p>
+        <button type="button" class="btn btn-outline" id="backToDisruptionChoice">Back</button>
+      `;
+      document.getElementById("backToDisruptionChoice")?.addEventListener("click", openDisruptionModal);
+      return;
     }
 
-    const newJourneys = await api.post(url);
+    const linesHtml = lines.map(line => `
+      <button type="button" class="disruption-line-btn" data-line-code="${escapeHtml(line.lineCode)}">
+        <span class="line-color-badge" style="background-color: ${line.lineColor ? '#' + line.lineColor : '#666'}"></span>
+        <span class="line-info">
+          <span class="line-code">${escapeHtml(line.lineCode || 'Unknown')}</span>
+          <span class="line-name">${escapeHtml(line.lineName || '')}</span>
+        </span>
+        <span class="line-mode">${formatMode(line.mode)}</span>
+      </button>
+    `).join('');
 
-    currentJourneyPanel.classList.add("hidden");
-    document.querySelector(".results-panel").classList.remove("hidden");
+    content.innerHTML = `
+      <p class="disruption-modal-subtitle">Select the line that is disrupted:</p>
+      <div class="disruption-lines-list">${linesHtml}</div>
+      <button type="button" class="btn btn-outline btn-sm" id="backToDisruptionChoice">Back</button>
+    `;
 
-    resultsDiv.innerHTML = "";
-    if (newJourneys && newJourneys.length > 0) {
-      displayJourneyResults(newJourneys);
-      showToast("Disruption reported. Choose an alternative route below.", {
-        variant: "warning",
-        durationMs: 6000,
+    content.querySelectorAll(".disruption-line-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const lineCode = btn.getAttribute("data-line-code");
+        if (lineCode) reportLineDisruption(lineCode);
       });
-    } else {
-      showToast("Disruption reported, but no alternative routes found.", {
-        variant: "warning",
-      });
-    }
+    });
+
+    document.getElementById("backToDisruptionChoice")?.addEventListener("click", openDisruptionModal);
+
   } catch (err) {
-    const msg = err.message || "";
-    if (
-      msg.includes("No places") ||
-      msg.includes("No stop area") ||
-      msg.includes("No journey options") ||
-      msg.includes("Failed to calculate journey")
-    ) {
-      showToast("No journey found.", { variant: "warning" });
-    } else {
-      showToast("No journey found.", { variant: "warning" });
-    }
+    content.innerHTML = `
+      <p class="error-message">Failed to load lines: ${escapeHtml(err.message || 'Unknown error')}</p>
+      <button type="button" class="btn btn-outline" id="backToDisruptionChoice">Back</button>
+    `;
+    document.getElementById("backToDisruptionChoice")?.addEventListener("click", openDisruptionModal);
   }
+}
+
+async function showStationSelection() {
+  const content = document.getElementById("disruptionModalContent");
+  const title = document.getElementById("disruptionModalTitle");
+  if (!content || !currentJourney) return;
+
+  title.textContent = "Select Disrupted Station";
+  content.innerHTML = '<p class="loading">Loading stations...</p>';
+
+  try {
+    const stops = await api.get(`/api/journeys/${currentJourney.journeyId}/stops`);
+
+    if (!stops || stops.length === 0) {
+      content.innerHTML = `
+        <p class="disruption-modal-subtitle">No stations found in your journey.</p>
+        <button type="button" class="btn btn-outline" id="backToDisruptionChoice">Back</button>
+      `;
+      document.getElementById("backToDisruptionChoice")?.addEventListener("click", openDisruptionModal);
+      return;
+    }
+
+    const stopsHtml = stops.map((stop, index) => `
+      <button type="button" class="disruption-station-btn" data-stop-point-id="${escapeHtml(stop.stopPointId)}">
+        <span class="station-sequence">${index + 1}</span>
+        <span class="station-info">
+          <span class="station-name">${escapeHtml(stop.name || 'Unknown station')}</span>
+          ${stop.onLineCode ? `<span class="station-line">Line ${escapeHtml(stop.onLineCode)}</span>` : ''}
+        </span>
+      </button>
+    `).join('');
+
+    content.innerHTML = `
+      <p class="disruption-modal-subtitle">Select the station that is disrupted:</p>
+      <div class="disruption-stations-list">${stopsHtml}</div>
+      <button type="button" class="btn btn-outline btn-sm" id="backToDisruptionChoice">Back</button>
+    `;
+
+    content.querySelectorAll(".disruption-station-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const stopPointId = btn.getAttribute("data-stop-point-id");
+        if (stopPointId) reportStationDisruption(stopPointId);
+      });
+    });
+
+    document.getElementById("backToDisruptionChoice")?.addEventListener("click", openDisruptionModal);
+
+  } catch (err) {
+    content.innerHTML = `
+      <p class="error-message">Failed to load stations: ${escapeHtml(err.message || 'Unknown error')}</p>
+      <button type="button" class="btn btn-outline" id="backToDisruptionChoice">Back</button>
+    `;
+    document.getElementById("backToDisruptionChoice")?.addEventListener("click", openDisruptionModal);
+  }
+}
+
+async function reportLineDisruption(lineCode) {
+  const content = document.getElementById("disruptionModalContent");
+  if (!content || !currentJourney) return;
+
+  content.innerHTML = '<p class="loading">Reporting disruption and finding alternatives...</p>';
+
+  try {
+    const result = await api.post(`/api/journeys/${currentJourney.journeyId}/disruptions/line`, {
+      lineCode: lineCode
+    });
+
+    closeDisruptionModal();
+    handleRerouteResult(result, `Line ${lineCode}`);
+
+  } catch (err) {
+    content.innerHTML = `
+      <p class="error-message">Failed to report disruption: ${escapeHtml(err.message || 'Unknown error')}</p>
+      <button type="button" class="btn btn-outline" id="backToDisruptionChoice">Back</button>
+    `;
+    document.getElementById("backToDisruptionChoice")?.addEventListener("click", openDisruptionModal);
+  }
+}
+
+async function reportStationDisruption(stopPointId) {
+  const content = document.getElementById("disruptionModalContent");
+  if (!content || !currentJourney) return;
+
+  content.innerHTML = '<p class="loading">Reporting disruption and finding alternatives...</p>';
+
+  try {
+    const result = await api.post(`/api/journeys/${currentJourney.journeyId}/disruptions/station`, {
+      stopPointId: stopPointId
+    });
+
+    closeDisruptionModal();
+    handleRerouteResult(result, result.disruptedPoint?.name || 'the station');
+
+  } catch (err) {
+    content.innerHTML = `
+      <p class="error-message">Failed to report disruption: ${escapeHtml(err.message || 'Unknown error')}</p>
+      <button type="button" class="btn btn-outline" id="backToDisruptionChoice">Back</button>
+    `;
+    document.getElementById("backToDisruptionChoice")?.addEventListener("click", openDisruptionModal);
+  }
+}
+
+function handleRerouteResult(result, disruptionDescription) {
+  currentJourneyPanel.classList.add("hidden");
+  document.querySelector(".results-panel").classList.remove("hidden");
+
+  const alternatives = result.alternatives || [];
+
+  if (alternatives.length > 0) {
+    resultsDiv.innerHTML = `
+      <div class="reroute-header">
+        <div class="reroute-warning">
+          <span class="reroute-icon">⚠️</span>
+          <div class="reroute-info">
+            <strong>Disruption reported on ${escapeHtml(disruptionDescription)}</strong>
+            ${result.newOrigin ? `<p>Rerouting from: ${escapeHtml(result.newOrigin.name)}</p>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+    displayJourneyResults(alternatives);
+    showToast("Disruption reported. Choose an alternative route below.", {
+      variant: "warning",
+      durationMs: 6000,
+    });
+  } else {
+    resultsDiv.innerHTML = `
+      <div class="reroute-header">
+        <div class="reroute-warning">
+          <span class="reroute-icon">⚠️</span>
+          <div class="reroute-info">
+            <strong>Disruption reported on ${escapeHtml(disruptionDescription)}</strong>
+            <p>No alternative routes could be found.</p>
+          </div>
+        </div>
+      </div>
+    `;
+    showToast("Disruption reported, but no alternative routes found.", {
+      variant: "warning",
+    });
+  }
+
+  currentJourney = null;
 }
 
 async function handleJourneySubmit(e) {
@@ -809,61 +975,81 @@ function displayJourneyCard(journey, index, total) {
     const durationSeconds = Math.round((arrTime - depTime) / 1000);
     totalDuration = formatDuration(durationSeconds);
   } else {
-    // Fallback: additionner les durées des legs
-    const legs = Array.isArray(journey?.legs) ? journey.legs : [];
-    const totalSeconds = legs.reduce((sum, leg) => {
-      return sum + (leg.durationSeconds || 0);
+    // Fallback: additionner les durées des segments
+    const segments = Array.isArray(journey?.segments) ? journey.segments : [];
+    const totalSeconds = segments.reduce((sum, seg) => {
+      return sum + (seg.durationSeconds || 0);
     }, 0);
     if (totalSeconds > 0) {
       totalDuration = formatDuration(totalSeconds);
     }
   }
-  
-  const legs = Array.isArray(journey?.legs) ? journey.legs : [];
 
-  // Process legs: filter short same-place legs, convert long same-place OTHER to WALK
-  const processedLegs = legs
-    .filter((leg) => {
-      const duration = leg.durationSeconds || 0;
-      const samePlace = leg.originLabel === leg.destinationLabel;
-      return !(duration < 60 && samePlace);
+  const segments = Array.isArray(journey?.segments) ? journey.segments : [];
+
+  // Process segments: filter out noise, format for display
+  const processedSegments = segments
+    .map((seg) => {
+      // Get origin and destination from points
+      const points = Array.isArray(seg.points) ? seg.points : [];
+      const originPoint = points[0];
+      const destPoint = points.length > 1 ? points[points.length - 1] : originPoint;
+
+      return {
+        ...seg,
+        originLabel: originPoint?.name || seg.lineName || "?",
+        destinationLabel: destPoint?.name || seg.lineName || "?",
+        mode: seg.transitMode || seg.segmentType || "OTHER"
+      };
     })
-    .map((leg) => {
-      const duration = leg.durationSeconds || 0;
-      const samePlace = leg.originLabel === leg.destinationLabel;
-      if (duration >= 60 && samePlace && leg.mode === "OTHER") {
-        return { ...leg, mode: "WALK" };
-      }
-      return leg;
+    .filter((seg) => {
+      const duration = seg.durationSeconds || 0;
+      const samePlace = seg.originLabel === seg.destinationLabel;
+      const isTransferOrWalk = seg.segmentType === "WALKING" ||
+                               seg.segmentType === "TRANSFER" ||
+                               seg.segmentType === "WAITING";
+
+      // Filter out:
+      // 1. Zero or very short duration same-place segments (noise)
+      // 2. WAITING segments (should already be filtered backend, but just in case)
+      // 3. Short transfer/walk segments with same origin/destination
+      if (seg.segmentType === "WAITING") return false;
+      if (duration < 30 && samePlace) return false;
+      if (isTransferOrWalk && duration < 60 && samePlace) return false;
+
+      // Filter out segments with unknown origin AND destination
+      if (seg.originLabel === "?" && seg.destinationLabel === "?") return false;
+
+      return true;
     });
 
-  const legsHtml = processedLegs.length
-    ? processedLegs
+  const legsHtml = processedSegments.length
+    ? processedSegments
         .map(
-          (leg) => `
+          (seg) => `
         <li class="journey-leg-item">
             <div class="leg-marker"></div>
             <div class="leg-content">
-                <span class="leg-mode">${formatMode(leg.mode)} ${
-            leg.lineCode ? `<span class="leg-line">${leg.lineCode}</span>` : ""
+                <span class="leg-mode">${formatMode(seg.mode)} ${
+            seg.lineCode ? `<span class="leg-line">${seg.lineCode}</span>` : ""
           }</span>
-                <span class="leg-route">${leg.originLabel || "?"} → ${
-            leg.destinationLabel || "?"
+                <span class="leg-route">${seg.originLabel || "?"} → ${
+            seg.destinationLabel || "?"
           }</span>
                 <div class="leg-times">
                     ${
-                      leg.estimatedDeparture
-                        ? formatDateTime(leg.estimatedDeparture)
+                      seg.scheduledDeparture
+                        ? formatDateTime(seg.scheduledDeparture)
                         : "?"
                     } -
                     ${
-                      leg.estimatedArrival
-                        ? formatDateTime(leg.estimatedArrival)
+                      seg.scheduledArrival
+                        ? formatDateTime(seg.scheduledArrival)
                         : "?"
                     }
                     <span class="leg-duration">(${
-                      leg.durationSeconds
-                        ? formatDuration(leg.durationSeconds)
+                      seg.durationSeconds
+                        ? formatDuration(seg.durationSeconds)
                         : "?"
                     })</span>
                 </div>

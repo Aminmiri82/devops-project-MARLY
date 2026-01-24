@@ -3,8 +3,12 @@ package org.marly.mavigo.models.journey;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.marly.mavigo.models.disruption.Disruption;
 import org.marly.mavigo.models.poi.PointOfInterest;
@@ -13,9 +17,8 @@ import org.marly.mavigo.models.user.User;
 
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
-import jakarta.persistence.CollectionTable;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,7 +31,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OrderColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 
 @Entity
@@ -88,39 +92,26 @@ public class Journey {
     @Column(name = "prim_itinerary_id")
     private String primItineraryId;
 
-    @ElementCollection
-    @CollectionTable(name = "journey_leg", joinColumns = @JoinColumn(name = "journey_id"))
-    @OrderColumn(name = "sequence_index")
-    private List<Leg> legs = new ArrayList<>();
+    @Column(name = "disruption_count", nullable = false)
+    private int disruptionCount = 0;
+
+    @OneToMany(mappedBy = "journey", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("sequenceOrder ASC")
+    private List<JourneySegment> segments = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
-@JoinTable(
-    name = "journey_disruption",
-    joinColumns = @JoinColumn(name = "journey_id"),
-    inverseJoinColumns = @JoinColumn(name = "disruption_id")
-)
-private List<Disruption> disruptions = new ArrayList<>();
-
-// Méthodes utilitaires
-public void addDisruption(Disruption disruption) {
-    disruptions.add(disruption);
-}
-
-public List<Disruption> getDisruptions() {
-    return Collections.unmodifiableList(disruptions);
-}
-
-// Vérifier si un leg est impacté par une perturbation
-public boolean isLegImpacted(String line) {
-    return legs.stream().anyMatch(leg -> leg.getLineCode().equals(line));
-}
+    @JoinTable(
+        name = "journey_disruption",
+        joinColumns = @JoinColumn(name = "journey_id"),
+        inverseJoinColumns = @JoinColumn(name = "disruption_id")
+    )
+    private List<Disruption> disruptions = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "journey_point_of_interest", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "point_of_interest_id"))
     private List<PointOfInterest> pointOfInterests = new ArrayList<>();
 
     public Journey() {
-
     }
 
     public Journey(User user, String originLabel, String destinationLabel, OffsetDateTime plannedDeparture,
@@ -131,6 +122,130 @@ public boolean isLegImpacted(String line) {
         this.plannedDeparture = plannedDeparture;
         this.plannedArrival = plannedArrival;
     }
+
+    // --- Segment management ---
+
+    public void addSegment(JourneySegment segment) {
+        segments.add(segment);
+        segment.setJourney(this);
+    }
+
+    public void replaceSegments(List<JourneySegment> newSegments) {
+        segments.clear();
+        for (JourneySegment segment : newSegments) {
+            addSegment(segment);
+        }
+    }
+
+    // --- Point utilities ---
+
+    /**
+     * Returns all points across all segments in journey order.
+     */
+    public List<JourneyPoint> getAllPoints() {
+        return segments.stream()
+                .flatMap(segment -> segment.getPoints().stream())
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    /**
+     * Returns points that are transfer points (TRANSFER_ARRIVAL or TRANSFER_DEPARTURE).
+     */
+    public List<JourneyPoint> getTransferPoints() {
+        return getAllPoints().stream()
+                .filter(p -> p.getPointType() == JourneyPointType.TRANSFER_ARRIVAL
+                        || p.getPointType() == JourneyPointType.TRANSFER_DEPARTURE)
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    /**
+     * Returns only public transport segments.
+     */
+    public List<JourneySegment> getPublicTransportSegments() {
+        return segments.stream()
+                .filter(s -> s.getSegmentType() == SegmentType.PUBLIC_TRANSPORT)
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    /**
+     * Returns a set of all line codes used in the journey.
+     */
+    public Set<String> getAllLineCodes() {
+        Set<String> lineCodes = new HashSet<>();
+        for (JourneySegment segment : segments) {
+            if (segment.getLineCode() != null && !segment.getLineCode().isBlank()) {
+                lineCodes.add(segment.getLineCode());
+            }
+        }
+        return Collections.unmodifiableSet(lineCodes);
+    }
+
+    /**
+     * Returns all disrupted points across all segments.
+     */
+    public List<JourneyPoint> getDisruptedPoints() {
+        return getAllPoints().stream()
+                .filter(JourneyPoint::isDisrupted)
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    /**
+     * Recalculates the disruption count based on disrupted points.
+     */
+    public void recalculateDisruptionSummary() {
+        this.disruptionCount = (int) getAllPoints().stream()
+                .filter(JourneyPoint::isDisrupted)
+                .count();
+    }
+
+    /**
+     * Finds a point by its PRIM stop area ID.
+     */
+    public Optional<JourneyPoint> getPointByStopAreaId(String stopAreaId) {
+        if (stopAreaId == null) {
+            return Optional.empty();
+        }
+        return getAllPoints().stream()
+                .filter(p -> stopAreaId.equals(p.getPrimStopAreaId()))
+                .findFirst();
+    }
+
+    /**
+     * Gets the next point in the journey after the given point.
+     * Used for rerouting from the station after a disrupted one.
+     */
+    public Optional<JourneyPoint> getNextPointAfter(JourneyPoint point) {
+        if (point == null) {
+            return Optional.empty();
+        }
+        List<JourneyPoint> allPoints = getAllPoints();
+        for (int i = 0; i < allPoints.size() - 1; i++) {
+            if (allPoints.get(i).getId().equals(point.getId())) {
+                return Optional.of(allPoints.get(i + 1));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Checks if a line is impacted by looking at segments.
+     */
+    public boolean isLineUsed(String lineCode) {
+        return segments.stream()
+                .anyMatch(segment -> lineCode != null && lineCode.equals(segment.getLineCode()));
+    }
+
+    // --- Disruption utilities ---
+
+    public void addDisruption(Disruption disruption) {
+        disruptions.add(disruption);
+    }
+
+    public List<Disruption> getDisruptions() {
+        return Collections.unmodifiableList(disruptions);
+    }
+
+    // --- Getters and Setters ---
 
     public UUID getId() {
         return id;
@@ -240,17 +355,16 @@ public boolean isLegImpacted(String line) {
         this.primItineraryId = primItineraryId;
     }
 
-    public List<Leg> getLegs() {
-        return Collections.unmodifiableList(legs);
+    public int getDisruptionCount() {
+        return disruptionCount;
     }
 
-    public void replaceLegs(List<Leg> newLegs) {
-        legs.clear();
-        legs.addAll(newLegs);
+    public void setDisruptionCount(int disruptionCount) {
+        this.disruptionCount = disruptionCount;
     }
 
-    public void addLeg(Leg leg) {
-        legs.add(leg);
+    public List<JourneySegment> getSegments() {
+        return Collections.unmodifiableList(segments);
     }
 
     public List<PointOfInterest> getPointOfInterests() {

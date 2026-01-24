@@ -7,6 +7,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record PrimStopPoint(
         @JsonProperty("id") String id,
         @JsonProperty("name") String name,
-        @JsonProperty("coord") PrimCoordinates coordinates
-) {
-}
+        @JsonProperty("coord") PrimCoordinates coordinates,
+        @JsonProperty("stop_area") PrimStopArea stopArea
+) {}
