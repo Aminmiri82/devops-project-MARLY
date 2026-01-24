@@ -17,6 +17,9 @@ public record PrimJourneyPlanDto(
             String sectionType,
             String commercialMode,
             String lineCode,
+            String lineName,
+            String lineColor,
+            String networkName,
             OffsetDateTime departureDateTime,
             OffsetDateTime arrivalDateTime,
             Integer durationSeconds,
@@ -29,13 +32,22 @@ public record PrimJourneyPlanDto(
             Double destinationLatitude,
             Double destinationLongitude,
             String notes,
-            Boolean hasAirConditioning) {
+            Boolean hasAirConditioning,
+            List<StopDateTimeDto> stopDateTimes) {
+    }
+
+    public record StopDateTimeDto(
+            String stopPointId,
+            String stopPointName,
+            String stopAreaId,
+            Double latitude,
+            Double longitude,
+            OffsetDateTime arrivalDateTime,
+            OffsetDateTime departureDateTime) {
     }
 
     public boolean hasAirConditioningOnAllTransitLegs() {
-        if (legs == null || legs.isEmpty()) {
-            return false;
-        }
+        if (legs == null || legs.isEmpty()) return false;
         return legs.stream()
                 .filter(this::isTransitLeg)
                 .allMatch(leg -> Boolean.TRUE.equals(leg.hasAirConditioning()));

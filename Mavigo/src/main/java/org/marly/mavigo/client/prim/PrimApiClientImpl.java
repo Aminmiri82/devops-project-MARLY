@@ -92,16 +92,12 @@ public class PrimApiClientImpl implements PrimApiClient {
     public List<PrimPlace> searchPlacesNearby(double latitude, double longitude, int radiusMeters) {
         return searchPlacesNearby(latitude, longitude, radiusMeters, null);
     }
-    
+
     @Override
     public List<PrimPlace> searchPlacesNearby(double latitude, double longitude, int radiusMeters, String cityName) {
-        // L'endpoint /places_nearby n'existe pas dans PRIM
-        // On utilise /places avec une recherche textuelle (nom de ville) puis on filtre par distance
-        
-        LOGGER.debug("Searching for places near coordinates {}, {} (radius: {}m, city: {})", 
+        LOGGER.debug("Searching for places near coordinates {}, {} (radius: {}m, city: {})",
                 latitude, longitude, radiusMeters, cityName);
-        
-        // Si on a un nom de ville, l'utiliser pour la recherche
+
         if (cityName != null && !cityName.isBlank()) {
             try {
                 String url = apiEndpoint + PLACES_ENDPOINT + "?q="
@@ -124,33 +120,25 @@ public class PrimApiClientImpl implements PrimApiClient {
 
                 LOGGER.debug("PRIM returned {} places for city '{}'", places.size(), cityName);
 
-                // Filtrer les places valides et calculer la distance
-                // Si le rayon est grand (>= 5000m), on accepte tous les arrêts de la ville, sinon on filtre par distance
                 List<PrimPlace> validPlaces = new ArrayList<>();
                 for (PrimPlace place : places) {
                     if (place == null) continue;
                     if (!hasStopAreaOrPoint(place)) continue;
-                    
-                    // Calculer la distance depuis les coordonnées cibles
+
                     PrimCoordinates coords = placeCoordinates(place);
                     if (coords != null && coords.latitude() != null && coords.longitude() != null) {
-                        double distance = calculateDistance(latitude, longitude, 
+                        double distance = calculateDistance(latitude, longitude,
                                 coords.latitude(), coords.longitude());
-                        // Pour les grandes villes, accepter tous les arrêts si le rayon est >= 5000m
-                        // Sinon, filtrer strictement par distance
                         if (radiusMeters >= 5000 || distance <= radiusMeters) {
                             validPlaces.add(place);
                         }
                     } else {
-                        // Si pas de coordonnées mais qu'on a un arrêt valide, l'ajouter quand même
-                        // (utile pour les arrêts sans coordonnées précises)
                         if (radiusMeters >= 5000) {
                             validPlaces.add(place);
                         }
                     }
                 }
-                
-                // Trier par distance (les plus proches en premier)
+
                 validPlaces.sort((p1, p2) -> {
                     PrimCoordinates c1 = placeCoordinates(p1);
                     PrimCoordinates c2 = placeCoordinates(p2);
@@ -163,19 +151,18 @@ public class PrimApiClientImpl implements PrimApiClient {
                 });
 
                 if (!validPlaces.isEmpty()) {
-                    LOGGER.info("Found {} stop areas near coordinates {}, {} (radius: {}m) using city '{}'", 
+                    LOGGER.info("Found {} stop areas near coordinates {}, {} (radius: {}m) using city '{}'",
                             validPlaces.size(), latitude, longitude, radiusMeters, cityName);
                     return validPlaces;
                 } else {
-                    LOGGER.warn("City search '{}' returned {} places but none within {}m of coordinates {}, {}", 
+                    LOGGER.warn("City search '{}' returned {} places but none within {}m of coordinates {}, {}",
                             cityName, places.size(), radiusMeters, latitude, longitude);
                 }
             } catch (RestClientException e) {
                 LOGGER.warn("City search '{}' failed: {}", cityName, e.getMessage());
             }
         }
-        
-        // Fallback: Essayer avec coord:lon;lat (peu probable que ça fonctionne)
+
         String coordQuery = String.format(Locale.ROOT, "coord:%.6f;%.6f", longitude, latitude);
         try {
             String url = apiEndpoint + PLACES_ENDPOINT + "?q="
@@ -196,41 +183,40 @@ public class PrimApiClientImpl implements PrimApiClient {
                     ? placesResponse.places()
                     : List.of();
 
-            // Filtrer les places valides et calculer la distance
             List<PrimPlace> validPlaces = new ArrayList<>();
             for (PrimPlace place : places) {
                 if (place == null) continue;
                 if (!hasStopAreaOrPoint(place)) continue;
-                
+
                 PrimCoordinates coords = placeCoordinates(place);
                 if (coords != null && coords.latitude() != null && coords.longitude() != null) {
-                    double distance = calculateDistance(latitude, longitude, 
+                    double distance = calculateDistance(latitude, longitude,
                             coords.latitude(), coords.longitude());
                     if (distance <= radiusMeters) {
                         validPlaces.add(place);
                     }
                 }
             }
-            
+
             if (!validPlaces.isEmpty()) {
-                LOGGER.info("Found {} stop areas near coordinates {}, {} (within {}m)", 
+                LOGGER.info("Found {} stop areas near coordinates {}, {} (within {}m)",
                         validPlaces.size(), latitude, longitude, radiusMeters);
                 return validPlaces;
             }
         } catch (RestClientException e) {
             LOGGER.debug("Coord query '{}' failed: {}", coordQuery, e.getMessage());
         }
-        
+
         LOGGER.warn("No stop areas found near coordinates {}, {} (radius: {}m)", latitude, longitude, radiusMeters);
         return List.of();
     }
-    
+
     private boolean hasStopAreaOrPoint(PrimPlace place) {
         if (place == null) return false;
         return (place.stopArea() != null && place.stopArea().id() != null)
                 || (place.stopPoint() != null && place.stopPoint().id() != null);
     }
-    
+
     private PrimCoordinates placeCoordinates(PrimPlace place) {
         if (place == null) return null;
         if (place.coordinates() != null) return place.coordinates();
@@ -242,12 +228,9 @@ public class PrimApiClientImpl implements PrimApiClient {
         }
         return null;
     }
-    
-    /**
-     * Calcule la distance en mètres entre deux points GPS (formule de Haversine).
-     */
+
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        final int R = 6371000; // Rayon de la Terre en mètres
+        final int R = 6371000;
         double latDistance = Math.toRadians(lat2 - lat1);
         double lonDistance = Math.toRadians(lon2 - lon1);
         double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
@@ -391,6 +374,17 @@ public class PrimApiClientImpl implements PrimApiClient {
                 continue;
 
             var sdt = section.stopDateTimes();
+            PrimDisplayInformations di = section.displayInformations();
+
+            // Extract line info from display informations
+            String lineCode = di != null ? di.code() : null;
+            String lineName = di != null ? di.label() : null;
+            String lineColor = di != null ? di.color() : null;
+            String networkName = di != null ? di.network() : null;
+
+            // Build stopDateTimes DTO list
+            List<PrimJourneyPlanDto.StopDateTimeDto> stopDateTimeDtos = mapStopDateTimes(sdt);
+
             if (sdt != null && sdt.size() >= 2) {
                 PrimStopDateTime first = sdt.get(0);
                 PrimStopDateTime last = sdt.get(sdt.size() - 1);
@@ -400,14 +394,15 @@ public class PrimApiClientImpl implements PrimApiClient {
                     PrimStopPoint to = last.stopPoint();
 
                     if (from != null && to != null) {
-                        PrimDisplayInformations di = section.displayInformations();
-
                         legs.add(new PrimJourneyPlanDto.LegDto(
                                 seq++,
                                 section.id(),
                                 section.type(),
                                 di != null ? di.commercialMode() : null,
-                                di != null ? di.code() : null,
+                                lineCode,
+                                lineName,
+                                lineColor,
+                                networkName,
                                 toOffset(first.departureDateTime() != null ? first.departureDateTime()
                                         : section.departureDateTime()),
                                 toOffset(last.arrivalDateTime() != null ? last.arrivalDateTime() : section.arrivalDateTime()),
@@ -420,30 +415,70 @@ public class PrimApiClientImpl implements PrimApiClient {
                                 to.name(),
                                 extractLatitude(to),
                                 extractLongitude(to),
-                                di != null ? di.label() : null,
-                                section.hasAirConditioning()));
+                                lineName,
+                                section.hasAirConditioning(),
+                                stopDateTimeDtos));
                     }
                 }
                 continue;
             }
 
-            legs.add(mapSection(section, seq++));
+            legs.add(mapSection(section, seq++, stopDateTimeDtos));
         }
 
         return Collections.unmodifiableList(legs);
     }
 
-    private PrimJourneyPlanDto.LegDto mapSection(PrimSection section, int sequenceOrder) {
+    private List<PrimJourneyPlanDto.StopDateTimeDto> mapStopDateTimes(List<PrimStopDateTime> stopDateTimes) {
+        if (stopDateTimes == null || stopDateTimes.isEmpty()) {
+            return null;
+        }
+
+        List<PrimJourneyPlanDto.StopDateTimeDto> dtos = new ArrayList<>(stopDateTimes.size());
+        for (PrimStopDateTime sdt : stopDateTimes) {
+            if (sdt == null || sdt.stopPoint() == null) {
+                continue;
+            }
+
+            PrimStopPoint sp = sdt.stopPoint();
+            String stopAreaId = null;
+            if (sp.stopArea() != null) {
+                stopAreaId = sp.stopArea().id();
+            }
+
+            dtos.add(new PrimJourneyPlanDto.StopDateTimeDto(
+                    sp.id(),
+                    sp.name(),
+                    stopAreaId,
+                    extractLatitude(sp),
+                    extractLongitude(sp),
+                    toOffset(sdt.arrivalDateTime()),
+                    toOffset(sdt.departureDateTime())));
+        }
+
+        return dtos.isEmpty() ? null : Collections.unmodifiableList(dtos);
+    }
+
+    private PrimJourneyPlanDto.LegDto mapSection(PrimSection section, int sequenceOrder,
+            List<PrimJourneyPlanDto.StopDateTimeDto> stopDateTimeDtos) {
         PrimStopPoint from = section.from();
         PrimStopPoint to = section.to();
-        PrimDisplayInformations displayInformations = section.displayInformations();
+        PrimDisplayInformations di = section.displayInformations();
+
+        String lineCode = di != null ? di.code() : null;
+        String lineName = di != null ? di.label() : null;
+        String lineColor = di != null ? di.color() : null;
+        String networkName = di != null ? di.network() : null;
 
         return new PrimJourneyPlanDto.LegDto(
                 sequenceOrder,
                 section.id(),
                 section.type(),
-                displayInformations != null ? displayInformations.commercialMode() : null,
-                displayInformations != null ? displayInformations.code() : null,
+                di != null ? di.commercialMode() : null,
+                lineCode,
+                lineName,
+                lineColor,
+                networkName,
                 toOffset(section.departureDateTime()),
                 toOffset(section.arrivalDateTime()),
                 section.duration(),
@@ -455,8 +490,9 @@ public class PrimApiClientImpl implements PrimApiClient {
                 to != null ? to.name() : null,
                 extractLatitude(to),
                 extractLongitude(to),
-                displayInformations != null ? displayInformations.label() : null,
-                section.hasAirConditioning());
+                lineName,
+                section.hasAirConditioning(),
+                stopDateTimeDtos);
     }
 
     private OffsetDateTime toOffset(LocalDateTime dateTime) {

@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.marly.mavigo.models.journey.Journey;
-import org.marly.mavigo.models.journey.Leg;
+import org.marly.mavigo.models.journey.JourneyPoint;
+import org.marly.mavigo.models.journey.JourneySegment;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.task.UserTask;
 import org.springframework.stereotype.Service;
@@ -19,13 +20,16 @@ public class TaskOnRouteService {
 
         add(points, journey.getOriginCoordinate());
 
-        List<Leg> legs = journey.getLegs();
-        if (legs != null) {
-            for (Leg leg : legs) {
-                if (leg == null)
+        List<JourneySegment> segments = journey.getSegments();
+        if (segments != null) {
+            for (JourneySegment segment : segments) {
+                if (segment == null)
                     continue;
-                add(points, leg.getOriginCoordinate());
-                add(points, leg.getDestinationCoordinate());
+                for (JourneyPoint point : segment.getPoints()) {
+                    if (point == null)
+                        continue;
+                    add(points, point.getCoordinates());
+                }
             }
         }
 
@@ -54,7 +58,6 @@ public class TaskOnRouteService {
                     next.getLongitude());
             if (d > stepMeters && stepMeters > 0) {
                 int steps = (int) Math.floor(d / stepMeters);
-                // On ajoute des points intermédiaires (sans dupliquer next)
                 for (int s = 1; s < steps; s++) {
                     double t = (double) s / (double) steps;
                     out.add(interpolate(prev, next, t));
@@ -74,7 +77,6 @@ public class TaskOnRouteService {
 
         double min = Double.POSITIVE_INFINITY;
 
-        // 1) distance aux points
         for (GeoPoint p : polyline) {
             if (p == null)
                 continue;
@@ -130,7 +132,6 @@ public class TaskOnRouteService {
     private boolean samePoint(GeoPoint a, GeoPoint b) {
         if (a == null || b == null)
             return false;
-        // tolérance très petite
         return Math.abs(a.getLatitude() - b.getLatitude()) < 1e-8
                 && Math.abs(a.getLongitude() - b.getLongitude()) < 1e-8;
     }
@@ -147,7 +148,6 @@ public class TaskOnRouteService {
         double lat0 = Math.toRadians((a.getLatitude() + b.getLatitude()) / 2.0);
         double lon0 = Math.toRadians((a.getLongitude() + b.getLongitude()) / 2.0);
 
-        // projection équirectangulaire relative (mètres)
         double ax = (Math.toRadians(a.getLongitude()) - lon0) * Math.cos(lat0) * R;
         double ay = (Math.toRadians(a.getLatitude()) - lat0) * R;
 
@@ -178,9 +178,8 @@ public class TaskOnRouteService {
         return Math.hypot(px - projx, py - projy);
     }
 
-    // Haversine distance (meters)
     static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
-        final double R = 6371000.0; // Earth radius meters
+        final double R = 6371000.0;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
 

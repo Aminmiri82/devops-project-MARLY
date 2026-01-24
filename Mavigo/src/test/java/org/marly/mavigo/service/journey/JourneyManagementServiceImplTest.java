@@ -33,7 +33,7 @@ class JourneyManagementServiceImplTest {
         Journey journey = new Journey();
         journey.setStatus(JourneyStatus.PLANNED);
         
-        when(journeyRepository.findWithLegsById(any(UUID.class))).thenReturn(Optional.of(journey));
+        when(journeyRepository.findWithSegmentsById(any(UUID.class))).thenReturn(Optional.of(journey));
         when(journeyRepository.save(any(Journey.class))).thenAnswer(i -> i.getArguments()[0]);
 
         Journey result = service.startJourney(id);
@@ -48,7 +48,7 @@ class JourneyManagementServiceImplTest {
         Journey journey = new Journey();
         journey.setStatus(JourneyStatus.IN_PROGRESS);
         
-        when(journeyRepository.findWithLegsById(any(UUID.class))).thenReturn(Optional.of(journey));
+        when(journeyRepository.findWithSegmentsById(any(UUID.class))).thenReturn(Optional.of(journey));
 
         assertThrows(IllegalStateException.class, () -> service.startJourney(id));
     }
@@ -59,7 +59,7 @@ class JourneyManagementServiceImplTest {
         Journey journey = new Journey();
         journey.setStatus(JourneyStatus.IN_PROGRESS);
         
-        when(journeyRepository.findWithLegsById(any(UUID.class))).thenReturn(Optional.of(journey));
+        when(journeyRepository.findWithSegmentsById(any(UUID.class))).thenReturn(Optional.of(journey));
         when(journeyRepository.save(any(Journey.class))).thenAnswer(i -> i.getArguments()[0]);
 
         Journey result = service.completeJourney(id);
@@ -74,7 +74,7 @@ class JourneyManagementServiceImplTest {
         Journey journey = new Journey();
         journey.setStatus(JourneyStatus.PLANNED);
         
-        when(journeyRepository.findWithLegsById(any(UUID.class))).thenReturn(Optional.of(journey));
+        when(journeyRepository.findWithSegmentsById(any(UUID.class))).thenReturn(Optional.of(journey));
         when(journeyRepository.save(any(Journey.class))).thenAnswer(i -> i.getArguments()[0]);
 
         Journey result = service.cancelJourney(id);

@@ -105,62 +105,22 @@ class JourneyResultFilterTest {
     }
 
     private PrimJourneyPlanDto createPlanWithAc() {
-        OffsetDateTime now = OffsetDateTime.now();
-        PrimJourneyPlanDto.LegDto leg = new PrimJourneyPlanDto.LegDto(
-                1,                      // sequenceOrder
-                "section-1",            // sectionId
-                "public_transport",     // sectionType - transit leg
-                "METRO",                // commercialMode
-                "M1",                   // lineCode
-                now,                    // departureDateTime
-                now.plusMinutes(30),    // arrivalDateTime
-                1800,                   // durationSeconds
-                "stop-origin",          // originStopId
-                "Origin Station",       // originLabel
-                48.8566,                // originLatitude
-                2.3522,                 // originLongitude
-                "stop-dest",            // destinationStopId
-                "Destination Station",  // destinationLabel
-                48.8606,                // destinationLatitude
-                2.3376,                 // destinationLongitude
-                null,                   // notes
-                true);                  // hasAirConditioning
-        return new PrimJourneyPlanDto(
-                "journey-1",
-                now,
-                now.plusMinutes(30),
-                1800,
-                0,
-                List.of(leg));
+        return createPlan("journey-1", true);
     }
 
     private PrimJourneyPlanDto createPlanWithoutAc() {
+        return createPlan("journey-2", false);
+    }
+
+    private PrimJourneyPlanDto createPlan(String journeyId, boolean hasAc) {
         OffsetDateTime now = OffsetDateTime.now();
-        PrimJourneyPlanDto.LegDto leg = new PrimJourneyPlanDto.LegDto(
-                1,                      // sequenceOrder
-                "section-1",            // sectionId
-                "public_transport",     // sectionType - transit leg
-                "METRO",                // commercialMode
-                "M1",                   // lineCode
-                now,                    // departureDateTime
-                now.plusMinutes(30),    // arrivalDateTime
-                1800,                   // durationSeconds
-                "stop-origin",          // originStopId
-                "Origin Station",       // originLabel
-                48.8566,                // originLatitude
-                2.3522,                 // originLongitude
-                "stop-dest",            // destinationStopId
-                "Destination Station",  // destinationLabel
-                48.8606,                // destinationLatitude
-                2.3376,                 // destinationLongitude
-                null,                   // notes
-                false);                 // hasAirConditioning
-        return new PrimJourneyPlanDto(
-                "journey-2",
-                now,
-                now.plusMinutes(30),
-                1800,
-                0,
-                List.of(leg));
+        var leg = new PrimJourneyPlanDto.LegDto(
+                1, "section-1", "public_transport", "METRO", "M1",
+                "Metro Line 1", "FFCD00", "RATP",
+                now, now.plusMinutes(30), 1800,
+                "stop-origin", "Origin Station", 48.8566, 2.3522,
+                "stop-dest", "Destination Station", 48.8606, 2.3376,
+                null, hasAc, null);
+        return new PrimJourneyPlanDto(journeyId, now, now.plusMinutes(30), 1800, 0, List.of(leg));
     }
 }
