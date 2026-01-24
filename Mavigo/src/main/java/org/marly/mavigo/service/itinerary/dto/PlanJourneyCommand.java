@@ -13,6 +13,7 @@ public record PlanJourneyCommand(
         GeoPoint destinationCoordinate,
         OffsetDateTime departureTime,
         boolean enableComfortMode,
-        boolean enableTouristicMode) {
+        boolean enableTouristicMode,
+        boolean enableWheelchairAccessible) {
 }
 

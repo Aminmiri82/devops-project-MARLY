@@ -1,6 +1,8 @@
 package org.marly.mavigo.service.journey;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.marly.mavigo.client.prim.PrimApiClient;
 import org.marly.mavigo.client.prim.PrimApiException;
@@ -12,6 +14,7 @@ import org.marly.mavigo.models.stoparea.StopArea;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.JourneyRepository;
 import org.marly.mavigo.repository.UserRepository;
+import org.marly.mavigo.service.accessibility.AccessibilityService;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningContext;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningParameters;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
@@ -25,7 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class JourneyPlanningServiceImpl implements JourneyPlanningService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(JourneyPlanningServiceImpl.class);
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(JourneyPlanningServiceImpl.class);
 
     private final PrimApiClient primApiClient;
     private final StopAreaService stopAreaService;
@@ -34,14 +38,18 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
     private final JourneyAssembler journeyAssembler;
     private final PrimJourneyRequestFactory primJourneyRequestFactory;
     private final JourneyResultFilter journeyResultFilter;
+    private final AccessibilityService accessibilityService;
 
-    public JourneyPlanningServiceImpl(PrimApiClient primApiClient,
+    public JourneyPlanningServiceImpl(
+            PrimApiClient primApiClient,
             StopAreaService stopAreaService,
             JourneyRepository journeyRepository,
             UserRepository userRepository,
             JourneyAssembler journeyAssembler,
             PrimJourneyRequestFactory primJourneyRequestFactory,
-            JourneyResultFilter journeyResultFilter) {
+            JourneyResultFilter journeyResultFilter,
+            AccessibilityService accessibilityService) {
+
         this.primApiClient = primApiClient;
         this.stopAreaService = stopAreaService;
         this.journeyRepository = journeyRepository;
@@ -49,17 +57,25 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         this.journeyAssembler = journeyAssembler;
         this.primJourneyRequestFactory = primJourneyRequestFactory;
         this.journeyResultFilter = journeyResultFilter;
+        this.accessibilityService = accessibilityService;
     }
+
 
     @Override
     public List<Journey> planAndPersist(JourneyPlanningParameters parameters) {
-        StopArea origin = stopAreaService.findOrCreateByQuery(parameters.originQuery());
-        StopArea destination = stopAreaService.findOrCreateByQuery(parameters.destinationQuery());
+
+        StopArea origin =
+                stopAreaService.findOrCreateByQuery(parameters.originQuery());
+        StopArea destination =
+                stopAreaService.findOrCreateByQuery(parameters.destinationQuery());
 
         User user = userRepository.findById(parameters.userId())
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + parameters.userId()));
+                .orElseThrow(() ->
+                        new IllegalArgumentException("User not found: "
+                                + parameters.userId()));
 
-        JourneyPlanningContext context = new JourneyPlanningContext(user, origin, destination, parameters);
+        JourneyPlanningContext context =
+                new JourneyPlanningContext(user, origin, destination, parameters);
 
         LOGGER.info("Planning journey for user {} from '{}' to '{}' at {}",
                 parameters.userId(),
@@ -69,21 +85,38 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
 
         var journeyRequest = primJourneyRequestFactory.create(context);
 
-        List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(journeyRequest);
+        List<PrimJourneyPlanDto> options =
+                primApiClient.calculateJourneyPlans(journeyRequest);
 
-        boolean comfortEnabled = parameters.preferences().comfortModeEnabled();
-        options = journeyResultFilter.filterByComfortProfile(options, user, comfortEnabled);
+        // Comfort mode
+        boolean comfortEnabled =
+                parameters.preferences().comfortModeEnabled();
+        options = journeyResultFilter.filterByComfortProfile(
+                options, user, comfortEnabled);
 
-        if (options.isEmpty()) {
-            throw new PrimApiException("No journey options match the requested parameters or comfort criteria");
+        // Wheelchair accessibility
+        boolean wheelchairEnabled =
+                parameters.preferences().wheelchairAccessible()
+                        || user.getComfortProfile().isWheelchairAccessible();
+
+        if (wheelchairEnabled) {
+            LOGGER.info("Wheelchair accessibility filter enabled");
+            options = filterWheelchairAccessibleJourneys(options);
         }
 
-        // Select top 3 options
-        List<PrimJourneyPlanDto> topOptions = options.stream().limit(3).toList();
+        if (options.isEmpty()) {
+            throw new PrimApiException(
+                    "No journey options match requested parameters");
+        }
+
+        List<PrimJourneyPlanDto> topOptions =
+                options.stream().limit(3).toList();
+
         List<Journey> savedJourneys = new java.util.ArrayList<>();
 
         for (PrimJourneyPlanDto selected : topOptions) {
-             Journey journey = journeyAssembler.assemble(
+
+            Journey journey = journeyAssembler.assemble(
                     user,
                     origin,
                     destination,
@@ -91,112 +124,121 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
                     parameters.preferences());
 
             journey.setStatus(JourneyStatus.PLANNED);
-            Journey savedJourney = journeyRepository.save(journey);
-            org.hibernate.Hibernate.initialize(savedJourney.getLegs()); // Eager load for return
-            org.hibernate.Hibernate.initialize(savedJourney.getUser());
-            savedJourneys.add(savedJourney);
-            
-            LOGGER.info("Persisted journey {} using Prim itinerary {}", savedJourney.getId(), selected.journeyId());
+
+            Journey saved = journeyRepository.save(journey);
+            org.hibernate.Hibernate.initialize(saved.getLegs());
+            org.hibernate.Hibernate.initialize(saved.getUser());
+
+            savedJourneys.add(saved);
+
+            LOGGER.info(
+                    "Persisted journey {} (Prim id={}, wheelchair={})",
+                    saved.getId(),
+                    selected.journeyId(),
+                    wheelchairEnabled);
         }
 
         return savedJourneys;
     }
 
-    private PrimJourneyPlanDto selectFirstJourney(List<PrimJourneyPlanDto> options) {
-        return options.get(0);
-    }
-
-    /**
-     * Met à jour un trajet existant lorsqu'une perturbation est signalée.
-     */
     @Transactional
-    public List<Journey> updateJourneyWithDisruption(java.util.UUID journeyId, Disruption disruption, Double userLat, Double userLng, String manualOrigin) {
-        
-        Journey journey = journeyRepository.findWithLegsById(journeyId)
-             .orElseThrow(() -> new IllegalArgumentException("Journey not found: " + journeyId));
+    public List<Journey> updateJourneyWithDisruption(
+            UUID journeyId,
+            Disruption disruption,
+            Double userLat,
+            Double userLng,
+            String manualOrigin) {
 
-        // Initialize User to avoid LazyInitializationException during JSON serialization
+        Journey journey = journeyRepository.findWithLegsById(journeyId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Journey not found: " + journeyId));
+
         org.hibernate.Hibernate.initialize(journey.getUser());
 
-        // Vérifie si le trajet est impacté par la perturbation
-        // If line is "General Disruption", we skip check and force reroute
-        boolean isGeneric = "General Disruption".equals(disruption.getEffectedLine());
-        boolean impacted = isGeneric || journey.getLegs().stream()
-                .anyMatch(leg -> leg.getLineCode() != null && leg.getLineCode().equals(disruption.getEffectedLine()));
+        boolean impacted =
+                "General Disruption".equals(disruption.getEffectedLine())
+                        || journey.getLegs().stream()
+                        .anyMatch(leg ->
+                                leg.getLineCode() != null
+                                        && leg.getLineCode()
+                                        .equals(disruption.getEffectedLine()));
 
         if (!impacted) {
-            // Aucun impact, on retourne le trajet tel quel (dans une liste)
-            return java.util.Collections.singletonList(journey);
+            return List.of(journey);
         }
 
-        // Ajouter la perturbation
         journey.addDisruption(disruption);
 
-        // Determine new origin: GPS > manual override > original origin
         StopArea origin;
         String originQuery;
-        
+
         if (userLat != null && userLng != null) {
-             // Create a temporary StopArea for the GPS location
-             originQuery = "Current Location"; // Display label
-             String tempId = String.format("coord:%.6f;%.6f", userLng, userLat); 
-             org.marly.mavigo.models.shared.GeoPoint location = new org.marly.mavigo.models.shared.GeoPoint(userLat, userLng);
-             origin = new StopArea(tempId, "Current Location", location);
+            originQuery = "Current Location";
+            var location =
+                    new org.marly.mavigo.models.shared.GeoPoint(
+                            userLat, userLng);
+            origin = new StopArea(
+                    String.format("coord:%.6f;%.6f", userLng, userLat),
+                    "Current Location",
+                    location);
         } else if (manualOrigin != null && !manualOrigin.isBlank()) {
-             originQuery = manualOrigin;
-             origin = stopAreaService.findOrCreateByQuery(originQuery);
+            originQuery = manualOrigin;
+            origin = stopAreaService.findOrCreateByQuery(originQuery);
         } else {
-             originQuery = journey.getOriginLabel();
-             origin = stopAreaService.findOrCreateByQuery(originQuery);
+            originQuery = journey.getOriginLabel();
+            origin = stopAreaService.findOrCreateByQuery(originQuery);
         }
 
-        StopArea destination = stopAreaService.findOrCreateByQuery(journey.getDestinationLabel());
+        StopArea destination =
+                stopAreaService.findOrCreateByQuery(
+                        journey.getDestinationLabel());
 
-        // Créer JourneyPreferences à partir des flags existants
         JourneyPreferences preferences = new JourneyPreferences(
                 journey.isComfortModeEnabled(),
-                journey.isTouristicModeEnabled());
+                journey.isTouristicModeEnabled(),
+                journey.isWheelchairAccessible());
 
-        // Créer les paramètres pour recalculer le trajet
-        JourneyPlanningParameters params = new JourneyPlanningParameters(
-                journey.getUser().getId(),
-                originQuery,
-                journey.getDestinationLabel(),
-                java.time.LocalDateTime.now(), // Use NOW as departure time for rerouting
-                preferences);
+        JourneyPlanningParameters params =
+                new JourneyPlanningParameters(
+                        journey.getUser().getId(),
+                        originQuery,
+                        journey.getDestinationLabel(),
+                        LocalDateTime.now(),
+                        preferences);
 
-        JourneyPlanningContext context = new JourneyPlanningContext(
-                journey.getUser(),
-                origin,
-                destination,
-                params);
+        JourneyPlanningContext context =
+                new JourneyPlanningContext(
+                        journey.getUser(),
+                        origin,
+                        destination,
+                        params);
 
-        // Créer la requête Prim
         var request = primJourneyRequestFactory.create(context);
 
-        // TODO : exclure la ligne perturbée si PrimJourneyRequest le supporte
-        // request.addExcludedLine(disruption.getEffectedLine());
+        List<PrimJourneyPlanDto> options =
+                primApiClient.calculateJourneyPlans(request);
 
-        // Recalculer les itinéraires
-        List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
+        options = journeyResultFilter.filterByComfortProfile(
+                options,
+                journey.getUser(),
+                preferences.comfortModeEnabled());
 
-        boolean comfortEnabled = preferences.comfortModeEnabled();
-        options = journeyResultFilter.filterByComfortProfile(options, journey.getUser(), comfortEnabled);
-
-        if (options.isEmpty()) {
-            return java.util.Collections.singletonList(journey); // pas d'alternative trouvée
+        if (journey.isWheelchairAccessible()) {
+            LOGGER.info("Applying wheelchair filter to re-routing");
+            options = filterWheelchairAccessibleJourneys(options);
         }
 
-        // Select top 3 options
-        List<PrimJourneyPlanDto> topOptions = options.stream().limit(3).toList();
+        if (options.isEmpty()) {
+            return List.of(journey);
+        }
+
         List<Journey> newJourneys = new java.util.ArrayList<>();
 
-        // Le premier scénario peut remplacer le trajet actuel s'il est jugé "meilleur" ou on crée de nouvelles entités
-        // Pour simplifier et permettre le choix utilisateur, on crée de nouvelles entités Journey PLANNED
-        // L'utilisateur choisira ensuite laquelle activer.
-        
-        for (PrimJourneyPlanDto selected : topOptions) {
-             Journey newJourney = journeyAssembler.assemble(
+        for (PrimJourneyPlanDto selected :
+                options.stream().limit(3).toList()) {
+
+            Journey newJourney = journeyAssembler.assemble(
                     journey.getUser(),
                     origin,
                     destination,
@@ -205,14 +247,80 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
 
             newJourney.setStatus(JourneyStatus.PLANNED);
             newJourney.addDisruption(disruption);
-            
-            Journey savedJourney = journeyRepository.save(newJourney);
-            org.hibernate.Hibernate.initialize(savedJourney.getLegs()); 
-            org.hibernate.Hibernate.initialize(savedJourney.getUser());
-            org.hibernate.Hibernate.initialize(savedJourney.getDisruptions());
-            newJourneys.add(savedJourney);
+
+            Journey saved = journeyRepository.save(newJourney);
+            org.hibernate.Hibernate.initialize(saved.getLegs());
+            org.hibernate.Hibernate.initialize(saved.getUser());
+            org.hibernate.Hibernate.initialize(saved.getDisruptions());
+
+            newJourneys.add(saved);
         }
 
         return newJourneys;
+    }
+
+
+    private List<PrimJourneyPlanDto> filterWheelchairAccessibleJourneys(
+            List<PrimJourneyPlanDto> journeys) {
+
+        return journeys.stream()
+                .filter(this::isJourneyWheelchairAccessible)
+                .toList();
+    }
+
+    private boolean isJourneyWheelchairAccessible(
+            PrimJourneyPlanDto journey) {
+
+        if (journey.legs() == null || journey.legs().isEmpty()) {
+            return true;
+        }
+
+        return journey.legs().stream()
+                .allMatch(this::isLegWheelchairAccessible);
+    }
+
+    private boolean isLegWheelchairAccessible(
+            PrimJourneyPlanDto.LegDto leg) {
+
+        // Walking / transfers are always OK
+        String type = leg.sectionType();
+        if (type == null
+                || type.equals("street_network")
+                || type.equals("transfer")
+                || type.equals("waiting")
+                || type.equals("crow_fly")) {
+            return true;
+        }
+
+        if (leg.lineCode() != null &&
+                !accessibilityService
+                        .isLineWheelchairAccessible(leg.lineCode())) {
+
+            LOGGER.debug("Line {} not wheelchair accessible",
+                    leg.lineCode());
+            return false;
+        }
+
+        if (leg.originStopId() != null &&
+                !accessibilityService
+                        .isStationWheelchairAccessible(
+                                leg.originStopId())) {
+
+            LOGGER.debug("Origin station {} not accessible",
+                    leg.originLabel());
+            return false;
+        }
+
+        if (leg.destinationStopId() != null &&
+                !accessibilityService
+                        .isStationWheelchairAccessible(
+                                leg.destinationStopId())) {
+
+            LOGGER.debug("Destination station {} not accessible",
+                    leg.destinationLabel());
+            return false;
+        }
+
+        return true;
     }
 }

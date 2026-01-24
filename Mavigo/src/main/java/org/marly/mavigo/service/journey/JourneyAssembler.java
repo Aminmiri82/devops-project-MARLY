@@ -47,6 +47,7 @@ public class JourneyAssembler {
         journey.setDestinationCoordinate(resolveCoordinate(destination.getCoordinates(), plan, false));
         journey.setComfortModeEnabled(preferences != null && preferences.comfortModeEnabled());
         journey.setTouristicModeEnabled(preferences != null && preferences.touristicModeEnabled());
+        journey.setWheelchairAccessible(preferences != null && preferences.wheelchairAccessible());
         journey.setPrimItineraryId(plan.journeyId());
         journey.setStatus(JourneyStatus.PLANNED);
         journey.replaceLegs(mapLegs(plan.legs()));

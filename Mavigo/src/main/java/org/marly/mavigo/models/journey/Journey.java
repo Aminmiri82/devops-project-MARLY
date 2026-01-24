@@ -82,6 +82,16 @@ public class Journey {
     @Column(name = "comfort_mode_enabled", nullable = false)
     private boolean comfortModeEnabled = false;
 
+    @Column(name = "wheelchair_accessible")
+    private boolean wheelchairAccessible;
+
+    public boolean isWheelchairAccessible() {
+        return wheelchairAccessible;
+    }
+    public void setWheelchairAccessible(boolean wheelchairAccessible) {
+        this.wheelchairAccessible = wheelchairAccessible;
+    }
+
     @Column(name = "touristic_mode_enabled", nullable = false)
     private boolean touristicModeEnabled = false;
 

@@ -21,6 +21,9 @@ public class ComfortProfile {
     @Column(name = "max_walking_duration")
     private Integer maxWalkingDuration;
 
+    @Column(name = "wheelchair_accessible")
+    private boolean wheelchairAccessible = false;
+
     public ComfortProfile() {
     }
 
@@ -64,11 +67,22 @@ public class ComfortProfile {
         this.maxWalkingDuration = maxWalkingDuration;
     }
 
+    public boolean isWheelchairAccessible() {
+        return wheelchairAccessible;
+    }
+
+    public void setWheelchairAccessible(boolean wheelchairAccessible) {
+        this.wheelchairAccessible = wheelchairAccessible;
+    }
+
     public boolean hasSettings() {
         return directPath != null
                 || requireAirConditioning != null
                 || maxNbTransfers != null
                 || maxWaitingDuration != null
-                || maxWalkingDuration != null;
+                || maxWalkingDuration != null
+                ||  wheelchairAccessible;
+
+
     }
 }
