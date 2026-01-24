@@ -1028,10 +1028,12 @@ function displayJourneyCard(journey, index, total) {
         .map(
           (seg) => `
         <li class="journey-leg-item">
-            <div class="leg-marker"></div>
+            <div class="leg-marker-container">
+                ${formatLineBadge(seg.mode, seg.lineCode, seg.lineColor)}
+            </div>
             <div class="leg-content">
-                <span class="leg-mode">${formatMode(seg.mode)} ${
-            seg.lineCode ? `<span class="leg-line">${seg.lineCode}</span>` : ""
+                <span class="leg-mode">${formatMode(seg.mode)}${
+            seg.lineName ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>` : ""
           }</span>
                 <span class="leg-route">${seg.originLabel || "?"} → ${
             seg.destinationLabel || "?"
@@ -1872,6 +1874,74 @@ function formatMode(mode) {
   if (mode === "WALK") return "Walk";
   // Capitalize first letter, lowercase rest for others
   return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
+}
+
+/**
+ * Generates HTML for a transport line badge based on mode and line info.
+ * - Metro/RER: Circle with line code (number or letter)
+ * - Tram: Circle with T + number
+ * - Bus: Rounded pill with line number
+ * - Walk/Other: Icon-based representation
+ */
+function formatLineBadge(mode, lineCode, lineColor) {
+  if (!lineCode) {
+    // For walk/transfer/other modes without a line
+    if (mode === "WALK" || mode === "WALKING") {
+      return '<span class="line-badge line-badge-walk"></span>';
+    }
+    if (mode === "OTHER" || mode === "TRANSFER") {
+      return '<span class="line-badge line-badge-transfer"></span>';
+    }
+    return '';
+  }
+
+  const bgColor = lineColor ? `#${lineColor}` : '#666';
+  // Determine text color based on background brightness
+  const textColor = getContrastColor(bgColor);
+
+  // Determine badge type based on mode
+  let badgeClass = 'line-badge';
+  let displayCode = escapeHtml(lineCode);
+
+  switch (mode) {
+    case 'METRO':
+      badgeClass += ' line-badge-metro';
+      break;
+    case 'RER':
+      badgeClass += ' line-badge-rer';
+      break;
+    case 'TRAM':
+      badgeClass += ' line-badge-tram';
+      // If lineCode doesn't start with T, add it
+      if (!lineCode.toUpperCase().startsWith('T')) {
+        displayCode = 'T' + displayCode;
+      }
+      break;
+    case 'BUS':
+      badgeClass += ' line-badge-bus';
+      break;
+    case 'TRANSILIEN':
+      badgeClass += ' line-badge-transilien';
+      break;
+    default:
+      badgeClass += ' line-badge-other';
+  }
+
+  return `<span class="${badgeClass}" style="background-color: ${bgColor}; color: ${textColor};">${displayCode}</span>`;
+}
+
+/**
+ * Returns black or white text color based on background color brightness.
+ */
+function getContrastColor(hexColor) {
+  // Remove # if present
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#ffffff';
 }
 
 function generateId() {
