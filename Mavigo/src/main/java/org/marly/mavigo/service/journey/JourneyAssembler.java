@@ -33,10 +33,10 @@ public class JourneyAssembler {
      * Assembles a Journey entity from PRIM response data.
      */
     public Journey assemble(User user,
-                           StopArea origin,
-                           StopArea destination,
-                           PrimJourneyPlanDto plan,
-                           JourneyPreferences preferences) {
+            StopArea origin,
+            StopArea destination,
+            PrimJourneyPlanDto plan,
+            JourneyPreferences preferences) {
 
         Objects.requireNonNull(user, "User is required when creating a journey");
         Objects.requireNonNull(origin, "Origin stop area is required");
@@ -57,6 +57,9 @@ public class JourneyAssembler {
         journey.setDestinationCoordinate(resolveCoordinate(destination.getCoordinates(), plan, false));
         journey.setComfortModeEnabled(preferences != null && preferences.comfortModeEnabled());
         journey.setTouristicModeEnabled(preferences != null && preferences.touristicModeEnabled());
+        if (preferences != null) {
+            journey.setNamedComfortSettingId(preferences.namedComfortSettingId());
+        }
         journey.setPrimItineraryId(plan.journeyId());
         journey.setStatus(JourneyStatus.PLANNED);
 
@@ -133,7 +136,8 @@ public class JourneyAssembler {
 
     /**
      * Creates JourneyPoint entities for a segment.
-     * Uses stop_date_times if available, otherwise falls back to origin/destination only.
+     * Uses stop_date_times if available, otherwise falls back to origin/destination
+     * only.
      */
     private List<JourneyPoint> createPointsForSegment(JourneySegment segment, PrimJourneyPlanDto.LegDto dto) {
         List<JourneyPoint> points = new ArrayList<>();
@@ -172,7 +176,8 @@ public class JourneyAssembler {
             origin.setStatus(JourneyPointStatus.NORMAL);
             points.add(origin);
 
-            // Only add destination if it's different from origin (avoid same-place duplicates)
+            // Only add destination if it's different from origin (avoid same-place
+            // duplicates)
             boolean samePlace = originName.equals(destName)
                     && (dto.durationSeconds() == null || dto.durationSeconds() < 60);
 
@@ -211,7 +216,7 @@ public class JourneyAssembler {
         } else if (index == totalStops - 1) {
             return JourneyPointType.DESTINATION;
         } else if (segment.getSegmentType() == SegmentType.WALKING ||
-                   segment.getSegmentType() == SegmentType.TRANSFER) {
+                segment.getSegmentType() == SegmentType.TRANSFER) {
             return JourneyPointType.WALKING_WAYPOINT;
         } else {
             return JourneyPointType.INTERMEDIATE_STOP;
@@ -240,7 +245,7 @@ public class JourneyAssembler {
                     || nextSegment.getSegmentType() == SegmentType.TRANSFER
                     || nextSegment.getSegmentType() == SegmentType.WALKING
                     || (currentSegment.getSegmentType() == SegmentType.PUBLIC_TRANSPORT
-                        && nextSegment.getSegmentType() == SegmentType.PUBLIC_TRANSPORT);
+                            && nextSegment.getSegmentType() == SegmentType.PUBLIC_TRANSPORT);
 
             if (isTransfer) {
                 JourneyPoint arrivalPoint = currentSegment.getDestinationPoint();

@@ -89,10 +89,13 @@ public class Journey {
     @Column(name = "touristic_mode_enabled", nullable = false)
     private boolean touristicModeEnabled = false;
 
+    @Column(name = "named_comfort_setting_id")
+    private UUID namedComfortSettingId;
+
     @Column(name = "prim_itinerary_id")
     private String primItineraryId;
 
-    @Column(name = "disruption_count", nullable = false)
+    @Column(name = "disruption_count")
     private int disruptionCount = 0;
 
     @OneToMany(mappedBy = "journey", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
@@ -100,11 +103,7 @@ public class Journey {
     private List<JourneySegment> segments = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "journey_disruption",
-        joinColumns = @JoinColumn(name = "journey_id"),
-        inverseJoinColumns = @JoinColumn(name = "disruption_id")
-    )
+    @JoinTable(name = "journey_disruption", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "disruption_id"))
     private List<Disruption> disruptions = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -149,7 +148,8 @@ public class Journey {
     }
 
     /**
-     * Returns points that are transfer points (TRANSFER_ARRIVAL or TRANSFER_DEPARTURE).
+     * Returns points that are transfer points (TRANSFER_ARRIVAL or
+     * TRANSFER_DEPARTURE).
      */
     public List<JourneyPoint> getTransferPoints() {
         return getAllPoints().stream()
@@ -345,6 +345,14 @@ public class Journey {
 
     public void setTouristicModeEnabled(boolean touristicModeEnabled) {
         this.touristicModeEnabled = touristicModeEnabled;
+    }
+
+    public UUID getNamedComfortSettingId() {
+        return namedComfortSettingId;
+    }
+
+    public void setNamedComfortSettingId(UUID namedComfortSettingId) {
+        this.namedComfortSettingId = namedComfortSettingId;
     }
 
     public String getPrimItineraryId() {

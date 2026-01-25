@@ -80,7 +80,7 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(journeyRequest);
 
         boolean comfortEnabled = parameters.preferences().comfortModeEnabled();
-        options = journeyResultFilter.filterByComfortProfile(options, user, comfortEnabled);
+        options = journeyResultFilter.filterByComfortProfile(options, context, comfortEnabled);
 
         if (options.isEmpty()) {
             throw new PrimApiException("No journey options match the requested parameters or comfort criteria");
@@ -160,7 +160,8 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
 
         JourneyPreferences preferences = new JourneyPreferences(
                 journey.isComfortModeEnabled(),
-                journey.isTouristicModeEnabled());
+                journey.isTouristicModeEnabled(),
+                journey.getNamedComfortSettingId());
 
         JourneyPlanningParameters params = new JourneyPlanningParameters(
                 journey.getUser().getId(),
@@ -180,7 +181,7 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
 
         boolean comfortEnabled = preferences.comfortModeEnabled();
-        options = journeyResultFilter.filterByComfortProfile(options, journey.getUser(), comfortEnabled);
+        options = journeyResultFilter.filterByComfortProfile(options, context, comfortEnabled);
 
         if (options.isEmpty()) {
             return java.util.Collections.singletonList(journey);
@@ -236,7 +237,11 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
         List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
 
         boolean comfortEnabled = preferences != null && preferences.comfortModeEnabled();
-        options = journeyResultFilter.filterByComfortProfile(options, user, comfortEnabled);
+        // Construct a context for the recalculation
+        JourneyPlanningParameters params = new JourneyPlanningParameters(userId, newOriginStopAreaId,
+                destinationStopAreaId, LocalDateTime.now(), preferences);
+        JourneyPlanningContext ctx = new JourneyPlanningContext(user, origin, destination, params);
+        options = journeyResultFilter.filterByComfortProfile(options, ctx, comfortEnabled);
 
         if (options.isEmpty()) {
             throw new PrimApiException("No journey options found from new origin");

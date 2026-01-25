@@ -15,6 +15,8 @@ import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningContext;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningParameters;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
+import org.marly.mavigo.repository.NamedComfortSettingRepository;
+import static org.mockito.Mockito.mock;
 
 class ComfortModeJourneyStrategyTest {
 
@@ -22,18 +24,19 @@ class ComfortModeJourneyStrategyTest {
 
     @BeforeEach
     void setUp() {
-        strategy = new ComfortModeJourneyStrategy();
+        NamedComfortSettingRepository repo = mock(NamedComfortSettingRepository.class);
+        strategy = new ComfortModeJourneyStrategy(repo);
     }
 
     @Test
     void supports_returnsTrueWhenComfortModeEnabled() {
-        JourneyPreferences prefs = new JourneyPreferences(true, false);
+        JourneyPreferences prefs = new JourneyPreferences(true, false, null);
         assertThat(strategy.supports(prefs)).isTrue();
     }
 
     @Test
     void supports_returnsFalseWhenComfortModeDisabled() {
-        JourneyPreferences prefs = new JourneyPreferences(false, true);
+        JourneyPreferences prefs = new JourneyPreferences(false, true, null);
         assertThat(strategy.supports(prefs)).isFalse();
     }
 
@@ -152,7 +155,7 @@ class ComfortModeJourneyStrategyTest {
                 "origin-query",
                 "dest-query",
                 LocalDateTime.now(),
-                new JourneyPreferences(true, false));
+                new JourneyPreferences(true, false, null));
         StopArea origin = new StopArea("origin-ext", "Origin", new GeoPoint(0d, 0d));
         StopArea destination = new StopArea("dest-ext", "Destination", new GeoPoint(1d, 1d));
         return new JourneyPlanningContext(user, origin, destination, params);

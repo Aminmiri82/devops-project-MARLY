@@ -56,9 +56,16 @@ public class User {
     @Column(name = "google_linked_at")
     private OffsetDateTime googleLinkedAt;
 
+    @Column(name = "has_seen_comfort_prompt")
+    private Boolean hasSeenComfortPrompt = false;
+
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Journey> journeys = new ArrayList<>();
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<NamedComfortSetting> namedComfortSettings = new ArrayList<>();
 
     protected User() {
 
@@ -154,6 +161,14 @@ public class User {
         this.googleLinkedAt = googleLinkedAt;
     }
 
+    public Boolean getHasSeenComfortPrompt() {
+        return hasSeenComfortPrompt != null ? hasSeenComfortPrompt : false;
+    }
+
+    public void setHasSeenComfortPrompt(Boolean hasSeenComfortPrompt) {
+        this.hasSeenComfortPrompt = hasSeenComfortPrompt;
+    }
+
     public List<Journey> getJourneys() {
         return Collections.unmodifiableList(journeys);
     }
@@ -167,5 +182,18 @@ public class User {
         journeys.remove(journey);
         journey.setUser(null);
     }
-}
 
+    public List<NamedComfortSetting> getNamedComfortSettings() {
+        return Collections.unmodifiableList(namedComfortSettings);
+    }
+
+    public void addNamedComfortSetting(NamedComfortSetting setting) {
+        namedComfortSettings.add(setting);
+        setting.setUser(this);
+    }
+
+    public void removeNamedComfortSetting(NamedComfortSetting setting) {
+        namedComfortSettings.remove(setting);
+        setting.setUser(null);
+    }
+}

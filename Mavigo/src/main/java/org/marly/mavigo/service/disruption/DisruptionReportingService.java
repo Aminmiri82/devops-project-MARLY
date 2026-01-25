@@ -92,7 +92,8 @@ public class DisruptionReportingService {
                 continue;
             }
             for (JourneyPoint pt : seg.getPoints()) {
-                stops.add(new StopInfo(pt.getPrimStopAreaId(), pt.getPrimStopPointId(), pt.getName(), seq++, seg.getLineCode()));
+                stops.add(new StopInfo(pt.getPrimStopAreaId(), pt.getPrimStopPointId(), pt.getName(), seq++,
+                        seg.getLineCode()));
             }
         }
         return stops;
@@ -148,7 +149,8 @@ public class DisruptionReportingService {
 
     private List<Journey> recalculateFrom(Journey original, JourneyPoint newOrigin) {
         String originId = newOrigin.getPrimStopAreaId();
-        if (originId == null) originId = newOrigin.getPrimStopPointId();
+        if (originId == null)
+            originId = newOrigin.getPrimStopPointId();
         if (originId == null) {
             GeoPoint coords = newOrigin.getCoordinates();
             if (coords != null && coords.isComplete()) {
@@ -174,22 +176,37 @@ public class DisruptionReportingService {
         return calculateAlternatives(original, origin, destination, excludedLine);
     }
 
-    private List<Journey> calculateAlternatives(Journey original, StopArea origin, StopArea destination, String excludedLine) {
+    private List<Journey> calculateAlternatives(Journey original, StopArea origin, StopArea destination,
+            String excludedLine) {
         try {
-            var request = new PrimJourneyRequest(origin.getExternalId(), destination.getExternalId(), LocalDateTime.now());
+            var request = new PrimJourneyRequest(origin.getExternalId(), destination.getExternalId(),
+                    LocalDateTime.now());
             List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
 
-            options = journeyResultFilter.filterByComfortProfile(options, original.getUser(), original.isComfortModeEnabled());
+            var prefs = new JourneyPreferences(original.isComfortModeEnabled(), original.isTouristicModeEnabled(),
+                    original.getNamedComfortSettingId());
+            var params = new org.marly.mavigo.service.journey.dto.JourneyPlanningParameters(
+                    original.getUser().getId(),
+                    original.getOriginLabel(),
+                    original.getDestinationLabel(),
+                    LocalDateTime.now(),
+                    prefs);
+            var context = new org.marly.mavigo.service.journey.dto.JourneyPlanningContext(original.getUser(), origin,
+                    destination, params);
+
+            options = journeyResultFilter.filterByComfortProfile(options, context,
+                    original.isComfortModeEnabled());
 
             if (excludedLine != null) {
                 options = options.stream()
-                        .filter(plan -> plan.legs() == null || plan.legs().stream().noneMatch(leg -> excludedLine.equals(leg.lineCode())))
+                        .filter(plan -> plan.legs() == null
+                                || plan.legs().stream().noneMatch(leg -> excludedLine.equals(leg.lineCode())))
                         .toList();
             }
 
-            if (options.isEmpty()) return List.of();
+            if (options.isEmpty())
+                return List.of();
 
-            var prefs = new JourneyPreferences(original.isComfortModeEnabled(), original.isTouristicModeEnabled());
             List<Journey> results = new ArrayList<>();
 
             for (PrimJourneyPlanDto opt : options.stream().limit(3).toList()) {

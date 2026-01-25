@@ -18,4 +18,13 @@ public interface UserService {
     void deleteUser(UUID userId);
 
     User linkGoogleAccount(UUID userId, GoogleAccountLink googleAccountLink);
+
+    User addNamedComfortSetting(UUID userId, String name, org.marly.mavigo.models.user.ComfortProfile profile);
+
+    User updateNamedComfortSetting(UUID userId, UUID settingId, String name,
+            org.marly.mavigo.models.user.ComfortProfile profile);
+
+    User markComfortPromptAsSeen(UUID userId);
+
+    User deleteNamedComfortSetting(UUID userId, UUID settingId);
 }

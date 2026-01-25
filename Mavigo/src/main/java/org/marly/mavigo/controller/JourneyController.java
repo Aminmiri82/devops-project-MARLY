@@ -78,7 +78,8 @@ public class JourneyController {
         // 1) Planifier + persister les trajets (reroutage-task returns List<Journey>)
         java.util.List<Journey> journeys = journeyPlanningService.planAndPersist(parameters);
 
-        // 2) Calculer les tâches "sur le chemin" pour chaque trajet (polyline densifiée)
+        // 2) Calculer les tâches "sur le chemin" pour chaque trajet (polyline
+        // densifiée)
         final double BASE_RADIUS_METERS = 300.0;
 
         java.util.List<JourneyResponse> responses = journeys.stream()
@@ -95,14 +96,16 @@ public class JourneyController {
                         // Densification: on ajoute des points intermédiaires tous les ~200m
                         var polyline = taskOnRouteService.densify(baseRoutePoints, 200);
 
-                        // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux négatifs
+                        // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux
+                        // négatifs
                         double radius = (polyline == null || polyline.size() <= 3) ? 900.0 : BASE_RADIUS_METERS;
 
                         tasksOnRoute = tasks.stream()
                                 .filter(t -> t != null && !t.isCompleted())
                                 .filter(t -> t.getLocationHint() != null)
                                 .map(t -> {
-                                    double d = taskOnRouteService.minDistanceMetersToPolyline(t.getLocationHint(), polyline);
+                                    double d = taskOnRouteService.minDistanceMetersToPolyline(t.getLocationHint(),
+                                            polyline);
                                     return (d <= radius) ? JourneyResponse.fromTask(t, d) : null;
                                 })
                                 .filter(Objects::nonNull)
@@ -234,6 +237,9 @@ public class JourneyController {
         if (preferencesRequest == null) {
             return JourneyPreferences.disabled();
         }
-        return new JourneyPreferences(preferencesRequest.comfortMode(), preferencesRequest.touristicMode());
+        return new JourneyPreferences(
+                preferencesRequest.comfortMode(),
+                preferencesRequest.touristicMode(),
+                preferencesRequest.namedComfortSettingId());
     }
 }
