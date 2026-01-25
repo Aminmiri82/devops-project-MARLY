@@ -108,13 +108,26 @@ const comfortProfileModal = document.getElementById("comfortProfileModal");
 const comfortProfileForm = document.getElementById("comfortProfileForm");
 const comfortProfileSummary = document.getElementById("comfortProfileSummary");
 const editComfortProfileBtn = document.getElementById("editComfortProfileBtn");
-const closeComfortProfileModal = document.getElementById(
-  "closeComfortProfileModal"
-);
-const clearComfortProfileBtn = document.getElementById(
-  "clearComfortProfileBtn"
-);
-const comfortCheckbox = document.getElementById("comfort");
+const closeComfortProfileModal = document.getElementById("closeComfortProfileModal");
+
+// New Refactored Elements
+const comfortProfileListView = document.getElementById("comfortProfileListView");
+const comfortProfileFormView = document.getElementById("comfortProfileFormView");
+const namedSettingsList = document.getElementById("namedSettingsList");
+const addNewComfortSettingBtn = document.getElementById("addNewComfortSettingBtn");
+const backToComfortListBtn = document.getElementById("backToComfortListBtn");
+const comfortFormTitle = document.getElementById("comfortFormTitle");
+const comfortFormSubtitle = document.getElementById("comfortFormSubtitle");
+const editingSettingId = document.getElementById("editingSettingId");
+const saveComfortSettingBtn = document.getElementById("saveComfortSettingBtn");
+const deleteComfortSettingBtn = document.getElementById("deleteComfortSettingBtn");
+const settingNameInput = document.getElementById("settingName");
+
+const comfortOnboardingModal = document.getElementById("comfortOnboardingModal");
+const setupComfortNowBtn = document.getElementById("setupComfortNowBtn");
+const skipComfortOnboardingBtn = document.getElementById("skipComfortOnboardingBtn");
+
+const journeyComfortSelection = document.getElementById("journeyComfortSelection");
 
 // User Dropdown Elements
 const userDropdownTrigger = document.getElementById("userDropdownTrigger");
@@ -139,6 +152,7 @@ function init() {
   setupNav();
   setupTasks();
   setupDropdown();
+  setupOnboardingListeners();
   setDefaultDepartureTime();
   ensureToastUI();
   ensureTasksModalUI();
@@ -375,6 +389,7 @@ function updateUI() {
     renderUserInfo();
     renderGoogleLinkStatus(currentUser);
     renderComfortProfileSummary();
+    loadNamedComfortSettings();
     setView(currentView);
   } else {
     loggedOutView?.classList.remove("hidden");
@@ -518,37 +533,34 @@ function renderCurrentJourney(journey) {
   currentJourneyContent.innerHTML = `
         <div class="journey-status-card">
             <div class="status-badge ${statusClass}">${journey.status}</div>
-            ${
-              journey.status === "REROUTED" || journey.disruptionCount > 0
-                ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>'
-                : ""
-            }
+            ${journey.status === "REROUTED" || journey.disruptionCount > 0
+      ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>'
+      : ""
+    }
             <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
             
-            ${
-              journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
-                ? `
+            ${journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
+      ? `
                 <div class="progress-container">
                     <div class="progress-bar" style="width: ${progress}%"></div>
                 </div>
                 <span class="progress-text">${progress}% Completed</span>
             `
-                : ""
-            }
+      : ""
+    }
 
             <p><strong>Planned Departure:</strong> ${formatDateTime(
-              journey.plannedDeparture
-            )}</p>
-            ${
-              journey.actualDeparture
-                ? `<p><strong>Started:</strong> ${formatDateTime(
-                    journey.actualDeparture
-                  )}</p>`
-                : ""
-            }
+      journey.plannedDeparture
+    )}</p>
+            ${journey.actualDeparture
+      ? `<p><strong>Started:</strong> ${formatDateTime(
+        journey.actualDeparture
+      )}</p>`
+      : ""
+    }
             <p><strong>Planned Arrival:</strong> ${formatDateTime(
-              journey.plannedArrival
-            )}</p>
+      journey.plannedArrival
+    )}</p>
         </div>
     `;
 
@@ -828,7 +840,7 @@ async function handleJourneySubmit(e) {
   const from = (document.getElementById("from")?.value || "").trim();
   const to = (document.getElementById("to")?.value || "").trim();
   const departure = departureInput?.value || "";
-  const comfort = !!document.getElementById("comfort")?.checked;
+  const comfortSelection = journeyComfortSelection?.value || "disabled";
   const touristic = !!document.getElementById("touristic")?.checked;
 
   if (!departure) {
@@ -838,7 +850,7 @@ async function handleJourneySubmit(e) {
     return;
   }
 
-  if (comfort && !validateComfortMode()) {
+  if (comfortSelection !== "disabled" && !validateComfortMode()) {
     return;
   }
 
@@ -850,8 +862,9 @@ async function handleJourneySubmit(e) {
       departureTime: departure,
     },
     preferences: {
-      comfortMode: comfort,
+      comfortMode: comfortSelection !== "disabled",
       touristicMode: touristic,
+      namedComfortSettingId: (comfortSelection !== "disabled") ? comfortSelection : null
     },
   };
 
@@ -891,12 +904,11 @@ function displayJourneyResults(journeys) {
     ? `
       <div class="tasks-on-route-banner">
         <div>
-          <div class="tasks-on-route-title">${allTasks.length} task${
-        allTasks.length > 1 ? "s" : ""
-      } on your route</div>
+          <div class="tasks-on-route-title">${allTasks.length} task${allTasks.length > 1 ? "s" : ""
+    } on your route</div>
           <div class="tasks-on-route-sub">${escapeHtml(
-            allTasks[0]?.title || "Task"
-          )}</div>
+      allTasks[0]?.title || "Task"
+    )}</div>
         </div>
         <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn">View</button>
       </div>
@@ -906,9 +918,8 @@ function displayJourneyResults(journeys) {
   const modesHtml = `
     <div class="journey-modes">
       <span>Comfort: ${firstJourney?.comfortModeEnabled ? "On" : "Off"}</span>
-      <span>Touristic: ${
-        firstJourney?.touristicModeEnabled ? "On" : "Off"
-      }</span>
+      <span>Touristic: ${firstJourney?.touristicModeEnabled ? "On" : "Off"
+    }</span>
     </div>
   `;
 
@@ -966,7 +977,7 @@ function displayJourneyCard(journey, index, total) {
   const arrival = journey?.plannedArrival
     ? formatDateTime(journey.plannedArrival)
     : "—";
-  
+
   // Calculer la durée totale du trajet
   let totalDuration = null;
   if (journey?.plannedDeparture && journey?.plannedArrival) {
@@ -1006,8 +1017,8 @@ function displayJourneyCard(journey, index, total) {
       const duration = seg.durationSeconds || 0;
       const samePlace = seg.originLabel === seg.destinationLabel;
       const isTransferOrWalk = seg.segmentType === "WALKING" ||
-                               seg.segmentType === "TRANSFER" ||
-                               seg.segmentType === "WAITING";
+        seg.segmentType === "TRANSFER" ||
+        seg.segmentType === "WAITING";
 
       // Filter out:
       // 1. Zero or very short duration same-place segments (noise)
@@ -1025,41 +1036,36 @@ function displayJourneyCard(journey, index, total) {
 
   const legsHtml = processedSegments.length
     ? processedSegments
-        .map(
-          (seg) => `
+      .map(
+        (seg) => `
         <li class="journey-leg-item">
             <div class="leg-marker-container">
                 ${formatLineBadge(seg.mode, seg.lineCode, seg.lineColor)}
             </div>
             <div class="leg-content">
-                <span class="leg-mode">${formatMode(seg.mode)}${
-            seg.lineName ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>` : ""
+                <span class="leg-mode">${formatMode(seg.mode)}${seg.lineName ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>` : ""
           }</span>
-                <span class="leg-route">${seg.originLabel || "?"} → ${
-            seg.destinationLabel || "?"
+                <span class="leg-route">${seg.originLabel || "?"} → ${seg.destinationLabel || "?"
           }</span>
                 <div class="leg-times">
-                    ${
-                      seg.scheduledDeparture
-                        ? formatDateTime(seg.scheduledDeparture)
-                        : "?"
-                    } -
-                    ${
-                      seg.scheduledArrival
-                        ? formatDateTime(seg.scheduledArrival)
-                        : "?"
-                    }
-                    <span class="leg-duration">(${
-                      seg.durationSeconds
-                        ? formatDuration(seg.durationSeconds)
-                        : "?"
-                    })</span>
+                    ${seg.scheduledDeparture
+            ? formatDateTime(seg.scheduledDeparture)
+            : "?"
+          } -
+                    ${seg.scheduledArrival
+            ? formatDateTime(seg.scheduledArrival)
+            : "?"
+          }
+                    <span class="leg-duration">(${seg.durationSeconds
+            ? formatDuration(seg.durationSeconds)
+            : "?"
+          })</span>
                 </div>
             </div>
         </li>
     `
-        )
-        .join("")
+      )
+      .join("")
     : "<li>No route details available</li>";
 
   const optionLabel =
@@ -1075,9 +1081,8 @@ function displayJourneyCard(journey, index, total) {
     journey?.originLabel || "—"
   )} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
       <p class="journey-meta">Départ: ${departure} • Arrivée: ${arrival}${totalDurationHtml}</p>
-      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${
-        journey.journeyId
-      }', this)">Start Journey</button>
+      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${journey.journeyId
+    }', this)">Start Journey</button>
       <h4>Itinerary Steps:</h4>
       <ul class="journey-legs">${legsHtml}</ul>
     </div>
@@ -1195,11 +1200,10 @@ async function loadTasksFromDefaultList() {
 
   try {
     const includeCompleted = !!tasksIncludeCompleted?.checked;
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(
-      defaultTaskList.id
-    )}/tasks?includeCompleted=${includeCompleted}`;
+    const url = `/api/google/tasks/users/${currentUser.userId
+      }/lists/${encodeURIComponent(
+        defaultTaskList.id
+      )}/tasks?includeCompleted=${includeCompleted}`;
     const tasks = await api.get(url);
     renderTasks(tasks);
   } catch (err) {
@@ -1237,8 +1241,8 @@ function renderTasks(tasks) {
       const completeBtn = completed
         ? `<button type="button" class="btn btn-success btn-sm" disabled>Completed</button>`
         : `<button type="button" class="btn btn-success btn-sm" data-action="complete" data-task-id="${escapeHtml(
-            id
-          )}">Complete</button>`;
+          id
+        )}">Complete</button>`;
 
       return `
         <div class="task-card ${completed ? "completed" : ""}">
@@ -1249,8 +1253,8 @@ function renderTasks(tasks) {
           <div class="task-actions">
             ${completeBtn}
             <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-task-id="${escapeHtml(
-              id
-            )}">Delete</button>
+        id
+      )}">Delete</button>
           </div>
         </div>
       `;
@@ -1280,11 +1284,10 @@ async function completeTask(taskId) {
   if (!currentUser || !defaultTaskList?.id) return;
 
   try {
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(
-      defaultTaskList.id
-    )}/tasks/${encodeURIComponent(taskId)}/complete`;
+    const url = `/api/google/tasks/users/${currentUser.userId
+      }/lists/${encodeURIComponent(
+        defaultTaskList.id
+      )}/tasks/${encodeURIComponent(taskId)}/complete`;
     await api.patch(url);
     showToast("Task completed!", { variant: "success" });
     await loadTasksFromDefaultList();
@@ -1304,11 +1307,10 @@ async function deleteTask(taskId) {
   if (!confirm("Delete this task?")) return;
 
   try {
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(
-      defaultTaskList.id
-    )}/tasks/${encodeURIComponent(taskId)}`;
+    const url = `/api/google/tasks/users/${currentUser.userId
+      }/lists/${encodeURIComponent(
+        defaultTaskList.id
+      )}/tasks/${encodeURIComponent(taskId)}`;
     await api.delete(url);
     showToast("Task deleted.", { variant: "success" });
     await loadTasksFromDefaultList();
@@ -1347,9 +1349,8 @@ async function createTask(e) {
     tasksResults.innerHTML = '<p class="loading">Creating task...</p>';
 
   try {
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(defaultTaskList.id)}/tasks`;
+    const url = `/api/google/tasks/users/${currentUser.userId
+      }/lists/${encodeURIComponent(defaultTaskList.id)}/tasks`;
     const created = await api.post(url, payload);
 
     if (created?.locationWarning) {
@@ -1471,12 +1472,17 @@ function handleGoogleLinkMessage(event) {
 // ============================================================
 function setupComfortProfileListeners() {
   editComfortProfileBtn?.addEventListener("click", openComfortProfileModal);
-  closeComfortProfileModal?.addEventListener(
-    "click",
-    closeComfortProfileModalFn
-  );
-  clearComfortProfileBtn?.addEventListener("click", clearComfortProfile);
-  comfortProfileForm?.addEventListener("submit", saveComfortProfile);
+  closeComfortProfileModal?.addEventListener("click", closeComfortProfileModalFn);
+
+  addNewComfortSettingBtn?.addEventListener("click", () => showComfortFormView());
+  backToComfortListBtn?.addEventListener("click", () => showComfortListView());
+
+  deleteComfortSettingBtn?.addEventListener("click", () => {
+    const id = editingSettingId?.value;
+    if (id) deleteNamedSetting(id);
+  });
+
+  comfortProfileForm?.addEventListener("submit", saveComfortSetting);
 
   comfortProfileModal?.addEventListener("click", (e) => {
     if (e.target === comfortProfileModal) closeComfortProfileModalFn();
@@ -1484,20 +1490,51 @@ function setupComfortProfileListeners() {
 }
 
 function openComfortProfileModal() {
-  if (!comfortProfileModal) return;
-  comfortProfileModal.classList.remove("hidden");
-  loadComfortProfileIntoForm();
+  if (!comfortProfileModal || !currentUser) return;
+
+  if (!currentUser.hasSeenComfortPrompt && !hasComfortSettings(currentUser.comfortProfile)) {
+    comfortOnboardingModal?.classList.remove("hidden");
+  } else {
+    comfortProfileModal.classList.remove("hidden");
+    showComfortListView();
+  }
 }
 
 function closeComfortProfileModalFn() {
   if (!comfortProfileModal) return;
   comfortProfileModal.classList.add("hidden");
   document.getElementById("comfortProfileError")?.classList.add("hidden");
+  resetComfortForm();
 }
 
-function loadComfortProfileIntoForm() {
-  if (!currentUser?.comfortProfile) return;
-  const profile = currentUser.comfortProfile;
+function showComfortListView() {
+  comfortProfileListView?.classList.remove("hidden");
+  comfortProfileFormView?.classList.add("hidden");
+  loadNamedComfortSettings();
+}
+
+function showComfortFormView(setting = null) {
+  comfortProfileListView?.classList.add("hidden");
+  comfortProfileFormView?.classList.remove("hidden");
+
+  if (setting) {
+    if (comfortFormTitle) comfortFormTitle.textContent = "Edit Setting";
+    if (comfortFormSubtitle) comfortFormSubtitle.textContent = `Modifying "${setting.name}"`;
+    if (editingSettingId) editingSettingId.value = setting.id;
+    if (deleteComfortSettingBtn) deleteComfortSettingBtn.classList.remove("hidden");
+    loadSettingIntoForm(setting);
+  } else {
+    if (comfortFormTitle) comfortFormTitle.textContent = "Add Setting";
+    if (comfortFormSubtitle) comfortFormSubtitle.textContent = "Set your travel preferences";
+    if (editingSettingId) editingSettingId.value = "";
+    if (deleteComfortSettingBtn) deleteComfortSettingBtn.classList.add("hidden");
+    resetComfortForm();
+  }
+}
+
+function loadSettingIntoForm(setting) {
+  const p = setting.comfortProfile;
+  if (settingNameInput) settingNameInput.value = setting.name || "";
 
   const directPath = document.getElementById("directPath");
   const requireAC = document.getElementById("requireAirConditioning");
@@ -1505,17 +1542,16 @@ function loadComfortProfileIntoForm() {
   const maxWaiting = document.getElementById("maxWaitingDuration");
   const maxWalking = document.getElementById("maxWalkingDuration");
 
-  if (directPath) directPath.value = profile.directPath || "";
-  if (requireAC) requireAC.checked = !!profile.requireAirConditioning;
-  if (maxTransfers) maxTransfers.value = profile.maxNbTransfers ?? "";
-  if (maxWaiting)
-    maxWaiting.value = profile.maxWaitingDuration
-      ? Math.round(profile.maxWaitingDuration / 60)
-      : "";
-  if (maxWalking)
-    maxWalking.value = profile.maxWalkingDuration
-      ? Math.round(profile.maxWalkingDuration / 60)
-      : "";
+  if (directPath) directPath.value = p.directPath || "";
+  if (requireAC) requireAC.checked = !!p.requireAirConditioning;
+  if (maxTransfers) maxTransfers.value = p.maxNbTransfers ?? "";
+  if (maxWaiting) maxWaiting.value = p.maxWaitingDuration ? Math.round(p.maxWaitingDuration / 60) : "";
+  if (maxWalking) maxWalking.value = p.maxWalkingDuration ? Math.round(p.maxWalkingDuration / 60) : "";
+}
+
+function resetComfortForm() {
+  comfortProfileForm?.reset();
+  if (editingSettingId) editingSettingId.value = "";
 }
 
 async function saveComfortProfile(e) {
@@ -1573,6 +1609,166 @@ async function clearComfortProfile() {
   }
 }
 
+async function loadNamedComfortSettings() {
+  if (!currentUser) return;
+
+  try {
+    const settings = await api.get(`/api/users/${currentUser.userId}/comfort-settings`);
+    renderNamedSettings(settings);
+    populateJourneyComfortDropdown(settings);
+    checkComfortOnboarding(settings);
+  } catch (err) {
+    console.error("Failed to load named settings", err);
+  }
+}
+
+function renderNamedSettings(settings) {
+  if (!namedSettingsList) return;
+
+  if (!settings || settings.length === 0) {
+    namedSettingsList.innerHTML = `
+      <div class="empty-state text-center py-8">
+        <p class="text-muted">No saved comfort settings yet.</p>
+      </div>
+    `;
+    return;
+  }
+
+  namedSettingsList.innerHTML = settings.map(s => {
+    const p = s.comfortProfile;
+    const details = [];
+    if (p.directPath && p.directPath !== 'indifferent') details.push(p.directPath);
+    if (p.requireAirConditioning) details.push("AC");
+    if (p.maxNbTransfers !== null) details.push(`${p.maxNbTransfers} transfers`);
+
+    return `
+      <div class="named-setting-card" data-id="${s.id}">
+        <div class="named-setting-info">
+          <span class="named-setting-name">${escapeHtml(s.name)}</span>
+          <span class="named-setting-details">${escapeHtml(details.join(", ") || "No specific constraints")}</span>
+        </div>
+        <div class="named-setting-actions">
+          <button type="button" class="btn btn-ghost btn-sm apply-setting-btn" data-id="${s.id}" title="Preview/Apply">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  namedSettingsList.querySelectorAll(".named-setting-card").forEach(card => {
+    card.addEventListener("click", (e) => {
+      // Don't trigger edit if the apply button was clicked specifically
+      if (e.target.closest('.apply-setting-btn')) return;
+
+      const id = card.getAttribute("data-id");
+      const setting = settings.find(s => s.id === id);
+      if (setting) showComfortFormView(setting);
+    });
+  });
+
+  namedSettingsList.querySelectorAll(".apply-setting-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-id");
+      const setting = settings.find(s => s.id === id);
+      if (setting) {
+        showToast(`Applied preset: ${setting.name}`, { variant: "success" });
+        // Optional: auto-fill journey setup? The request said "modify or delete" in the modal.
+      }
+    });
+  });
+}
+
+function applyNamedSetting(setting) {
+  const p = setting.comfortProfile;
+
+  const directPath = document.getElementById("directPath");
+  const requireAC = document.getElementById("requireAirConditioning");
+  const maxTransfers = document.getElementById("maxNbTransfers");
+  const maxWaiting = document.getElementById("maxWaitingDuration");
+  const maxWalking = document.getElementById("maxWalkingDuration");
+
+  if (directPath) directPath.value = p.directPath || "";
+  if (requireAC) requireAC.checked = !!p.requireAirConditioning;
+  if (maxTransfers) maxTransfers.value = p.maxNbTransfers ?? "";
+  if (maxWaiting) maxWaiting.value = p.maxWaitingDuration ? Math.round(p.maxWaitingDuration / 60) : "";
+  if (maxWalking) maxWalking.value = p.maxWalkingDuration ? Math.round(p.maxWalkingDuration / 60) : "";
+
+  showToast(`Applied setting: ${setting.name}`, { variant: "success" });
+}
+
+async function saveComfortSetting(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const id = editingSettingId?.value;
+  const name = settingNameInput?.value?.trim();
+  if (!name) {
+    showToast("Please provide a name for the setting", { variant: "warning" });
+    settingNameInput?.focus();
+    return;
+  }
+
+  const payload = {
+    name: name,
+    comfortProfile: {
+      directPath: document.getElementById("directPath")?.value || null,
+      requireAirConditioning: !!document.getElementById("requireAirConditioning")?.checked,
+      maxNbTransfers: document.getElementById("maxNbTransfers")?.value ? parseInt(document.getElementById("maxNbTransfers").value, 10) : null,
+      maxWaitingDuration: document.getElementById("maxWaitingDuration")?.value ? parseInt(document.getElementById("maxWaitingDuration").value, 10) * 60 : null,
+      maxWalkingDuration: document.getElementById("maxWalkingDuration")?.value ? parseInt(document.getElementById("maxWalkingDuration").value, 10) * 60 : null,
+    }
+  };
+
+  try {
+    if (id) {
+      await api.put(`/api/users/${currentUser.userId}/comfort-settings/${id}`, payload);
+      showToast(`Updated setting: ${name}`, { variant: "success" });
+    } else {
+      await api.post(`/api/users/${currentUser.userId}/comfort-settings`, payload);
+      showToast(`Saved setting: ${name}`, { variant: "success" });
+    }
+    showComfortListView();
+  } catch (err) {
+    const errorEl = document.getElementById("comfortProfileError");
+    if (errorEl) {
+      errorEl.textContent = err?.message || "Failed to save";
+      errorEl.classList.remove("hidden");
+    }
+  }
+}
+
+function populateJourneyComfortDropdown(settings) {
+  if (!journeyComfortSelection) return;
+
+  const currentValue = journeyComfortSelection.value;
+  let html = `
+    <option value="disabled">Comfort mode Disabled</option>
+  `;
+
+  html += settings.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+
+  journeyComfortSelection.innerHTML = html;
+
+  if (Array.from(journeyComfortSelection.options).some(o => o.value === currentValue)) {
+    journeyComfortSelection.value = currentValue;
+  }
+}
+
+async function deleteNamedSetting(settingId) {
+  if (!currentUser || !confirm("Delete this saved setting?")) return;
+
+  try {
+    await api.delete(`/api/users/${currentUser.userId}/comfort-settings/${settingId}`);
+    showToast("Setting deleted", { variant: "success" });
+    showComfortListView();
+  } catch (err) {
+    showToast(err.message || "Failed to delete setting", { variant: "warning" });
+  }
+}
+
 function renderComfortProfileSummary() {
   if (!comfortProfileSummary) return;
 
@@ -1593,8 +1789,7 @@ function renderComfortProfileSummary() {
       only_with_alternatives: "Direct with alternatives",
     };
     items.push(
-      `<li>Direct Path: ${
-        labels[profile.directPath] || profile.directPath
+      `<li>Direct Path: ${labels[profile.directPath] || profile.directPath
       }</li>`
     );
   }
@@ -1634,11 +1829,17 @@ function hasComfortSettings(profile) {
 }
 
 function validateComfortMode() {
-  if (!comfortCheckbox?.checked) return true;
+  const comfortSelection = journeyComfortSelection?.value || "disabled";
+  if (comfortSelection === "disabled") return true;
+
+  // If a named setting is selected, it's already persisted and valid
+  if (comfortSelection !== "default" && comfortSelection !== "" && comfortSelection !== "disabled") {
+    return true;
+  }
 
   const profile = currentUser?.comfortProfile;
   if (!hasComfortSettings(profile)) {
-    showToast("Please configure your comfort profile first.", {
+    showToast("Please configure your comfort profile first or select a saved setting.", {
       variant: "warning",
       durationMs: 5000,
     });
@@ -1647,6 +1848,45 @@ function validateComfortMode() {
   }
 
   return true;
+}
+
+function setupOnboardingListeners() {
+  setupComfortNowBtn?.addEventListener("click", () => {
+    comfortOnboardingModal?.classList.add("hidden");
+    markComfortPromptSeen();
+    openComfortProfileModal();
+    showComfortFormView();
+  });
+
+  skipComfortOnboardingBtn?.addEventListener("click", () => {
+    comfortOnboardingModal?.classList.add("hidden");
+    markComfortPromptSeen();
+  });
+}
+
+function checkComfortOnboarding(settings = []) {
+  if (!currentUser || currentUser.hasSeenComfortPrompt) return;
+
+  // Show onboarding if no named settings and primary profile is empty
+  const hasSettings = settings.length > 0 || hasComfortSettings(currentUser.comfortProfile);
+
+  if (!hasSettings) {
+    comfortOnboardingModal?.classList.remove("hidden");
+  } else {
+    // If they already have settings but haven't "seen" the prompt, mark it anyway to avoid future popups
+    markComfortPromptSeen();
+  }
+}
+
+async function markComfortPromptSeen() {
+  if (!currentUser || currentUser.hasSeenComfortPrompt) return;
+
+  try {
+    const updated = await api.post(`/api/users/${currentUser.userId}/comfort-prompt-seen`);
+    currentUser.hasSeenComfortPrompt = true;
+  } catch (err) {
+    console.error("Failed to mark comfort prompt as seen", err);
+  }
 }
 
 // ============================================================
@@ -1666,11 +1906,11 @@ function notifyTasksOnRouteIfAny(journey) {
     .map((t) =>
       String(
         t?.taskId ||
-          t?.id ||
-          t?.googleTaskId ||
-          t?.sourceTaskId ||
-          t?.title ||
-          ""
+        t?.id ||
+        t?.googleTaskId ||
+        t?.sourceTaskId ||
+        t?.title ||
+        ""
       )
     )
     .filter(Boolean)
@@ -1727,9 +1967,8 @@ function showToast(message, opts = {}) {
   if (!container) return;
 
   const toast = document.createElement("div");
-  toast.className = `toast ${opts.variant ? `toast-${opts.variant}` : ""} ${
-    opts.important ? "toast-important" : ""
-  }`.trim();
+  toast.className = `toast ${opts.variant ? `toast-${opts.variant}` : ""} ${opts.important ? "toast-important" : ""
+    }`.trim();
 
   const text = document.createElement("div");
   text.className = "toast-text";
@@ -1766,8 +2005,8 @@ function showToast(message, opts = {}) {
     typeof opts.durationMs === "number"
       ? opts.durationMs
       : opts.important
-      ? CONFIG.TOAST_IMPORTANT_DURATION_MS
-      : CONFIG.TOAST_DURATION_MS;
+        ? CONFIG.TOAST_IMPORTANT_DURATION_MS
+        : CONFIG.TOAST_DURATION_MS;
   const timer = setTimeout(() => removeToast(toast), ttl);
 
   toast.addEventListener("mouseenter", () => clearTimeout(timer));

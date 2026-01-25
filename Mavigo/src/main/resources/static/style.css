@@ -2449,3 +2449,141 @@ body {
     text-transform: uppercase;
     margin-right: var(--spacing-sm);
 }
+/* Named Comfort Settings */
+.named-settings-section {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--color-text);
+}
+
+.named-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.named-setting-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.named-setting-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.named-setting-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.named-setting-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.named-setting-details {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.named-setting-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.comfort-modal-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.comfort-mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#journeyNamedComfortSetting {
+  margin-top: 0.25rem;
+}
+
+/* Comfort Profile Refactor Styles */
+.hidden {
+  display: none !important;
+}
+
+.floating-action-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.btn-floating {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.btn-floating:hover {
+  transform: scale(1.1);
+  background: var(--color-primary-dark);
+}
+
+.form-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.btn-outline-danger {
+  background: transparent;
+  border: 2px solid var(--color-error);
+  color: var(--color-error);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-outline-danger:hover {
+  background: var(--color-error);
+  color: white;
+}
+
+.mr-2 {
+  margin-right: var(--spacing-md);
+}
+
+.named-setting-card {
+  cursor: pointer;
+}
+
+.named-setting-card:active {
+  transform: scale(0.98);
+}
