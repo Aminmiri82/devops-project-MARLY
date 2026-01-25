@@ -1006,6 +1006,71 @@ body {
     font-size: 1.25rem;
 }
 
+.journey-optimized-badge {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-primary);
+    color: var(--color-on-primary, #fff);
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Cartes repliables (trajets avec tâche) */
+.journey-result-collapsible {
+    padding: 0;
+}
+
+.journey-result-collapsible .journey-result-header {
+    padding: var(--spacing-xl);
+    cursor: pointer;
+    transition: background var(--transition-base);
+}
+
+.journey-result-collapsible .journey-result-header:hover {
+    background: var(--color-surface-hover);
+}
+
+.journey-result-collapsible .journey-result-header h3.journey-result-title {
+    margin: var(--spacing-sm) 0;
+}
+
+.journey-result-collapsible .journey-result-header h3.journey-result-title::before {
+    content: none;
+}
+
+.journey-transport-summary {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: var(--spacing-xs) 0 var(--spacing-sm) 0;
+}
+
+.journey-toggle-steps {
+    display: inline-block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.journey-toggle-steps::before {
+    content: "▸ ";
+}
+
+.journey-result-open .journey-result-header .journey-toggle-steps::before {
+    content: "▾ ";
+}
+
+.journey-result-collapsible .journey-result-steps {
+    padding: 0 var(--spacing-xl) var(--spacing-xl);
+    border-top: 1px solid var(--color-border);
+}
+
+.journey-result-collapsible .journey-result-steps .start-journey-btn {
+    margin-top: var(--spacing-md);
+}
+
 .journey-meta {
     color: var(--color-text-secondary);
     font-size: 0.9375rem;
@@ -1234,6 +1299,64 @@ body {
     background: var(--color-text-muted);
 }
 
+/* Libellés de section (accès tâche / suite du trajet) */
+.journey-section-label {
+    list-style: none;
+    padding: var(--spacing-sm) 0 var(--spacing-xs) var(--spacing-xl);
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.journey-section-label.journey-task-section-start {
+    padding-top: var(--spacing-lg);
+    border-top: 1px dashed var(--color-border);
+    margin-top: var(--spacing-sm);
+}
+
+.journey-section-label.journey-task-section-end {
+    padding-bottom: var(--spacing-sm);
+}
+
+/* Étape "tâche" dans l’itinéraire */
+.journey-leg-item.journey-task-stop {
+    background: var(--color-surface-hover);
+    margin: var(--spacing-xs) 0;
+    padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) var(--spacing-xl);
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--color-primary);
+}
+
+.journey-task-stop .task-marker {
+    background: var(--color-primary);
+    color: var(--color-on-primary, #fff);
+    border-color: var(--color-primary);
+}
+
+.journey-task-stop .task-mode {
+    color: var(--color-primary);
+}
+
+.journey-task-stop .task-title {
+    font-size: 1rem;
+}
+
+.journey-task-stop .task-location {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.journey-task-stop .task-access-hint {
+    margin: var(--spacing-sm) 0 0 0;
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+    font-weight: 400;
+}
+
 /* ============================================
    CURRENT JOURNEY - Design Amélioré
    ============================================ */
@@ -1315,6 +1438,29 @@ body {
     flex-wrap: wrap;
 }
 
+.current-journey-itinerary {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.current-journey-itinerary-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: 0 0 var(--spacing-md) 0;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border);
+    letter-spacing: 0.02em;
+}
+
+.current-journey-itinerary .journey-legs {
+    margin-top: 0;
+}
+
 /* ============================================
    TASKS - Design Amélioré
    ============================================ */
@@ -1329,6 +1475,22 @@ body {
     background: var(--color-surface-hover);
     border-radius: var(--radius-md);
     flex-wrap: wrap;
+}
+
+.tasks-hint {
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-md);
+    background: var(--color-surface-hover);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.tasks-hint code {
+    padding: 2px 6px;
+    background: var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
 }
 
 .tasks-listname {
@@ -1672,102 +1834,6 @@ body {
 .toast-important .toast-text {
     font-size: 1rem;
     font-weight: 700;
-}
-
-/* ============================================
-   TASKS MODAL
-   ============================================ */
-
-.tasks-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2500;
-    padding: var(--spacing-lg);
-}
-
-.tasks-modal {
-    width: 100%;
-    max-width: 560px;
-    background: var(--color-surface);
-    border-radius: var(--radius-xl);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-xl);
-    padding: var(--spacing-xl);
-    position: relative;
-}
-
-.tasks-modal-close {
-    position: absolute;
-    top: var(--spacing-md);
-    right: var(--spacing-md);
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: 1.6rem;
-    cursor: pointer;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-full);
-    transition: all var(--transition-fast);
-}
-
-.tasks-modal-close:hover {
-    color: var(--color-text);
-    background: var(--color-surface-hover);
-}
-
-.tasks-modal-title {
-    margin: 0 0 var(--spacing-sm);
-    font-size: 1.375rem;
-    color: var(--color-warning);
-    font-weight: 700;
-}
-
-.tasks-modal-subtitle {
-    margin: 0 0 var(--spacing-lg);
-    color: var(--color-text-secondary);
-    font-size: 0.9375rem;
-}
-
-.tasks-modal-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-    max-height: 50vh;
-    overflow: auto;
-    padding-right: var(--spacing-sm);
-}
-
-.tasks-modal-item {
-    background: var(--color-surface-hover);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-md);
-}
-
-.tasks-modal-item-title {
-    font-weight: 700;
-    margin-bottom: var(--spacing-xs);
-    color: var(--color-text);
-}
-
-.tasks-modal-item-meta {
-    color: var(--color-text-secondary);
-    font-size: 0.875rem;
-}
-
-.tasks-modal-footer {
-    margin-top: var(--spacing-lg);
-    display: flex;
-    justify-content: flex-end;
 }
 
 /* ============================================

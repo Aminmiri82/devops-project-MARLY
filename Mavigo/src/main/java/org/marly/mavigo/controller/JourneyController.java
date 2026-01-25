@@ -1,5 +1,6 @@
 package org.marly.mavigo.controller;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -20,6 +21,7 @@ import org.marly.mavigo.models.task.UserTask;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.repository.UserTaskRepository;
+import org.marly.mavigo.service.journey.JourneyOptimizationService;
 import org.marly.mavigo.service.journey.JourneyPlanningService;
 import org.marly.mavigo.service.journey.TaskOnRouteService;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
@@ -35,6 +37,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.marly.mavigo.service.journey.JourneyManagementService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.validation.Valid;
 
@@ -42,23 +46,28 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/journeys")
 public class JourneyController {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(JourneyController.class);
+
     private final JourneyPlanningService journeyPlanningService;
     private final UserTaskRepository userTaskRepository;
     private final UserRepository userRepository;
     private final TaskOnRouteService taskOnRouteService;
     private final JourneyManagementService journeyManagementService;
+    private final JourneyOptimizationService journeyOptimizationService;
 
     public JourneyController(
             JourneyPlanningService journeyPlanningService,
             UserTaskRepository userTaskRepository,
             UserRepository userRepository,
             TaskOnRouteService taskOnRouteService,
-            JourneyManagementService journeyManagementService) {
+            JourneyManagementService journeyManagementService,
+            JourneyOptimizationService journeyOptimizationService) {
         this.journeyPlanningService = journeyPlanningService;
         this.userTaskRepository = userTaskRepository;
         this.userRepository = userRepository;
         this.taskOnRouteService = taskOnRouteService;
         this.journeyManagementService = journeyManagementService;
+        this.journeyOptimizationService = journeyOptimizationService;
     }
 
     @PostMapping
@@ -75,46 +84,81 @@ public class JourneyController {
                 departure,
                 preferences);
 
-        // 1) Planifier + persister les trajets (reroutage-task returns List<Journey>)
-        java.util.List<Journey> journeys = journeyPlanningService.planAndPersist(parameters);
+        java.util.List<JourneyResponse> responses;
+        boolean useTaskOptimization = (request.taskDetails() != null && !request.taskDetails().isEmpty())
+                || (request.taskIds() != null && !request.taskIds().isEmpty());
 
-        // 2) Calculer les tâches "sur le chemin" pour chaque trajet (polyline densifiée)
-        final double BASE_RADIUS_METERS = 300.0;
+        if (useTaskOptimization) {
+            var optimizedResults = (request.taskDetails() != null && !request.taskDetails().isEmpty())
+                    ? journeyOptimizationService.planOptimizedJourneyWithTaskDetails(parameters, request.taskDetails())
+                    : journeyOptimizationService.planOptimizedJourneyWithTasks(parameters, request.taskIds() != null ? request.taskIds() : List.of());
 
-        java.util.List<JourneyResponse> responses = journeys.stream()
-                .map(journey -> {
-                    List<JourneyResponse.TaskOnRouteResponse> tasksOnRoute = List.of();
+            if (optimizedResults.isEmpty()) {
+                LOGGER.warn("Optimization failed, falling back to normal journey");
+                java.util.List<Journey> normalJourneys = journeyPlanningService.planAndPersist(parameters);
+                responses = normalJourneys.stream()
+                        .map(j -> JourneyResponse.from(j, calculateTasksOnRoute(j)))
+                        .toList();
+            } else {
+                responses = optimizedResults.stream()
+                        .map(result -> {
+                            List<JourneyResponse.TaskOnRouteResponse> tasksOnRoute = calculateTasksOnRoute(result.journey());
+                            long baseAdd = result.totalDurationSeconds() - result.baseDurationSeconds();
+                            List<JourneyResponse.IncludedTaskResponse> includedTasks = result.includedTasks().stream()
+                                    .map(t -> new JourneyResponse.IncludedTaskResponse(
+                                            toUuid(t.id()),
+                                            t.title(),
+                                            t.locationQuery(),
+                                            result.includedTasks().size() > 1 ? baseAdd / result.includedTasks().size() : baseAdd,
+                                            t.id()))
+                                    .toList();
+                            return JourneyResponse.fromOptimized(
+                                    result.journey(), tasksOnRoute, includedTasks, result.baseDurationSeconds());
+                        })
+                        .toList();
+            }
+        } else {
+            // Trajet normal sans optimisation
+            java.util.List<Journey> journeys = journeyPlanningService.planAndPersist(parameters);
+            responses = journeys.stream()
+                    .map(journey -> JourneyResponse.from(journey, calculateTasksOnRoute(journey)))
+                    .toList();
+        }
 
-                    UUID userId = (journey.getUser() != null) ? journey.getUser().getId() : null;
-                    if (userId != null) {
-                        var tasks = userTaskRepository.findByUser_Id(userId);
-
-                        // Points bruts (souvent pas assez denses)
-                        var baseRoutePoints = taskOnRouteService.extractRoutePoints(journey);
-
-                        // Densification: on ajoute des points intermédiaires tous les ~200m
-                        var polyline = taskOnRouteService.densify(baseRoutePoints, 200);
-
-                        // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux négatifs
-                        double radius = (polyline == null || polyline.size() <= 3) ? 900.0 : BASE_RADIUS_METERS;
-
-                        tasksOnRoute = tasks.stream()
-                                .filter(t -> t != null && !t.isCompleted())
-                                .filter(t -> t.getLocationHint() != null)
-                                .map(t -> {
-                                    double d = taskOnRouteService.minDistanceMetersToPolyline(t.getLocationHint(), polyline);
-                                    return (d <= radius) ? JourneyResponse.fromTask(t, d) : null;
-                                })
-                                .filter(Objects::nonNull)
-                                .toList();
-                    }
-
-                    return JourneyResponse.from(journey, tasksOnRoute);
-                })
-                .toList();
-
-        // 3) Retourner la réponse enrichie
         return ResponseEntity.status(HttpStatus.CREATED).body(responses);
+    }
+
+    /**
+     * Calcule les tâches "sur le chemin" pour un trajet donné.
+     */
+    private List<JourneyResponse.TaskOnRouteResponse> calculateTasksOnRoute(Journey journey) {
+        final double BASE_RADIUS_METERS = 300.0;
+        List<JourneyResponse.TaskOnRouteResponse> tasksOnRoute = List.of();
+
+        UUID userId = (journey.getUser() != null) ? journey.getUser().getId() : null;
+        if (userId != null) {
+            var tasks = userTaskRepository.findByUser_Id(userId);
+
+            // Points bruts (souvent pas assez denses)
+            var baseRoutePoints = taskOnRouteService.extractRoutePoints(journey);
+
+            // Densification: on ajoute des points intermédiaires tous les ~200m
+            var polyline = taskOnRouteService.densify(baseRoutePoints, 200);
+
+            // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux négatifs
+            double radius = (polyline == null || polyline.size() <= 3) ? 900.0 : BASE_RADIUS_METERS;
+
+            tasksOnRoute = tasks.stream()
+                    .filter(t -> t != null && !t.isCompleted())
+                    .filter(t -> t.getLocationHint() != null)
+                    .map(t -> {
+                        double d = taskOnRouteService.minDistanceMetersToPolyline(t.getLocationHint(), polyline);
+                        return (d <= radius) ? JourneyResponse.fromTask(t, d) : null;
+                    })
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+        return tasksOnRoute;
     }
 
     @PostMapping("/{id}/start")
@@ -228,6 +272,15 @@ public class JourneyController {
     }
 
     public record SeedTaskRequest(UUID userId, String title) {
+    }
+
+    private static UUID toUuid(String id) {
+        if (id == null || id.isBlank()) return null;
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            return UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private JourneyPreferences mapPreferences(JourneyPreferencesRequest preferencesRequest) {

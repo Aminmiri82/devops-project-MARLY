@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -302,6 +303,46 @@ public class GoogleTasksController {
                     return m;
                 })
                 .toList();
+    }
+
+    /**
+     * Tâches depuis Google uniquement, avec #mavigo: et géocodage, sans stockage en base.
+     * Utilisé pour l’optimisation de trajet (les tâches sont envoyées dans taskDetails).
+     */
+    @GetMapping("/users/{userId}/for-journey")
+    public List<Map<String, Object>> tasksForJourney(@PathVariable UUID userId,
+            @RequestParam(defaultValue = "false") boolean includeCompleted) {
+        OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
+        List<TaskListDto> lists = fetchLists(client, 50, null);
+        if (lists == null || lists.isEmpty()) {
+            return List.of();
+        }
+        String listId = lists.get(0).id();
+        List<TaskDto> googleTasks = fetchTasks(client, listId, null, includeCompleted);
+        if (googleTasks == null) {
+            return List.of();
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (TaskDto dto : googleTasks) {
+            if (dto == null || dto.id() == null) continue;
+            String locationQuery = extractLocationTag(dto);
+            if (!StringUtils.hasText(locationQuery)) continue;
+            boolean completed = Boolean.TRUE.equals(dto.completed());
+            GeoPoint hint = null;
+            try {
+                hint = resolveGeoPointFromQuery(locationQuery);
+            } catch (Exception ignored) {
+            }
+            if (hint == null || !hint.isComplete()) continue;
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", dto.id());
+            m.put("title", dto.title() != null ? dto.title() : "");
+            m.put("locationQuery", locationQuery);
+            m.put("locationHint", Map.of("lat", hint.getLatitude(), "lng", hint.getLongitude()));
+            m.put("completed", completed);
+            out.add(m);
+        }
+        return out;
     }
 
     @GetMapping(value = "/link", produces = MediaType.TEXT_HTML_VALUE)

@@ -32,7 +32,9 @@ public record JourneyResponse(
         int disruptionCount,
         JourneySummary summary,
         List<SegmentResponse> segments,
-        List<TaskOnRouteResponse> tasksOnRoute) {
+        List<TaskOnRouteResponse> tasksOnRoute,
+        List<IncludedTaskResponse> includedTasks,
+        Long baseDurationSeconds) {
 
     public static JourneyResponse from(Journey journey) {
         List<JourneySegment> journeySegments = journey.getSegments();
@@ -58,7 +60,9 @@ public record JourneyResponse(
                 journey.getDisruptionCount(),
                 summary,
                 segmentResponses,
-                Collections.emptyList());
+                Collections.emptyList(),
+                Collections.emptyList(),
+                null);
     }
 
     public static JourneyResponse from(Journey journey, List<TaskOnRouteResponse> tasksOnRoute) {
@@ -79,7 +83,36 @@ public record JourneyResponse(
                 base.disruptionCount(),
                 base.summary(),
                 base.segments(),
-                tasksOnRoute == null ? Collections.emptyList() : tasksOnRoute);
+                tasksOnRoute == null ? Collections.emptyList() : tasksOnRoute,
+                Collections.emptyList(),
+                null);
+    }
+
+    public static JourneyResponse fromOptimized(
+            Journey journey,
+            List<TaskOnRouteResponse> tasksOnRoute,
+            List<IncludedTaskResponse> includedTasks,
+            Long baseDurationSeconds) {
+        JourneyResponse base = from(journey, tasksOnRoute);
+        return new JourneyResponse(
+                base.journeyId(),
+                base.userId(),
+                base.originLabel(),
+                base.destinationLabel(),
+                base.plannedDeparture(),
+                base.plannedArrival(),
+                base.comfortModeEnabled(),
+                base.touristicModeEnabled(),
+                base.primItineraryId(),
+                base.status(),
+                base.actualDeparture(),
+                base.actualArrival(),
+                base.disruptionCount(),
+                base.summary(),
+                base.segments(),
+                base.tasksOnRoute(),
+                includedTasks == null ? Collections.emptyList() : includedTasks,
+                baseDurationSeconds);
     }
 
     private static JourneySummary createSummary(Journey journey) {
@@ -209,5 +242,13 @@ public record JourneyResponse(
             Double locationLat,
             Double locationLng,
             Double distanceMeters) {
+    }
+
+    public record IncludedTaskResponse(
+            UUID taskId,
+            String title,
+            String locationQuery,
+            Long additionalDurationSeconds,
+            String googleTaskId) {
     }
 }
