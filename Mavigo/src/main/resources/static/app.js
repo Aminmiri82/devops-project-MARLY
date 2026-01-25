@@ -59,8 +59,6 @@ let currentUser = null;
 let currentView = localStorage.getItem("mavigo_view") || "journey";
 let defaultTaskList = null;
 let currentJourney = null;
-let lastNotifiedJourneyId = null;
-let lastTasksSignature = null;
 
 // ============================================================
 // DOM ELEMENTS
@@ -140,7 +138,6 @@ function init() {
   setupDropdown();
   setDefaultDepartureTime();
   ensureToastUI();
-  ensureTasksModalUI();
   restoreSession();
 }
 
@@ -334,8 +331,6 @@ function logout() {
   clearGoogleLinkStatus();
   resetTasksUI();
   updateUI();
-  lastNotifiedJourneyId = null;
-  lastTasksSignature = null;
 }
 
 function setCurrentUser(user, opts = {}) {
@@ -418,47 +413,62 @@ function setupJourneyActions() {
 
 async function startJourney(journeyId, btnElement) {
   if (!currentUser) return;
-
   const allButtons = document.querySelectorAll(".start-journey-btn");
-
   if (btnElement) {
     btnElement.disabled = true;
-    btnElement.textContent = "Starting...";
+    btnElement.textContent = "Démarrage…";
   }
-
-  allButtons.forEach((btn) => {
-    if (btn !== btnElement) btn.classList.add("hidden");
-  });
+  allButtons.forEach((btn) => { if (btn !== btnElement) btn.classList.add("hidden"); });
 
   try {
     const journey = await api.post(`/api/journeys/${journeyId}/start`);
-    updateCurrentJourney(journey);
+    const stored = lastDisplayedJourneysById?.get(journeyId);
+    const merged = stored && (stored.includedTasks?.length || stored.legs)
+      ? { ...journey, includedTasks: journey.includedTasks ?? stored.includedTasks, legs: journey.legs ?? stored.legs }
+      : journey;
+    updateCurrentJourney(merged);
   } catch (err) {
-    showToast(err.message, { variant: "warning" });
+    showToast(err?.message || "Erreur", { variant: "warning" });
     allButtons.forEach((btn) => {
       btn.classList.remove("hidden");
       btn.disabled = false;
-      if (btn === btnElement) btn.textContent = "Start Journey";
+      if (btn === btnElement) btn.textContent = "Démarrer le trajet";
     });
   }
 }
 
 async function completeJourney() {
   if (!currentJourney) return;
+  const includedTasks = Array.isArray(currentJourney.includedTasks) ? currentJourney.includedTasks : [];
+  const googleTaskIds = includedTasks.map((t) => t.googleTaskId).filter(Boolean);
+
   try {
-    const journey = await api.post(
-      `/api/journeys/${currentJourney.journeyId}/complete`
-    );
+    const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/complete`);
+    if (googleTaskIds.length && currentUser) {
+      try {
+        const list = await api.get(`/api/google/tasks/users/${currentUser.userId}/default-list`);
+        const listId = list?.id;
+        if (listId) {
+          for (const taskId of googleTaskIds) {
+            await api.patch(
+              `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}/complete`
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("Could not mark Google task(s) complete:", e);
+      }
+    }
     updateCurrentJourney(journey);
-    showToast("Journey completed!", { variant: "success" });
+    showToast("Trajet terminé.", { variant: "success" });
   } catch (err) {
-    showToast(err.message, { variant: "warning" });
+    showToast(err?.message || "Erreur", { variant: "warning" });
   }
 }
 
 async function cancelJourney() {
   if (!currentJourney) return;
-  if (!confirm("Are you sure you want to cancel this journey?")) return;
+  if (!confirm("Annuler ce trajet ?")) return;
 
   try {
     const journey = await api.post(
@@ -481,15 +491,12 @@ function updateCurrentJourney(journey) {
   ) {
     currentJourneyPanel.classList.remove("hidden");
     renderCurrentJourney(journey);
-
-    // Hide results if we have an active journey
-    document.querySelector(".results-panel").classList.add("hidden");
+    document.querySelector(".results-panel")?.classList.add("hidden");
   } else {
-    // Journey finished or cancelled
     currentJourneyPanel.classList.add("hidden");
-    document.querySelector(".results-panel").classList.remove("hidden");
-    resultsDiv.innerHTML =
-      '<p class="results-placeholder">Your journey results will appear here.</p>';
+    document.querySelector(".results-panel")?.classList.remove("hidden");
+    if (resultsDiv)
+      resultsDiv.innerHTML = "<p class=\"results-placeholder\">Vos résultats de trajet s'afficheront ici.</p>";
     currentJourney = null;
   }
 }
@@ -515,42 +522,40 @@ function renderCurrentJourney(journey) {
   const statusClass =
     journey.status === "IN_PROGRESS" ? "status-active" : "status-planned";
   const progress = calculateProgress(journey);
+  const hasLegs = Array.isArray(journey.legs) && journey.legs.length > 0;
+  const hasTasks = Array.isArray(journey.includedTasks) && journey.includedTasks.length > 0;
+  const showSteps = (journey.status === "IN_PROGRESS" || journey.status === "REROUTED") && (hasLegs || hasTasks);
+  const stepsHtml = showSteps ? buildItineraryStepsHtml(journey) : "";
 
   currentJourneyContent.innerHTML = `
         <div class="journey-status-card">
-            <div class="status-badge ${statusClass}">${journey.status}</div>
+            <div class="status-badge ${statusClass}">${journey.status === "IN_PROGRESS" ? "En cours" : journey.status}</div>
             ${
               journey.status === "REROUTED" || journey.disruptionCount > 0
-                ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>'
+                ? '<div class="disruption-warning">⚠️ Perturbation : nouvel itinéraire</div>'
                 : ""
             }
-            <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
-            
+            <h3>${escapeHtml(journey.originLabel || "—")} → ${escapeHtml(journey.destinationLabel || "—")}</h3>
             ${
               journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
                 ? `
                 <div class="progress-container">
                     <div class="progress-bar" style="width: ${progress}%"></div>
                 </div>
-                <span class="progress-text">${progress}% Completed</span>
+                <span class="progress-text">${progress}% effectué</span>
             `
                 : ""
             }
-
-            <p><strong>Planned Departure:</strong> ${formatDateTime(
-              journey.plannedDeparture
-            )}</p>
-            ${
-              journey.actualDeparture
-                ? `<p><strong>Started:</strong> ${formatDateTime(
-                    journey.actualDeparture
-                  )}</p>`
-                : ""
-            }
-            <p><strong>Planned Arrival:</strong> ${formatDateTime(
-              journey.plannedArrival
-            )}</p>
+            <p><strong>Départ prévu :</strong> ${formatDateTime(journey.plannedDeparture)}</p>
+            ${journey.actualDeparture ? `<p><strong>Démarré à :</strong> ${formatDateTime(journey.actualDeparture)}</p>` : ""}
+            <p><strong>Arrivée prévue :</strong> ${formatDateTime(journey.plannedArrival)}</p>
         </div>
+        ${showSteps ? `
+        <div class="current-journey-itinerary">
+            <h4 class="current-journey-itinerary-title">Étapes de l'itinéraire</h4>
+            <ul class="journey-legs">${stepsHtml}</ul>
+        </div>
+        ` : ""}
     `;
 
   if (journey.status === "IN_PROGRESS" || journey.status === "REROUTED") {
@@ -569,7 +574,7 @@ async function reportDisruption() {
 
   // Ask user for rerouting method
   const choice = confirm(
-    "Report disruption: Use current GPS location? (Click 'OK' for GPS, 'Cancel' to enter a station name)"
+    "Signaler une perturbation : utiliser la position GPS actuelle ? (OK = GPS, Annuler = saisir une gare)"
   );
 
   let lat = "";
@@ -592,16 +597,15 @@ async function reportDisruption() {
       lat = position.coords.latitude;
       lng = position.coords.longitude;
     } catch (geoErr) {
-      if (confirm("Could not get GPS location. Enter a station manually?")) {
-        manualOrigin = prompt("Enter new departure station:");
+      if (confirm("Impossible d'obtenir la position GPS. Saisir une gare manuellement ?")) {
+        manualOrigin = prompt("Nouvelle gare de départ :");
         if (!manualOrigin) return;
       } else {
         return;
       }
     }
   } else {
-    // Manual entry
-    manualOrigin = prompt("Enter new departure station:");
+    manualOrigin = prompt("Saisissez la nouvelle gare de départ :");
     if (!manualOrigin) return;
   }
 
@@ -635,17 +639,7 @@ async function reportDisruption() {
       });
     }
   } catch (err) {
-    const msg = err.message || "";
-    if (
-      msg.includes("No places") ||
-      msg.includes("No stop area") ||
-      msg.includes("No journey options") ||
-      msg.includes("Failed to calculate journey")
-    ) {
-      showToast("No journey found.", { variant: "warning" });
-    } else {
-      showToast("No journey found.", { variant: "warning" });
-    }
+    showToast("Aucun trajet trouvé.", { variant: "warning" });
   }
 }
 
@@ -676,12 +670,34 @@ async function handleJourneySubmit(e) {
     return;
   }
 
+  // Tâches depuis Google uniquement (/for-journey), sans stockage local
+  let taskDetails = [];
+  try {
+    const tasks = await api.get(`/api/google/tasks/users/${currentUser.userId}/for-journey?includeCompleted=false`);
+    if (Array.isArray(tasks)) {
+      taskDetails = tasks
+        .filter(t => t && !t.completed && t.id && t.locationQuery && t.locationHint && t.locationHint.lat != null && t.locationHint.lng != null)
+        .map(t => ({
+          id: t.id,
+          title: t.title || "",
+          locationQuery: t.locationQuery || "",
+          lat: t.locationHint.lat,
+          lng: t.locationHint.lng,
+          completed: !!t.completed,
+        }));
+    }
+  } catch (err) {
+    console.debug("Could not load tasks for optimization:", err);
+  }
+
   const payload = {
     journey: {
       userId: currentUser.userId,
       originQuery: from,
       destinationQuery: to,
       departureTime: departure,
+      taskIds: null,
+      taskDetails: taskDetails.length > 0 ? taskDetails : null,
     },
     preferences: {
       comfortMode: comfort,
@@ -704,60 +720,27 @@ async function handleJourneySubmit(e) {
     }
 
     displayJourneyResults(list);
-    if (list.length > 0) notifyTasksOnRouteIfAny(list[0]);
   } catch (err) {
     if (resultsDiv)
       resultsDiv.innerHTML = '<p class="error-message">No journey found.</p>';
   }
 }
 
-/**
- * Displays journey results with shared info (tasks, modes) shown once at top
- */
+let lastDisplayedJourneysById = null;
+
 function displayJourneyResults(journeys) {
   if (!resultsDiv || !journeys.length) return;
+  lastDisplayedJourneysById = new Map();
+  journeys.forEach((j) => lastDisplayedJourneysById.set(j.journeyId, j));
 
   const firstJourney = journeys[0];
-  const allTasks = collectUniqueTasksFromJourneys(journeys);
-
-  // Build header with shared info (tasks banner + modes)
-  const tasksBannerHtml = allTasks.length
-    ? `
-      <div class="tasks-on-route-banner">
-        <div>
-          <div class="tasks-on-route-title">${allTasks.length} task${
-        allTasks.length > 1 ? "s" : ""
-      } on your route</div>
-          <div class="tasks-on-route-sub">${escapeHtml(
-            allTasks[0]?.title || "Task"
-          )}</div>
-        </div>
-        <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn">View</button>
-      </div>
-    `
-    : "";
-
   const modesHtml = `
     <div class="journey-modes">
-      <span>Comfort: ${firstJourney?.comfortModeEnabled ? "On" : "Off"}</span>
-      <span>Touristic: ${
-        firstJourney?.touristicModeEnabled ? "On" : "Off"
-      }</span>
+      <span>Confort: ${firstJourney?.comfortModeEnabled ? "Oui" : "Non"}</span>
+      <span>Touristique: ${firstJourney?.touristicModeEnabled ? "Oui" : "Non"}</span>
     </div>
   `;
-
-  resultsDiv.innerHTML = `
-    <div class="journey-results-header">
-      ${tasksBannerHtml}
-      ${modesHtml}
-    </div>
-  `;
-
-  if (allTasks.length) {
-    document
-      .getElementById("viewTasksOnRouteBtn")
-      ?.addEventListener("click", () => openTasksModal(allTasks));
-  }
+  resultsDiv.innerHTML = `<div class="journey-results-header">${modesHtml}</div>`;
 
   journeys.forEach((journey, index) =>
     displayJourneyCard(journey, index + 1, journeys.length)
@@ -765,31 +748,7 @@ function displayJourneyResults(journeys) {
 }
 
 /**
- * Collects unique tasks from all journeys (deduped by ID or title)
- */
-function collectUniqueTasksFromJourneys(journeys) {
-  const seen = new Set();
-  const uniqueTasks = [];
-
-  for (const journey of journeys) {
-    const tasks = Array.isArray(journey?.tasksOnRoute)
-      ? journey.tasksOnRoute
-      : [];
-    for (const task of tasks) {
-      const key =
-        task?.id || task?.taskId || task?.title || JSON.stringify(task);
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniqueTasks.push(task);
-      }
-    }
-  }
-
-  return uniqueTasks;
-}
-
-/**
- * Displays a single journey card (without shared info)
+ * Displays a single journey card
  */
 function displayJourneyCard(journey, index, total) {
   if (!resultsDiv) return;
@@ -820,81 +779,59 @@ function displayJourneyCard(journey, index, total) {
   }
   
   const legs = Array.isArray(journey?.legs) ? journey.legs : [];
+  const includedTasks = Array.isArray(journey?.includedTasks) ? journey.includedTasks : [];
+  const stepsHtml = buildItineraryStepsHtml(journey);
+  const transportSummary = getTransportModesSummary(legs);
+  const cardId = "journey-card-" + (journey.journeyId || index);
+  const stepsId = "journey-steps-" + (journey.journeyId || index);
+  const isOptimized = includedTasks.length > 0;
 
-  // Process legs: filter short same-place legs, convert long same-place OTHER to WALK
-  const processedLegs = legs
-    .filter((leg) => {
-      const duration = leg.durationSeconds || 0;
-      const samePlace = leg.originLabel === leg.destinationLabel;
-      return !(duration < 60 && samePlace);
-    })
-    .map((leg) => {
-      const duration = leg.durationSeconds || 0;
-      const samePlace = leg.originLabel === leg.destinationLabel;
-      if (duration >= 60 && samePlace && leg.mode === "OTHER") {
-        return { ...leg, mode: "WALK" };
-      }
-      return leg;
+  if (isOptimized) {
+    const badgeLabel = index === 1
+      ? "Meilleur trajet avec une tâche"
+      : "Trajet avec cette tâche";
+    const html = `
+    <div class="journey-result journey-result-collapsible" id="${escapeHtml(cardId)}" data-journey-id="${escapeHtml(String(journey.journeyId || ""))}">
+      <div class="journey-result-header" role="button" tabindex="0" aria-expanded="false" aria-controls="${escapeHtml(stepsId)}">
+        <span class="journey-optimized-badge">${escapeHtml(badgeLabel)}</span>
+        <h3 class="journey-result-title">${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
+        <p class="journey-meta">Départ: ${departure} • Arrivée: ${arrival}${totalDuration ? ` • Durée: <strong>${totalDuration}</strong>` : ""}</p>
+        <p class="journey-transport-summary">Transports: ${escapeHtml(transportSummary)}</p>
+        <span class="journey-toggle-steps" aria-hidden="true">Afficher les étapes</span>
+      </div>
+      <div class="journey-result-steps" id="${escapeHtml(stepsId)}" hidden>
+        <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${escapeHtml(String(journey.journeyId || ""))}', this)">Démarrer le trajet</button>
+        <h4 class="journey-steps-heading">Étapes de l'itinéraire</h4>
+        <ul class="journey-legs">${stepsHtml}</ul>
+      </div>
+    </div>
+    `;
+    resultsDiv.insertAdjacentHTML("beforeend", html);
+    const card = document.getElementById(cardId);
+    const stepsEl = document.getElementById(stepsId);
+    const toggleLabel = card?.querySelector(".journey-toggle-steps");
+    card?.querySelector(".journey-result-header")?.addEventListener("click", () => {
+      if (!stepsEl) return;
+      const isOpen = !stepsEl.hidden;
+      stepsEl.hidden = isOpen;
+      if (toggleLabel) toggleLabel.textContent = isOpen ? "Afficher les étapes" : "Masquer les étapes";
+      card?.querySelector(".journey-result-header")?.setAttribute("aria-expanded", String(!isOpen));
+      card?.classList.toggle("journey-result-open", !isOpen);
     });
+    return;
+  }
 
-  const legsHtml = processedLegs.length
-    ? processedLegs
-        .map(
-          (leg) => `
-        <li class="journey-leg-item">
-            <div class="leg-marker"></div>
-            <div class="leg-content">
-                <span class="leg-mode">${formatMode(leg.mode)} ${
-            leg.lineCode ? `<span class="leg-line">${leg.lineCode}</span>` : ""
-          }</span>
-                <span class="leg-route">${leg.originLabel || "?"} → ${
-            leg.destinationLabel || "?"
-          }</span>
-                <div class="leg-times">
-                    ${
-                      leg.estimatedDeparture
-                        ? formatDateTime(leg.estimatedDeparture)
-                        : "?"
-                    } -
-                    ${
-                      leg.estimatedArrival
-                        ? formatDateTime(leg.estimatedArrival)
-                        : "?"
-                    }
-                    <span class="leg-duration">(${
-                      leg.durationSeconds
-                        ? formatDuration(leg.durationSeconds)
-                        : "?"
-                    })</span>
-                </div>
-            </div>
-        </li>
-    `
-        )
-        .join("")
-    : "<li>No route details available</li>";
-
-  const optionLabel =
-    total > 1 ? `<span class="route-option-label">Option ${index}</span> ` : "";
-
-  const totalDurationHtml = totalDuration
-    ? ` • Durée: <strong>${totalDuration}</strong>`
-    : "";
-
+  const optionLabel = total > 1 ? `<span class="route-option-label">Option ${index}</span> ` : "";
+  const totalDurationHtml = totalDuration ? ` • Durée: <strong>${totalDuration}</strong>` : "";
   const html = `
     <div class="journey-result">
-      <h3>${optionLabel}${escapeHtml(
-    journey?.originLabel || "—"
-  )} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
+      <h3>${optionLabel}${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
       <p class="journey-meta">Départ: ${departure} • Arrivée: ${arrival}${totalDurationHtml}</p>
-      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${
-        journey.journeyId
-      }', this)">Start Journey</button>
-      <h4>Itinerary Steps:</h4>
-      <ul class="journey-legs">${legsHtml}</ul>
+      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${journey.journeyId}', this)">Démarrer le trajet</button>
+      <h4 class="journey-steps-heading">Étapes de l'itinéraire</h4>
+      <ul class="journey-legs">${stepsHtml}</ul>
     </div>
   `;
-
   resultsDiv.insertAdjacentHTML("beforeend", html);
 }
 
@@ -908,7 +845,6 @@ function setupTasks() {
   tasksIncludeCompleted?.addEventListener("change", () =>
     loadTasksFromDefaultList()
   );
-  createTaskForm?.addEventListener("submit", createTask);
   updateTasksUIState();
 }
 
@@ -1131,61 +1067,6 @@ async function deleteTask(taskId) {
       showToast(err?.message || "Failed to delete task", {
         variant: "warning",
       });
-    }
-  }
-}
-
-async function createTask(e) {
-  e.preventDefault();
-
-  if (!currentUser)
-    return showToast("Please log in first.", { variant: "warning" });
-  if (!isGoogleLinked())
-    return showToast("Link Google Tasks first.", { variant: "warning" });
-  if (!defaultTaskList?.id)
-    return showToast("Default list not loaded yet.", { variant: "warning" });
-
-  const payload = {
-    title: (taskTitle?.value || "").trim(),
-    notes: (taskNotes?.value || "").trim() || null,
-    due: (taskDue?.value || "").trim() || null,
-    locationQuery: (taskLocationQuery?.value || "").trim() || null,
-  };
-
-  if (!payload.title)
-    return showToast("Title is required.", { variant: "warning" });
-
-  if (tasksResults)
-    tasksResults.innerHTML = '<p class="loading">Creating task...</p>';
-
-  try {
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(defaultTaskList.id)}/tasks`;
-    const created = await api.post(url, payload);
-
-    if (created?.locationWarning) {
-      showToast(
-        `Task created, but location failed: ${created.locationWarning}`,
-        { variant: "warning", durationMs: 6000 }
-      );
-    } else {
-      showToast("Task created!", { variant: "success" });
-    }
-
-    createTaskForm?.reset();
-    await loadTasksFromDefaultList();
-  } catch (err) {
-    if (err.authError) {
-      if (tasksResults)
-        tasksResults.innerHTML =
-          '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
-      showToast("Link Google Tasks first.", { variant: "warning" });
-    } else {
-      if (tasksResults)
-        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
-          err?.message || "Unknown error"
-        )}</p>`;
     }
   }
 }
@@ -1462,57 +1343,6 @@ function validateComfortMode() {
 }
 
 // ============================================================
-// TASK NOTIFICATIONS
-// ============================================================
-function notifyTasksOnRouteIfAny(journey) {
-  const tasks =
-    journey && Array.isArray(journey.tasksOnRoute) ? journey.tasksOnRoute : [];
-  if (!tasks.length) return;
-
-  const journeyId = journey?.id || journey?.journeyId || null;
-
-  // 1 popup max par trajet
-  if (journeyId && lastNotifiedJourneyId === journeyId) return;
-
-  const sig = tasks
-    .map((t) =>
-      String(
-        t?.taskId ||
-          t?.id ||
-          t?.googleTaskId ||
-          t?.sourceTaskId ||
-          t?.title ||
-          ""
-      )
-    )
-    .filter(Boolean)
-    .sort()
-    .join("|");
-
-  // éviter plusieurs toasts pour le *même trajet* (ex: double-render)
-  if (journeyId && sig && lastTasksSignature === `${journeyId}:${sig}`) return;
-
-  lastNotifiedJourneyId = journeyId;
-  lastTasksSignature = journeyId ? `${journeyId}:${sig}` : sig;
-
-  const count = tasks.length;
-  const firstTitle = tasks[0]?.title || "a task";
-
-  const msg =
-    count === 1
-      ? `Task on your route: ${firstTitle}`
-      : `${count} tasks on your route`;
-
-  showToast(msg, {
-    variant: "warning",
-    important: true,
-    durationMs: 15000,
-    actionText: "View",
-    onAction: () => openTasksModal(tasks),
-  });
-}
-
-// ============================================================
 // UI UTILITIES
 // ============================================================
 function ensureToastUI() {
@@ -1591,66 +1421,6 @@ function removeToast(toastEl) {
   setTimeout(() => toastEl.remove(), CONFIG.TOAST_HIDE_DELAY_MS);
 }
 
-function ensureTasksModalUI() {
-  if (document.getElementById("tasksModal")) return;
-
-  const overlay = document.createElement("div");
-  overlay.id = "tasksModal";
-  overlay.className = "tasks-modal-overlay hidden";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-labelledby", "tasksModalTitle");
-
-  overlay.innerHTML = `
-    <div class="tasks-modal">
-      <button type="button" class="tasks-modal-close" id="tasksModalClose" aria-label="Close dialog">&times;</button>
-      <h3 class="tasks-modal-title" id="tasksModalTitle">Tasks on your route</h3>
-      <p class="tasks-modal-subtitle">These tasks are close to your planned journey.</p>
-      <div id="tasksModalList" class="tasks-modal-list"></div>
-      <div class="tasks-modal-footer">
-        <button type="button" class="btn btn-outline btn-sm" id="tasksModalOk">OK</button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  const close = () => overlay.classList.add("hidden");
-
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) close();
-  });
-
-  overlay.querySelector("#tasksModalClose")?.addEventListener("click", close);
-  overlay.querySelector("#tasksModalOk")?.addEventListener("click", close);
-}
-
-function openTasksModal(tasks) {
-  const overlay = document.getElementById("tasksModal");
-  const list = document.getElementById("tasksModalList");
-  if (!overlay || !list) return;
-
-  const items = (Array.isArray(tasks) ? tasks : [])
-    .map((t) => {
-      const title = escapeHtml(t?.title || "Untitled");
-      const dist =
-        typeof t?.distanceMeters === "number"
-          ? `${Math.round(t.distanceMeters)} m`
-          : "—";
-      return `
-        <div class="tasks-modal-item">
-          <div class="tasks-modal-item-title">${title}</div>
-          <div class="tasks-modal-item-meta">Distance: ${dist}</div>
-        </div>
-      `;
-    })
-    .join("");
-
-  list.innerHTML =
-    items || '<div class="tasks-modal-empty">No tasks found.</div>';
-  overlay.classList.remove("hidden");
-}
-
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -1683,9 +1453,159 @@ function formatDateTime(dt) {
 function formatMode(mode) {
   if (!mode) return "Unknown";
   if (mode === "OTHER") return "Connection";
-  if (mode === "WALK") return "Walk";
-  // Capitalize first letter, lowercase rest for others
-  return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
+  if (mode === "WALK") return "Marche";
+  const s = String(mode);
+  if (s === "METRO") return "Métro";
+  if (s === "RER" || s === "BUS" || s === "TRAM") return s.charAt(0) + s.slice(1).toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+/**
+ * Résume les modes de transport d'un trajet (ex: "Bus 268, RER D, Métro 4, Marche").
+ */
+function getTransportModesSummary(legs) {
+  if (!Array.isArray(legs) || !legs.length) return "—";
+  const seen = new Set();
+  const parts = [];
+  for (const leg of legs) {
+    const mode = (leg.mode || "").toUpperCase();
+    if (mode === "OTHER" || mode === "CONNECTION") continue;
+    const label = mode === "WALK" ? "Marche" : formatMode(leg.mode) + (leg.lineCode ? " " + leg.lineCode : "");
+    const key = label.trim();
+    if (!seen.has(key)) {
+      seen.add(key);
+      parts.push(key);
+    }
+  }
+  return parts.length ? parts.join(", ") : "—";
+}
+
+function findTaskInsertionIndex(task, legs, taskIndex, totalTasks) {
+  if (!task || legs.length === 0) return -1;
+  const taskLocation = (task.locationQuery || "").toLowerCase().trim();
+  if (!taskLocation) return Math.floor(legs.length / 2);
+
+  let bestMatch = -1;
+  let bestMatchScore = 0;
+  for (let i = 0; i < legs.length; i++) {
+    const leg = legs[i];
+    const destination = (leg.destinationLabel || "").toLowerCase().trim();
+    if (!destination) continue;
+    if (destination === taskLocation) return i + 1;
+    const taskWords = taskLocation.split(/[\s,]+/).filter((w) => w.length > 2);
+    const destWords = destination.split(/[\s,]+/).filter((w) => w.length > 2);
+    let matchCount = 0;
+    taskWords.forEach((tw) => {
+      const twClean = tw.replace(/[^\w]/g, "").toLowerCase();
+      destWords.forEach((dw) => {
+        const dwClean = dw.replace(/[^\w]/g, "").toLowerCase();
+        if (dwClean.includes(twClean) || twClean.includes(dwClean)) matchCount++;
+      });
+    });
+    if (matchCount >= 1 && matchCount > bestMatchScore) {
+      bestMatch = i + 1;
+      bestMatchScore = matchCount;
+    }
+    if (destination.includes(taskLocation) || taskLocation.includes(destination)) {
+      if (matchCount + 1 > bestMatchScore) {
+        bestMatch = i + 1;
+        bestMatchScore = matchCount + 1;
+      }
+    }
+  }
+  if (bestMatch >= 0 && bestMatchScore >= 1) return bestMatch;
+  if (totalTasks === 1) return Math.floor(legs.length / 2);
+  if (totalTasks > 1) {
+    const ratio = (taskIndex + 1) / (totalTasks + 1);
+    return Math.max(1, Math.min(Math.floor(ratio * legs.length), legs.length));
+  }
+  return -1;
+}
+
+function formatLegRoute(leg) {
+  const mode = (leg.mode || "").toUpperCase();
+  const isConnection = mode === "OTHER" || mode === "CONNECTION";
+  const orig = (leg.originLabel || "").trim();
+  const dest = (leg.destinationLabel || "").trim();
+  const unknownOrig = !orig || orig === "Unknown origin" || orig === "?";
+  const unknownDest = !dest || dest === "Unknown destination" || dest === "?";
+  if (isConnection && (unknownOrig || unknownDest))
+    return "Correspondance · attente entre deux transports";
+  return `${unknownOrig ? "—" : orig} → ${unknownDest ? "—" : dest}`;
+}
+
+function buildItineraryStepsHtml(journey) {
+  const legs = Array.isArray(journey?.legs) ? journey.legs : [];
+  const includedTasks = Array.isArray(journey?.includedTasks) ? journey.includedTasks : [];
+  const processedLegs = legs
+    .filter((leg) => {
+      const d = leg.durationSeconds || 0;
+      const same = leg.originLabel === leg.destinationLabel;
+      return !(d < 60 && same);
+    })
+    .map((leg) => {
+      const d = leg.durationSeconds || 0;
+      const same = leg.originLabel === leg.destinationLabel;
+      if (d >= 60 && same && (leg.mode || "").toUpperCase() === "OTHER")
+        return { ...leg, mode: "WALK" };
+      return leg;
+    });
+
+  const taskInsertionPoints = new Map();
+  includedTasks.forEach((task, taskIdx) => {
+    const idx = findTaskInsertionIndex(task, processedLegs, taskIdx, includedTasks.length);
+    if (idx >= 0 && idx <= processedLegs.length) {
+      if (!taskInsertionPoints.has(idx)) taskInsertionPoints.set(idx, []);
+      taskInsertionPoints.get(idx).push({ task, originalIndex: taskIdx });
+    }
+  });
+
+  const mixedSteps = [];
+  for (let i = 0; i <= processedLegs.length; i++) {
+    if (taskInsertionPoints.has(i)) {
+      const tasks = taskInsertionPoints.get(i).sort((a, b) => a.originalIndex - b.originalIndex);
+      tasks.forEach(({ task }) => mixedSteps.push({ type: "task", data: task }));
+    }
+    if (i < processedLegs.length) mixedSteps.push({ type: "leg", data: processedLegs[i] });
+  }
+
+  if (mixedSteps.length === 0) return "<li>Aucune étape disponible</li>";
+  return mixedSteps
+    .map((step) => {
+      if (step.type === "task") {
+        const task = step.data;
+        return `
+        <li class="journey-section-label journey-task-section-start">Arrivée sur place pour la tâche</li>
+        <li class="journey-leg-item journey-task-stop">
+            <div class="leg-marker task-marker">✓</div>
+            <div class="leg-content">
+                <span class="leg-mode task-mode">📋 Tâche à réaliser</span>
+                <span class="leg-route task-title"><strong>${escapeHtml(task.title || "Tâche sans titre")}</strong></span>
+                <div class="leg-times task-location">📍 ${escapeHtml(task.locationQuery || "Localisation inconnue")}</div>
+                <p class="task-access-hint">Vous y accédez par les étapes de transport ci-dessus. Une fois sur place, effectuez la tâche puis reprenez le trajet ci-dessous.</p>
+            </div>
+        </li>
+        <li class="journey-section-label journey-task-section-end">Suite du trajet</li>
+    `;
+      }
+      const leg = step.data;
+      const routeText = formatLegRoute(leg);
+      const modeLabel = (leg.mode && String(leg.mode).toUpperCase() === "OTHER") ? "Correspondance" : formatMode(leg.mode);
+      return `
+        <li class="journey-leg-item">
+            <div class="leg-marker"></div>
+            <div class="leg-content">
+                <span class="leg-mode">${modeLabel}${leg.lineCode ? ` <span class="leg-line">${leg.lineCode}</span>` : ""}</span>
+                <span class="leg-route">${escapeHtml(routeText)}</span>
+                <div class="leg-times">
+                    ${leg.estimatedDeparture ? formatDateTime(leg.estimatedDeparture) : "?"} - ${leg.estimatedArrival ? formatDateTime(leg.estimatedArrival) : "?"}
+                    <span class="leg-duration">(${leg.durationSeconds ? formatDuration(leg.durationSeconds) : "?"})</span>
+                </div>
+            </div>
+        </li>
+    `;
+    })
+    .join("");
 }
 
 function generateId() {

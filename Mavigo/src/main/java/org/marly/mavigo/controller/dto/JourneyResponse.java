@@ -26,7 +26,9 @@ public record JourneyResponse(
         OffsetDateTime actualArrival,
         int disruptionCount,
         List<LegResponse> legs,
-        List<TaskOnRouteResponse> tasksOnRoute) {
+        List<TaskOnRouteResponse> tasksOnRoute,
+        List<IncludedTaskResponse> includedTasks,
+        Long baseDurationSeconds) {
 
     public static JourneyResponse from(Journey journey) {
         List<Leg> journeyLegs = journey.getLegs();
@@ -49,7 +51,9 @@ public record JourneyResponse(
                 journey.getActualArrival(),
                 journey.getDisruptions() != null ? journey.getDisruptions().size() : 0,
                 legResponses,
-                Collections.emptyList());
+                Collections.emptyList(),
+                Collections.emptyList(),
+                null);
     }
 
     public record TaskOnRouteItem(
@@ -75,7 +79,35 @@ public record JourneyResponse(
                 base.actualArrival(),
                 base.disruptionCount(),
                 base.legs(),
-                tasksOnRoute == null ? Collections.emptyList() : tasksOnRoute);
+                tasksOnRoute == null ? Collections.emptyList() : tasksOnRoute,
+                Collections.emptyList(),
+                null);
+    }
+
+    public static JourneyResponse fromOptimized(
+            Journey journey,
+            List<TaskOnRouteResponse> tasksOnRoute,
+            List<IncludedTaskResponse> includedTasks,
+            Long baseDurationSeconds) {
+        JourneyResponse base = from(journey, tasksOnRoute);
+        return new JourneyResponse(
+                base.journeyId(),
+                base.userId(),
+                base.originLabel(),
+                base.destinationLabel(),
+                base.plannedDeparture(),
+                base.plannedArrival(),
+                base.comfortModeEnabled(),
+                base.touristicModeEnabled(),
+                base.primItineraryId(),
+                base.status(),
+                base.actualDeparture(),
+                base.actualArrival(),
+                base.disruptionCount(),
+                base.legs(),
+                base.tasksOnRoute(),
+                includedTasks == null ? Collections.emptyList() : includedTasks,
+                baseDurationSeconds);
     }
 
     public static TaskOnRouteResponse fromTask(UserTask task, double distanceMeters) {
@@ -139,5 +171,13 @@ public record JourneyResponse(
             Double locationLat,
             Double locationLng,
             Double distanceMeters) {
+    }
+
+    public record IncludedTaskResponse(
+            UUID taskId,
+            String title,
+            String locationQuery,
+            Long additionalDurationSeconds,
+            String googleTaskId) {
     }
 }

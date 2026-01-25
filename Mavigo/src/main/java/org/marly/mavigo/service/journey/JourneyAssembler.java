@@ -69,10 +69,18 @@ public class JourneyAssembler {
     private Leg mapLeg(PrimJourneyPlanDto.LegDto dto) {
         Leg leg = new Leg();
         leg.setSequenceOrder(dto.sequenceOrder());
-        leg.setMode(resolveTransitMode(dto));
+        TransitMode mode = resolveTransitMode(dto);
+        leg.setMode(mode);
         leg.setLineCode(dto.lineCode());
-        leg.setOriginLabel(defaultString(dto.originLabel(), "Unknown origin"));
-        leg.setDestinationLabel(defaultString(dto.destinationLabel(), "Unknown destination"));
+        String origin = defaultString(dto.originLabel(), "");
+        String dest = defaultString(dto.destinationLabel(), "");
+        if (origin.isBlank() && dest.isBlank() && mode == TransitMode.OTHER) {
+            leg.setOriginLabel("Correspondance");
+            leg.setDestinationLabel("Attente entre deux transports");
+        } else {
+            leg.setOriginLabel(origin.isBlank() ? "Correspondance" : origin);
+            leg.setDestinationLabel(dest.isBlank() ? "Attente entre deux transports" : dest);
+        }
         leg.setOriginCoordinate(toGeoPoint(dto.originLatitude(), dto.originLongitude()));
         leg.setDestinationCoordinate(toGeoPoint(dto.destinationLatitude(), dto.destinationLongitude()));
         leg.setEstimatedDeparture(dto.departureDateTime());
