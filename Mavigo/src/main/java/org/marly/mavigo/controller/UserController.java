@@ -5,6 +5,8 @@ import java.util.UUID;
 import org.marly.mavigo.controller.dto.ComfortProfileRequest;
 import org.marly.mavigo.controller.dto.ComfortProfileResponse;
 import org.marly.mavigo.controller.dto.CreateUserRequest;
+import org.marly.mavigo.controller.dto.NamedComfortSettingRequest;
+import org.marly.mavigo.controller.dto.NamedComfortSettingResponse;
 import org.marly.mavigo.controller.dto.UpdateUserRequest;
 import org.marly.mavigo.controller.dto.UserResponse;
 import org.marly.mavigo.models.user.ComfortProfile;
@@ -46,7 +48,8 @@ public class UserController {
         return UserResponse.from(user);
     }
 
-    public record LoginRequest(String email) {}
+    public record LoginRequest(String email) {
+    }
 
     @GetMapping("/{userId}")
     public UserResponse getUser(@PathVariable UUID userId) {
@@ -102,5 +105,68 @@ public class UserController {
         user.setComfortProfile(new ComfortProfile());
         userService.updateUser(user);
     }
-}
 
+    @GetMapping("/{userId}/comfort-settings")
+    public java.util.List<NamedComfortSettingResponse> getNamedComfortSettings(@PathVariable UUID userId) {
+        User user = userService.getUser(userId);
+        return user.getNamedComfortSettings().stream()
+                .map(NamedComfortSettingResponse::from)
+                .toList();
+    }
+
+    @PostMapping("/{userId}/comfort-settings")
+    public NamedComfortSettingResponse addNamedComfortSetting(
+            @PathVariable UUID userId,
+            @Valid @RequestBody NamedComfortSettingRequest request) {
+        ComfortProfile profile = new ComfortProfile();
+        profile.setDirectPath(request.comfortProfile().directPath());
+        profile.setRequireAirConditioning(request.comfortProfile().requireAirConditioning());
+        profile.setMaxNbTransfers(request.comfortProfile().maxNbTransfers());
+        profile.setMaxWaitingDuration(request.comfortProfile().maxWaitingDuration());
+        profile.setMaxWalkingDuration(request.comfortProfile().maxWalkingDuration());
+
+        User updated = userService.addNamedComfortSetting(userId, request.name(), profile);
+
+        // Find the newly created setting in the list (most recent one or matching by
+        // name/profile)
+        // For simplicity, we just find by name in the updated user
+        return updated.getNamedComfortSettings().stream()
+                .filter(s -> s.getName().equals(request.name()))
+                .findFirst()
+                .map(NamedComfortSettingResponse::from)
+                .orElseThrow(() -> new RuntimeException("Failed to find created setting"));
+    }
+
+    @PutMapping("/{userId}/comfort-settings/{settingId}")
+    public NamedComfortSettingResponse updateNamedComfortSetting(
+            @PathVariable UUID userId,
+            @PathVariable UUID settingId,
+            @Valid @RequestBody NamedComfortSettingRequest request) {
+        ComfortProfile profile = new ComfortProfile();
+        profile.setDirectPath(request.comfortProfile().directPath());
+        profile.setRequireAirConditioning(request.comfortProfile().requireAirConditioning());
+        profile.setMaxNbTransfers(request.comfortProfile().maxNbTransfers());
+        profile.setMaxWaitingDuration(request.comfortProfile().maxWaitingDuration());
+        profile.setMaxWalkingDuration(request.comfortProfile().maxWalkingDuration());
+
+        User updated = userService.updateNamedComfortSetting(userId, settingId, request.name(), profile);
+
+        return updated.getNamedComfortSettings().stream()
+                .filter(s -> s.getId().equals(settingId))
+                .findFirst()
+                .map(NamedComfortSettingResponse::from)
+                .orElseThrow(() -> new RuntimeException("Failed to find updated setting"));
+    }
+
+    @PostMapping("/{userId}/comfort-prompt-seen")
+    public UserResponse markComfortPromptAsSeen(@PathVariable UUID userId) {
+        User updated = userService.markComfortPromptAsSeen(userId);
+        return UserResponse.from(updated);
+    }
+
+    @DeleteMapping("/{userId}/comfort-settings/{settingId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteNamedComfortSetting(@PathVariable UUID userId, @PathVariable UUID settingId) {
+        userService.deleteNamedComfortSetting(userId, settingId);
+    }
+}
