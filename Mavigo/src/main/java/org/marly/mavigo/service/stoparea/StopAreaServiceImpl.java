@@ -48,7 +48,7 @@ public class StopAreaServiceImpl implements StopAreaService {
         String trimmedQuery = query.trim();
         
         // Early return if the stop area already exists
-        Optional<StopArea> existing = stopAreaRepository.findByNameIgnoreCase(trimmedQuery);
+        Optional<StopArea> existing = stopAreaRepository.findFirstByNameIgnoreCase(trimmedQuery);
         if (existing.isPresent()) {
             return existing.get();
         }
