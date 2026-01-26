@@ -11,8 +11,9 @@ import java.util.UUID;
 
 import org.marly.mavigo.controller.dto.TaskDetailDto;
 import org.marly.mavigo.models.journey.Journey;
+import org.marly.mavigo.models.journey.JourneyPoint;
+import org.marly.mavigo.models.journey.JourneySegment;
 import org.marly.mavigo.models.journey.JourneyStatus;
-import org.marly.mavigo.models.journey.Leg;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.task.UserTask;
 import org.marly.mavigo.repository.JourneyRepository;
@@ -240,31 +241,42 @@ public class JourneyOptimizationService {
                 departure.atOffset(ZoneOffset.systemDefault().getRules().getOffset(java.time.Instant.now())),
                 arrival);
 
-        // Fusionner tous les legs de tous les segments
-        List<Leg> allLegs = new ArrayList<>();
-        int sequenceOrder = 1;
+        // Fusionner tous les segments de tous les trajets
+        List<JourneySegment> allSegments = new ArrayList<>();
+        int sequenceOrder = 0;
         for (Journey segment : segments) {
-            if (segment.getLegs() != null) {
-                for (Leg leg : segment.getLegs()) {
-                    Leg newLeg = new Leg();
-                    newLeg.setSequenceOrder(sequenceOrder++);
-                    newLeg.setMode(leg.getMode());
-                    newLeg.setLineCode(leg.getLineCode());
-                    newLeg.setOriginLabel(leg.getOriginLabel());
-                    newLeg.setDestinationLabel(leg.getDestinationLabel());
-                    newLeg.setEstimatedDeparture(leg.getEstimatedDeparture());
-                    newLeg.setEstimatedArrival(leg.getEstimatedArrival());
-                    newLeg.setDurationSeconds(leg.getDurationSeconds());
-                    newLeg.setDistanceMeters(leg.getDistanceMeters());
-                    newLeg.setNotes(leg.getNotes());
-                    newLeg.setOriginCoordinate(leg.getOriginCoordinate());
-                    newLeg.setDestinationCoordinate(leg.getDestinationCoordinate());
-                    allLegs.add(newLeg);
+            if (segment.getSegments() != null) {
+                for (JourneySegment seg : segment.getSegments()) {
+                    JourneySegment newSeg = new JourneySegment(aggregated, sequenceOrder++, seg.getSegmentType());
+                    newSeg.setTransitMode(seg.getTransitMode());
+                    newSeg.setLineCode(seg.getLineCode());
+                    newSeg.setLineName(seg.getLineName());
+                    newSeg.setLineColor(seg.getLineColor());
+                    newSeg.setNetworkName(seg.getNetworkName());
+                    newSeg.setScheduledDeparture(seg.getScheduledDeparture());
+                    newSeg.setScheduledArrival(seg.getScheduledArrival());
+                    newSeg.setDurationSeconds(seg.getDurationSeconds());
+                    newSeg.setDistanceMeters(seg.getDistanceMeters());
+                    newSeg.setHasAirConditioning(seg.getHasAirConditioning());
+                    newSeg.setPrimSectionId(seg.getPrimSectionId());
+                    // Copy points
+                    int pointSeq = 0;
+                    for (JourneyPoint point : seg.getPoints()) {
+                        JourneyPoint newPoint = new JourneyPoint(newSeg, pointSeq++, point.getPointType(), point.getName());
+                        newPoint.setPrimStopPointId(point.getPrimStopPointId());
+                        newPoint.setPrimStopAreaId(point.getPrimStopAreaId());
+                        newPoint.setCoordinates(point.getCoordinates());
+                        newPoint.setScheduledArrival(point.getScheduledArrival());
+                        newPoint.setScheduledDeparture(point.getScheduledDeparture());
+                        newPoint.setStatus(point.getStatus());
+                        newSeg.addPoint(newPoint);
+                    }
+                    allSegments.add(newSeg);
                 }
             }
         }
 
-        aggregated.replaceLegs(allLegs);
+        aggregated.replaceSegments(allSegments);
         aggregated.setStatus(JourneyStatus.PLANNED);
         aggregated = journeyRepository.save(aggregated);
 
@@ -280,10 +292,10 @@ public class JourneyOptimizationService {
                     journey.getPlannedDeparture(),
                     journey.getPlannedArrival()).getSeconds();
         }
-        // Fallback: additionner les durées des legs
-        if (journey.getLegs() != null) {
-            return journey.getLegs().stream()
-                    .mapToLong(leg -> leg.getDurationSeconds() != null ? leg.getDurationSeconds() : 0L)
+        // Fallback: additionner les durées des segments
+        if (journey.getSegments() != null) {
+            return journey.getSegments().stream()
+                    .mapToLong(seg -> seg.getDurationSeconds() != null ? seg.getDurationSeconds() : 0L)
                     .sum();
         }
         return 0L;
