@@ -422,8 +422,8 @@ async function startJourney(journeyId, btnElement) {
   try {
     const journey = await api.post(`/api/journeys/${journeyId}/start`);
     const stored = lastDisplayedJourneysById?.get(journeyId);
-    const merged = stored && (stored.includedTasks?.length || stored.legs)
-      ? { ...journey, includedTasks: journey.includedTasks ?? stored.includedTasks, legs: journey.legs ?? stored.legs }
+    const merged = stored && (stored.includedTasks?.length || stored.segments)
+      ? { ...journey, includedTasks: journey.includedTasks ?? stored.includedTasks, segments: journey.segments ?? stored.segments }
       : journey;
     updateCurrentJourney(merged);
   } catch (err) {
@@ -521,10 +521,33 @@ function renderCurrentJourney(journey) {
   const statusClass =
     journey.status === "IN_PROGRESS" ? "status-active" : "status-planned";
   const progress = calculateProgress(journey);
-  const hasLegs = Array.isArray(journey.legs) && journey.legs.length > 0;
+  const hasSegments = Array.isArray(journey.segments) && journey.segments.length > 0;
   const hasTasks = Array.isArray(journey.includedTasks) && journey.includedTasks.length > 0;
-  const showSteps = (journey.status === "IN_PROGRESS" || journey.status === "REROUTED") && (hasLegs || hasTasks);
-  const stepsHtml = showSteps ? buildItineraryStepsHtml(journey) : "";
+  const showSteps = (journey.status === "IN_PROGRESS" || journey.status === "REROUTED") && (hasSegments || hasTasks);
+
+  // Process segments for display
+  const segments = Array.isArray(journey?.segments) ? journey.segments : [];
+  const includedTasks = Array.isArray(journey?.includedTasks) ? journey.includedTasks : [];
+  const processedSegments = segments
+    .map((seg) => {
+      const points = Array.isArray(seg.points) ? seg.points : [];
+      const originPoint = points[0];
+      const destPoint = points.length > 1 ? points[points.length - 1] : originPoint;
+      return {
+        ...seg,
+        originLabel: originPoint?.name || seg.lineName || "?",
+        destinationLabel: destPoint?.name || seg.lineName || "?",
+        mode: seg.transitMode || seg.segmentType || "OTHER"
+      };
+    })
+    .filter((seg) => {
+      const duration = seg.durationSeconds || 0;
+      const samePlace = seg.originLabel === seg.destinationLabel;
+      if (seg.segmentType === "WAITING") return false;
+      if (duration < 30 && samePlace) return false;
+      return true;
+    });
+  const stepsHtml = showSteps ? buildItineraryStepsHtmlFromSegments(processedSegments, includedTasks) : "";
 
   currentJourneyContent.innerHTML = `
         <div class="journey-status-card">
