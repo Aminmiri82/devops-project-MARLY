@@ -32,7 +32,16 @@ public class UserServiceImpl implements UserService {
         validateRequiredFields(user);
         ensureExternalIdAvailable(user.getExternalId(), null);
         ensureEmailAvailable(user.getEmail(), null);
-        return userRepository.save(user);
+
+        User saved = userRepository.save(user);
+
+        // Create default "Accessibility" profile with wheelchair enabled
+        ComfortProfile accessibilityProfile = new ComfortProfile();
+        accessibilityProfile.setWheelchairAccessible(true);
+        NamedComfortSetting accessibilitySetting = new NamedComfortSetting("Accessibility", accessibilityProfile, saved);
+        saved.addNamedComfortSetting(accessibilitySetting);
+
+        return userRepository.save(saved);
     }
 
     @Override
