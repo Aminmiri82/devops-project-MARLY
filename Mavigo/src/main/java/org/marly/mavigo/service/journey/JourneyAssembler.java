@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class JourneyAssembler {
 
-    Journey assemble(User user,
+     public Journey assemble(User user,
                      StopArea origin,
                      StopArea destination,
                      PrimJourneyPlanDto plan,
