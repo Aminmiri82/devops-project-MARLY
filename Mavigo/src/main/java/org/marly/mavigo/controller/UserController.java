@@ -93,6 +93,7 @@ public class UserController {
         profile.setMaxNbTransfers(request.maxNbTransfers());
         profile.setMaxWaitingDuration(request.maxWaitingDuration());
         profile.setMaxWalkingDuration(request.maxWalkingDuration());
+        profile.setWheelchairAccessible(request.wheelchairAccessible());
 
         User updated = userService.updateUser(user);
         return ComfortProfileResponse.from(updated.getComfortProfile());
@@ -124,6 +125,7 @@ public class UserController {
         profile.setMaxNbTransfers(request.comfortProfile().maxNbTransfers());
         profile.setMaxWaitingDuration(request.comfortProfile().maxWaitingDuration());
         profile.setMaxWalkingDuration(request.comfortProfile().maxWalkingDuration());
+        profile.setWheelchairAccessible(request.comfortProfile().wheelchairAccessible());
 
         User updated = userService.addNamedComfortSetting(userId, request.name(), profile);
 
@@ -148,6 +150,7 @@ public class UserController {
         profile.setMaxNbTransfers(request.comfortProfile().maxNbTransfers());
         profile.setMaxWaitingDuration(request.comfortProfile().maxWaitingDuration());
         profile.setMaxWalkingDuration(request.comfortProfile().maxWalkingDuration());
+        profile.setWheelchairAccessible(request.comfortProfile().wheelchairAccessible());
 
         User updated = userService.updateNamedComfortSetting(userId, settingId, request.name(), profile);
 
