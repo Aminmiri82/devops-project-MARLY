@@ -29,29 +29,40 @@ class NamedComfortSettingServiceTest {
     @Test
     void addNamedComfortSettingStoresSetting() {
         User user = userService.createUser(new User("ext-named", "named@example.com", "Named Test"));
+        // User now starts with 1 default "Accessibility" setting
+        int initialCount = user.getNamedComfortSettings().size();
         ComfortProfile profile = new ComfortProfile();
         profile.setDirectPath("only");
 
         User updated = userService.addNamedComfortSetting(user.getId(), "Commute", profile);
 
-        assertThat(updated.getNamedComfortSettings()).hasSize(1);
-        NamedComfortSetting saved = updated.getNamedComfortSettings().get(0);
+        assertThat(updated.getNamedComfortSettings()).hasSize(initialCount + 1);
+        NamedComfortSetting saved = updated.getNamedComfortSettings().stream()
+                .filter(s -> "Commute".equals(s.getName()))
+                .findFirst()
+                .orElseThrow();
         assertThat(saved.getName()).isEqualTo("Commute");
         assertThat(saved.getComfortProfile().getDirectPath()).isEqualTo("only");
-        assertThat(namedComfortSettingRepository.count()).isEqualTo(1);
+        assertThat(namedComfortSettingRepository.count()).isEqualTo(initialCount + 1);
     }
 
     @Test
     void deleteNamedComfortSettingRemovesSetting() {
         User user = userService.createUser(new User("ext-del", "del@example.com", "Del Test"));
+        // User starts with default "Accessibility" setting
+        int initialCount = user.getNamedComfortSettings().size();
         ComfortProfile profile = new ComfortProfile();
         profile.setDirectPath("none");
         User updated = userService.addNamedComfortSetting(user.getId(), "Temporary", profile);
-        UUID settingId = updated.getNamedComfortSettings().get(0).getId();
+        UUID settingId = updated.getNamedComfortSettings().stream()
+                .filter(s -> "Temporary".equals(s.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getId();
 
         User afterDelete = userService.deleteNamedComfortSetting(user.getId(), settingId);
 
-        assertThat(afterDelete.getNamedComfortSettings()).isEmpty();
-        assertThat(namedComfortSettingRepository.count()).isEqualTo(0);
+        assertThat(afterDelete.getNamedComfortSettings()).hasSize(initialCount);
+        assertThat(namedComfortSettingRepository.count()).isEqualTo(initialCount);
     }
 }

@@ -915,7 +915,7 @@ function displayJourneyResults(journeys) {
 
   const modesHtml = `
     <div class="journey-modes">
-      <span>Comfort: ${firstJourney?.comfortModeEnabled ? "On" : "Off"}</span>
+      <span>Comfort Profile: ${firstJourney?.comfortModeEnabled ? "Active" : "None"}</span>
     </div>
   `;
 
@@ -1747,7 +1747,7 @@ function populateJourneyComfortDropdown(settings) {
 
   const currentValue = journeyComfortSelection.value;
   let html = `
-    <option value="disabled">Comfort mode Disabled</option>
+    <option value="disabled">No Profile</option>
   `;
 
   html += settings.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
