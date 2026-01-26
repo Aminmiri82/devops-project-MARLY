@@ -77,6 +77,10 @@ public class User {
         this.displayName = displayName;
     }
 
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
     public UUID getId() {
         return id;
     }
