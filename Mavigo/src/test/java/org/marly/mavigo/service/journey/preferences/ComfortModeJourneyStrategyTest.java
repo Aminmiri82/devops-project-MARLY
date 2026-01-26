@@ -1,6 +1,8 @@
 package org.marly.mavigo.service.journey.preferences;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -11,7 +13,9 @@ import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.stoparea.StopArea;
 import org.marly.mavigo.models.user.ComfortProfile;
+import org.marly.mavigo.models.user.NamedComfortSetting;
 import org.marly.mavigo.models.user.User;
+import org.marly.mavigo.repository.NamedComfortSettingRepository;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningContext;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningParameters;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
@@ -19,21 +23,23 @@ import org.marly.mavigo.service.journey.dto.JourneyPreferences;
 class ComfortModeJourneyStrategyTest {
 
     private ComfortModeJourneyStrategy strategy;
+    private NamedComfortSettingRepository namedComfortSettingRepository;
 
     @BeforeEach
     void setUp() {
-        strategy = new ComfortModeJourneyStrategy();
+        namedComfortSettingRepository = mock(NamedComfortSettingRepository.class);
+        strategy = new ComfortModeJourneyStrategy(namedComfortSettingRepository);
     }
 
     @Test
     void supports_returnsTrueWhenComfortModeEnabled() {
-        JourneyPreferences prefs = new JourneyPreferences(true, false);
+        JourneyPreferences prefs = new JourneyPreferences(true, false, null);
         assertThat(strategy.supports(prefs)).isTrue();
     }
 
     @Test
     void supports_returnsFalseWhenComfortModeDisabled() {
-        JourneyPreferences prefs = new JourneyPreferences(false, true);
+        JourneyPreferences prefs = new JourneyPreferences(false, true, null);
         assertThat(strategy.supports(prefs)).isFalse();
     }
 
@@ -138,6 +144,48 @@ class ComfortModeJourneyStrategyTest {
         assertThat(request.getEquipmentDetails()).hasValue(true);
     }
 
+    @Test
+    void resolveProfile_returnsNamedSettingWhenFound() {
+        UUID namedId = UUID.randomUUID();
+        User user = createUserWithProfile(p -> p.setMaxNbTransfers(5));
+        user.setId(UUID.randomUUID());
+
+        ComfortProfile namedProfile = new ComfortProfile();
+        namedProfile.setMaxNbTransfers(1);
+        NamedComfortSetting ns = new NamedComfortSetting("Work", namedProfile, user);
+
+        when(namedComfortSettingRepository.findById(namedId)).thenReturn(java.util.Optional.of(ns));
+
+        JourneyPlanningContext context = buildContext(user, namedId);
+        ComfortProfile resolved = strategy.resolveProfile(context);
+
+        assertThat(resolved.getMaxNbTransfers()).isEqualTo(1);
+    }
+
+    @Test
+    void resolveProfile_returnsDefaultWhenNamedSettingNotFound() {
+        UUID namedId = UUID.randomUUID();
+        User user = createUserWithProfile(p -> p.setMaxNbTransfers(5));
+        user.setId(UUID.randomUUID());
+
+        when(namedComfortSettingRepository.findById(namedId)).thenReturn(java.util.Optional.empty());
+
+        JourneyPlanningContext context = buildContext(user, namedId);
+        ComfortProfile resolved = strategy.resolveProfile(context);
+
+        assertThat(resolved.getMaxNbTransfers()).isEqualTo(5);
+    }
+
+    @Test
+    void resolveProfile_returnsNullWhenComfortDisabled() {
+        User user = createUserWithProfile(p -> p.setMaxNbTransfers(5));
+        JourneyPlanningContext context = buildContext(user, null, false);
+
+        ComfortProfile resolved = strategy.resolveProfile(context);
+
+        assertThat(resolved).isNull();
+    }
+
     private User createUserWithProfile(java.util.function.Consumer<ComfortProfile> configurer) {
         User user = new User("ext", "test@example.com", "Test User");
         ComfortProfile profile = new ComfortProfile();
@@ -147,14 +195,22 @@ class ComfortModeJourneyStrategyTest {
     }
 
     private JourneyPlanningContext buildContext(User user) {
+        return buildContext(user, null, true);
+    }
+
+    private JourneyPlanningContext buildContext(User user, UUID namedId) {
+        return buildContext(user, namedId, true);
+    }
+
+    private JourneyPlanningContext buildContext(User user, UUID namedId, boolean comfortEnabled) {
         JourneyPlanningParameters params = new JourneyPlanningParameters(
-                UUID.randomUUID(),
+                (user != null && user.getId() != null) ? user.getId() : UUID.randomUUID(),
                 "origin-query",
                 "dest-query",
                 LocalDateTime.now(),
-                new JourneyPreferences(true, false));
-        StopArea origin = new StopArea("origin-ext", "Origin", new GeoPoint(0d, 0d));
-        StopArea destination = new StopArea("dest-ext", "Destination", new GeoPoint(1d, 1d));
+                new JourneyPreferences(comfortEnabled, false, namedId));
+        StopArea origin = new StopArea("origin-ext", "Origin", new GeoPoint(48.8566, 2.3522));
+        StopArea destination = new StopArea("dest-ext", "Destination", new GeoPoint(48.8606, 2.3376));
         return new JourneyPlanningContext(user, origin, destination, params);
     }
 }
