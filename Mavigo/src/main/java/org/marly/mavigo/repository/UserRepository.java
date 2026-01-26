@@ -13,5 +13,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
     Optional<User> findByGoogleAccountSubject(String googleAccountSubject);
-}
 
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u LEFT JOIN FETCH u.namedComfortSettings WHERE u.id = :id")
+    Optional<User> findWithSettingsById(UUID id);
+}

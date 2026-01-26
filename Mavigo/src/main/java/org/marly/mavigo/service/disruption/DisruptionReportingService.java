@@ -179,7 +179,16 @@ public class DisruptionReportingService {
             var request = new PrimJourneyRequest(origin.getExternalId(), destination.getExternalId(), LocalDateTime.now());
             List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
 
-            options = journeyResultFilter.filterByComfortProfile(options, original.getUser(), original.isComfortModeEnabled());
+            var prefs = new JourneyPreferences(original.isComfortModeEnabled(), original.isTouristicModeEnabled(), original.getNamedComfortSettingId());
+            var params = new org.marly.mavigo.service.journey.dto.JourneyPlanningParameters(
+                    original.getUser().getId(),
+                    original.getOriginLabel(),
+                    original.getDestinationLabel(),
+                    LocalDateTime.now(),
+                    prefs);
+            var context = new org.marly.mavigo.service.journey.dto.JourneyPlanningContext(original.getUser(), origin, destination, params);
+
+            options = journeyResultFilter.filterByComfortProfile(options, context, original.isComfortModeEnabled());
 
             if (excludedLine != null) {
                 options = options.stream()
@@ -188,8 +197,6 @@ public class DisruptionReportingService {
             }
 
             if (options.isEmpty()) return List.of();
-
-            var prefs = new JourneyPreferences(original.isComfortModeEnabled(), original.isTouristicModeEnabled());
             List<Journey> results = new ArrayList<>();
 
             for (PrimJourneyPlanDto opt : options.stream().limit(3).toList()) {

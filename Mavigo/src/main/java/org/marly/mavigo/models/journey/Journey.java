@@ -89,6 +89,9 @@ public class Journey {
     @Column(name = "touristic_mode_enabled", nullable = false)
     private boolean touristicModeEnabled = false;
 
+    @Column(name = "named_comfort_setting_id")
+    private UUID namedComfortSettingId;
+
     @Column(name = "prim_itinerary_id")
     private String primItineraryId;
 
@@ -345,6 +348,14 @@ public class Journey {
 
     public void setTouristicModeEnabled(boolean touristicModeEnabled) {
         this.touristicModeEnabled = touristicModeEnabled;
+    }
+
+    public UUID getNamedComfortSettingId() {
+        return namedComfortSettingId;
+    }
+
+    public void setNamedComfortSettingId(UUID namedComfortSettingId) {
+        this.namedComfortSettingId = namedComfortSettingId;
     }
 
     public String getPrimItineraryId() {

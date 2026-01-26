@@ -2,17 +2,27 @@ package org.marly.mavigo.service.journey.preferences;
 
 import org.marly.mavigo.client.prim.model.PrimJourneyRequest;
 import org.marly.mavigo.models.user.ComfortProfile;
+import org.marly.mavigo.models.user.NamedComfortSetting;
 import org.marly.mavigo.models.user.User;
+import org.marly.mavigo.repository.NamedComfortSettingRepository;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningContext;
 import org.marly.mavigo.service.journey.dto.JourneyPreferences;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Component
 public class ComfortModeJourneyStrategy implements JourneyPreferenceStrategy {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ComfortModeJourneyStrategy.class);
+
+    private final NamedComfortSettingRepository namedComfortSettingRepository;
+
+    public ComfortModeJourneyStrategy(NamedComfortSettingRepository namedComfortSettingRepository) {
+        this.namedComfortSettingRepository = namedComfortSettingRepository;
+    }
 
     @Override
     public boolean supports(JourneyPreferences preferences) {
@@ -27,11 +37,16 @@ public class ComfortModeJourneyStrategy implements JourneyPreferenceStrategy {
             return;
         }
 
-        ComfortProfile profile = user.getComfortProfile();
+        ComfortProfile profile = resolveProfile(context);
         if (profile == null || !profile.hasSettings()) {
-            LOGGER.debug("User {} has no comfort profile configured", user.getId());
+            LOGGER.info("Applied comfort profile is empty or null for user {}", user.getId());
             return;
         }
+
+        LOGGER.debug(
+                "Applying comfort profile details: directPath={}, transfers={}, waiting={}, walking={}, requireAC={}",
+                profile.getDirectPath(), profile.getMaxNbTransfers(), profile.getMaxWaitingDuration(),
+                profile.getMaxWalkingDuration(), profile.getRequireAirConditioning());
 
         if (profile.getDirectPath() != null) {
             request.withDirectPath(profile.getDirectPath());
@@ -53,5 +68,22 @@ public class ComfortModeJourneyStrategy implements JourneyPreferenceStrategy {
             request.withEquipmentDetails(true);
             LOGGER.debug("Requesting equipment details for A/C filtering");
         }
+    }
+
+    public ComfortProfile resolveProfile(JourneyPlanningContext context) {
+        if (context == null || !context.parameters().preferences().comfortModeEnabled()) {
+            return null;
+        }
+
+        User user = context.user();
+        UUID namedSettingId = context.parameters().preferences().namedComfortSettingId();
+
+        if (namedSettingId != null) {
+            return namedComfortSettingRepository.findById(namedSettingId)
+                    .filter(ns -> ns.getUser().getId().equals(user.getId()))
+                    .map(NamedComfortSetting::getComfortProfile)
+                    .orElseGet(user::getComfortProfile);
+        }
+        return user.getComfortProfile();
     }
 }

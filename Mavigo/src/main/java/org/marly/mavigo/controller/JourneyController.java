@@ -287,6 +287,9 @@ public class JourneyController {
         if (preferencesRequest == null) {
             return JourneyPreferences.disabled();
         }
-        return new JourneyPreferences(preferencesRequest.comfortMode(), preferencesRequest.touristicMode());
+        return new JourneyPreferences(
+                preferencesRequest.comfortMode(),
+                preferencesRequest.touristicMode(),
+                preferencesRequest.namedComfortSettingId());
     }
 }
