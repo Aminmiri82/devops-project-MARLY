@@ -9,264 +9,341 @@
 </head>
 
 <body>
-<header class="app-header">
-  <div class="header-brand">
-    <h1>Mavigo</h1>
-    <span class="tagline">Journey Planning</span>
+  <header class="app-header">
+    <div class="header-brand">
+      <h1>Mavigo</h1>
+      <span class="tagline">Journey Planning</span>
+    </div>
+
+    <nav class="app-nav" id="appNav">
+      <button type="button" class="btn btn-ghost btn-sm nav-btn nav-active" id="navJourneyBtn">Journey</button>
+      <button type="button" class="btn btn-ghost btn-sm nav-btn" id="navTasksBtn">Tasks</button>
+    </nav>
+
+    <div class="header-auth" id="authSection">
+      <button type="button" id="themeToggle" class="theme-toggle hidden" aria-label="Toggle theme">
+        <span class="theme-icon" id="themeIcon">🌙</span>
+      </button>
+      <div id="loggedOutView">
+        <button type="button" id="showLoginBtn" class="btn btn-outline">Log In</button>
+        <button type="button" id="showRegisterBtn" class="btn btn-primary">Sign Up</button>
+      </div>
+      <div id="loggedInView" class="hidden">
+        <div class="user-dropdown-wrapper">
+          <button type="button" class="user-dropdown-trigger" id="userDropdownTrigger">
+            <span id="userGreeting"></span>
+            <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 12 12">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="user-dropdown" id="userDropdown">
+            <div class="dropdown-header">
+              <span class="dropdown-user-name" id="dropdownUserName"></span>
+              <span class="dropdown-user-email" id="dropdownUserEmail"></span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-actions">
+              <button type="button" class="dropdown-action-btn" id="linkGoogleTasksBtn">
+                <span>Link Google Tasks</span>
+                <span class="dropdown-status" id="googleLinkStatusBadge"></span>
+              </button>
+              <button type="button" class="dropdown-action-btn" id="editComfortProfileBtn">
+                <span>Comfort Settings</span>
+              </button>
+            </div>
+            <div class="dropdown-divider"></div>
+            <button type="button" class="dropdown-logout-btn" id="logoutBtn">Log Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="modal-overlay hidden" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div class="modal">
+      <button type="button" class="modal-close" id="closeAuthModal" aria-label="Close dialog">&times;</button>
+
+      <div id="loginForm" class="auth-form">
+        <h2 id="authModalTitle">Welcome Back</h2>
+        <p class="form-subtitle">Log in with your email</p>
+        <form id="loginFormEl">
+          <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" placeholder="you@example.com" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Log In</button>
+        </form>
+        <p id="loginError" class="form-error hidden"></p>
+        <p class="form-switch">Don't have an account? <a href="#" id="switchToRegister">Sign up</a></p>
+      </div>
+
+      <div id="registerForm" class="auth-form hidden">
+        <h2>Create Account</h2>
+        <p class="form-subtitle">Join Mavigo to plan your journeys</p>
+        <form id="registerFormEl">
+          <div class="form-group">
+            <label for="registerName">Display Name</label>
+            <input type="text" id="registerName" placeholder="Your name" required>
+          </div>
+          <div class="form-group">
+            <label for="registerEmail">Email</label>
+            <input type="email" id="registerEmail" placeholder="you@example.com" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+        </form>
+        <p id="registerError" class="form-error hidden"></p>
+        <p class="form-switch">Already have an account? <a href="#" id="switchToLogin">Log in</a></p>
+      </div>
+    </div>
   </div>
 
-  <nav class="app-nav" id="appNav">
-    <button type="button" class="btn btn-ghost btn-sm nav-btn nav-active" id="navJourneyBtn">Journey</button>
-    <button type="button" class="btn btn-ghost btn-sm nav-btn" id="navTasksBtn">Tasks</button>
-  </nav>
+  <div class="modal-overlay hidden" id="comfortProfileModal" role="dialog" aria-modal="true"
+    aria-labelledby="comfortModalTitle">
+    <div class="modal">
+      <button type="button" class="modal-close" id="closeComfortProfileModal" aria-label="Close dialog">&times;</button>
+      <div class="auth-form" id="comfortProfileListView">
+        <h2 id="comfortModalTitle">Comfort Settings</h2>
+        <p class="form-subtitle">Choose from your saved preferences</p>
+        <div id="namedSettingsList" class="named-settings-list">
+          <!-- Populated by JS -->
+        </div>
+        <div class="floating-action-container">
+          <button type="button" id="addNewComfortSettingBtn" class="btn-floating" aria-label="Add new setting">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
 
-  <div class="header-auth" id="authSection">
-    <button type="button" id="themeToggle" class="theme-toggle hidden" aria-label="Toggle theme">
-      <span class="theme-icon" id="themeIcon">🌙</span>
-    </button>
-    <div id="loggedOutView">
-      <button type="button" id="showLoginBtn" class="btn btn-outline">Log In</button>
-      <button type="button" id="showRegisterBtn" class="btn btn-primary">Sign Up</button>
+      <div class="auth-form hidden" id="comfortProfileFormView">
+        <div class="form-header">
+          <button type="button" id="backToComfortListBtn" class="btn btn-ghost btn-sm mr-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <h2 id="comfortFormTitle">Edit Setting</h2>
+        </div>
+        <p class="form-subtitle" id="comfortFormSubtitle">Set your travel preferences</p>
+        <form id="comfortProfileForm">
+          <input type="hidden" id="editingSettingId">
+          <div class="form-group">
+            <label for="settingName">Setting Name</label>
+            <input type="text" id="settingName" placeholder="e.g. Work Commute" required>
+          </div>
+          <div class="form-group">
+            <label for="directPath">Direct Path Preference</label>
+            <select id="directPath" class="form-select">
+              <option value="">No preference</option>
+              <option value="indifferent">Indifferent</option>
+              <option value="none">No direct path</option>
+              <option value="only">Direct path only</option>
+              <option value="only_with_alternatives">Direct with alternatives</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="requireAirConditioning">
+              <span>Require Air Conditioning</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="maxNbTransfers">Max Number of Transfers</label>
+            <input type="number" id="maxNbTransfers" min="0" max="10" placeholder="e.g. 2">
+          </div>
+          <div class="form-group">
+            <label for="maxWaitingDuration">Max Waiting Duration (minutes)</label>
+            <input type="number" id="maxWaitingDuration" min="0" max="120" placeholder="e.g. 15">
+          </div>
+          <div class="form-group">
+            <label for="maxWalkingDuration">Max Walking Duration (minutes)</label>
+            <input type="number" id="maxWalkingDuration" min="0" max="60" placeholder="e.g. 10">
+          </div>
+          <div class="comfort-modal-actions">
+            <button type="submit" id="saveComfortSettingBtn" class="btn btn-primary btn-block">Save Setting</button>
+            <button type="button" id="deleteComfortSettingBtn" class="btn btn-outline-danger btn-block mt-2">Delete
+              Setting</button>
+          </div>
+        </form>
+      </div>
+      <p id="comfortProfileError" class="form-error hidden"></p>
     </div>
-    <div id="loggedInView" class="hidden">
-      <div class="user-dropdown-wrapper">
-        <button type="button" class="user-dropdown-trigger" id="userDropdownTrigger">
-          <span id="userGreeting"></span>
-          <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 12 12">
-            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <div class="user-dropdown" id="userDropdown">
-          <div class="dropdown-header">
-            <span class="dropdown-user-name" id="dropdownUserName"></span>
-            <span class="dropdown-user-email" id="dropdownUserEmail"></span>
-          </div>
-          <div class="dropdown-divider"></div>
-          <div class="dropdown-actions">
-            <button type="button" class="dropdown-action-btn" id="linkGoogleTasksBtn">
-              <span>Link Google Tasks</span>
-              <span class="dropdown-status" id="googleLinkStatusBadge"></span>
-            </button>
-            <button type="button" class="dropdown-action-btn" id="editComfortProfileBtn">
-              <span>Comfort Settings</span>
-            </button>
-          </div>
-          <div class="dropdown-divider"></div>
-          <button type="button" class="dropdown-logout-btn" id="logoutBtn">Log Out</button>
+  </div>
+
+  <div class="modal-overlay hidden" id="comfortOnboardingModal" role="dialog" aria-modal="true"
+    aria-labelledby="onboardingModalTitle">
+    <div class="modal">
+      <div class="auth-form py-8 text-center">
+        <h2 id="onboardingModalTitle">Personalize Your Travels</h2>
+        <p class="form-subtitle">Would you like to set up your Comfort Mode preferences now? This helps us find the best
+          routes for you.</p>
+
+        <div class="comfort-modal-actions mt-8">
+          <button type="button" id="setupComfortNowBtn" class="btn btn-primary btn-block">Set up now</button>
+          <button type="button" id="skipComfortOnboardingBtn" class="btn btn-ghost btn-block mt-2">Maybe later</button>
         </div>
       </div>
     </div>
   </div>
-</header>
 
-<div class="modal-overlay hidden" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
-  <div class="modal">
-    <button type="button" class="modal-close" id="closeAuthModal" aria-label="Close dialog">&times;</button>
-
-    <div id="loginForm" class="auth-form">
-      <h2 id="authModalTitle">Welcome Back</h2>
-      <p class="form-subtitle">Log in with your email</p>
-      <form id="loginFormEl">
-        <div class="form-group">
-          <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" placeholder="you@example.com" required>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Log In</button>
-      </form>
-      <p id="loginError" class="form-error hidden"></p>
-      <p class="form-switch">Don't have an account? <a href="#" id="switchToRegister">Sign up</a></p>
-    </div>
-
-    <div id="registerForm" class="auth-form hidden">
-      <h2>Create Account</h2>
-      <p class="form-subtitle">Join Mavigo to plan your journeys</p>
-      <form id="registerFormEl">
-        <div class="form-group">
-          <label for="registerName">Display Name</label>
-          <input type="text" id="registerName" placeholder="Your name" required>
-        </div>
-        <div class="form-group">
-          <label for="registerEmail">Email</label>
-          <input type="email" id="registerEmail" placeholder="you@example.com" required>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
-      </form>
-      <p id="registerError" class="form-error hidden"></p>
-      <p class="form-switch">Already have an account? <a href="#" id="switchToLogin">Log in</a></p>
+  <div class="disruption-modal-overlay hidden" id="disruptionModal" role="dialog" aria-modal="true"
+    aria-labelledby="disruptionModalTitle">
+    <div class="disruption-modal">
+      <button type="button" class="disruption-modal-close" id="disruptionModalClose" aria-label="Close">&times;</button>
+      <h3 class="disruption-modal-title" id="disruptionModalTitle">Report Disruption</h3>
+      <div id="disruptionModalContent" class="disruption-modal-content">
+        <!-- Content populated by JavaScript -->
+      </div>
     </div>
   </div>
-</div>
 
-<div class="modal-overlay hidden" id="comfortProfileModal" role="dialog" aria-modal="true" aria-labelledby="comfortModalTitle">
-  <div class="modal">
-    <button type="button" class="modal-close" id="closeComfortProfileModal" aria-label="Close dialog">&times;</button>
-    <div class="auth-form">
-      <h2 id="comfortModalTitle">Comfort Mode Settings</h2>
-      <p class="form-subtitle">Set your travel preferences</p>
-      <form id="comfortProfileForm">
-        <div class="form-group">
-          <label for="directPath">Direct Path Preference</label>
-          <select id="directPath" class="form-select">
-            <option value="">No preference</option>
-            <option value="indifferent">Indifferent</option>
-            <option value="none">No direct path</option>
-            <option value="only">Direct path only</option>
-            <option value="only_with_alternatives">Direct with alternatives</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="requireAirConditioning">
-            <span>Require Air Conditioning</span>
-          </label>
-        </div>
-        <div class="form-group">
-          <label for="maxNbTransfers">Max Number of Transfers</label>
-          <input type="number" id="maxNbTransfers" min="0" max="10" placeholder="e.g. 2">
-        </div>
-        <div class="form-group">
-          <label for="maxWaitingDuration">Max Waiting Duration (minutes)</label>
-          <input type="number" id="maxWaitingDuration" min="0" max="120" placeholder="e.g. 15">
-        </div>
-        <div class="form-group">
-          <label for="maxWalkingDuration">Max Walking Duration (minutes)</label>
-          <input type="number" id="maxWalkingDuration" min="0" max="60" placeholder="e.g. 10">
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Save Settings</button>
-        <button type="button" id="clearComfortProfileBtn" class="btn btn-outline btn-block mt-2">Clear Settings</button>
-      </form>
-      <p id="comfortProfileError" class="form-error hidden"></p>
+  <main class="app-main">
+    <div id="notLoggedInPrompt" class="prompt-card">
+      <h2>Plan Your Journey</h2>
+      <p>Log in or create an account to start planning trips across Paris transit network.</p>
+      <button type="button" class="btn btn-primary" id="promptLoginBtn">Get Started</button>
     </div>
-  </div>
-</div>
 
-<div class="disruption-modal-overlay hidden" id="disruptionModal" role="dialog" aria-modal="true" aria-labelledby="disruptionModalTitle">
-  <div class="disruption-modal">
-    <button type="button" class="disruption-modal-close" id="disruptionModalClose" aria-label="Close">&times;</button>
-    <h3 class="disruption-modal-title" id="disruptionModalTitle">Report Disruption</h3>
-    <div id="disruptionModalContent" class="disruption-modal-content">
-      <!-- Content populated by JavaScript -->
-    </div>
-  </div>
-</div>
-
-<main class="app-main">
-  <div id="notLoggedInPrompt" class="prompt-card">
-    <h2>Plan Your Journey</h2>
-    <p>Log in or create an account to start planning trips across Paris transit network.</p>
-    <button type="button" class="btn btn-primary" id="promptLoginBtn">Get Started</button>
-  </div>
-
-  <div id="mainContent" class="hidden">
-    <!-- VIEW: Journey -->
-    <div id="journeyView">
-      <section class="journey-panel hidden" id="currentJourneyPanel">
-        <div class="panel-header">
-          <h2>Current Journey</h2>
-        </div>
-        <div class="panel-body">
-          <div id="currentJourneyContent">
-            <!-- Filled by JS -->
+    <div id="mainContent" class="hidden">
+      <!-- VIEW: Journey -->
+      <div id="journeyView">
+        <section class="journey-panel hidden" id="currentJourneyPanel">
+          <div class="panel-header">
+            <h2>Current Journey</h2>
           </div>
-          <div class="journey-actions">
-            <button type="button" id="completeJourneyBtn" class="btn btn-primary">Complete Journey</button>
-            <button type="button" id="reportDisruptionBtn" class="btn btn-warning hidden">Report Disruption</button>
-            <button type="button" id="cancelJourneyBtn" class="btn btn-outline-danger">Cancel Journey</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="journey-panel">
-        <div class="panel-header">
-          <h2>Plan a Journey</h2>
-        </div>
-        <div class="panel-body">
-          <form id="journeyForm">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="from">From</label>
-                <input type="text" id="from" placeholder="Origin station or address" required>
-              </div>
-              <div class="form-group">
-                <label for="to">To</label>
-                <input type="text" id="to" placeholder="Destination station or address" required>
-              </div>
+          <div class="panel-body">
+            <div id="currentJourneyContent">
+              <!-- Filled by JS -->
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="departure">Departure</label>
-                <input type="datetime-local" id="departure" required>
+            <div class="journey-actions">
+              <button type="button" id="completeJourneyBtn" class="btn btn-primary">Complete Journey</button>
+              <button type="button" id="reportDisruptionBtn" class="btn btn-warning hidden">Report Disruption</button>
+              <button type="button" id="cancelJourneyBtn" class="btn btn-outline-danger">Cancel Journey</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="journey-panel">
+          <div class="panel-header">
+            <h2>Plan a Journey</h2>
+          </div>
+          <div class="panel-body">
+            <form id="journeyForm">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="from">From</label>
+                  <input type="text" id="from" placeholder="Origin station or address" required>
+                </div>
+                <div class="form-group">
+                  <label for="to">To</label>
+                  <input type="text" id="to" placeholder="Destination station or address" required>
+                </div>
               </div>
-              <div class="form-group form-group-checkboxes">
-                <label class="checkbox-label">
-                  <input type="checkbox" id="comfort">
-                  <span>Comfort Mode</span>
-                </label>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="departure">Departure</label>
+                  <input type="datetime-local" id="departure" required>
+                </div>
+                <div class="form-group">
+                  <label for="journeyComfortSelection">Comfort Mode</label>
+                  <select id="journeyComfortSelection" class="form-select">
+                    <option value="disabled">Comfort mode Disabled</option>
+                  </select>
+                </div>
                 <label class="checkbox-label">
                   <input type="checkbox" id="touristic">
                   <span>Touristic Mode</span>
                 </label>
               </div>
-            </div>
-            <button type="submit" class="btn btn-primary">Plan Journey</button>
-          </form>
-        </div>
-      </section>
-
-      <section class="results-panel">
-        <div class="panel-header">
-          <h2>Results</h2>
-        </div>
-        <div class="panel-body">
-          <div id="results">
-            <p class="results-placeholder">Your journey results will appear here.</p>
+              <button type="submit" class="btn btn-primary">Plan Journey</button>
+            </form>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
 
-    <!-- VIEW: Tasks -->
-    <div id="tasksView" class="hidden">
-      <section class="journey-panel">
-        <div class="panel-header">
-          <h2>Google Tasks</h2>
-        </div>
-        <div class="panel-body">
-
-          <div class="tasks-toolbar">
-            <p class="tasks-listname" id="tasksListName">Default list: —</p>
-
-            <div class="tasks-toolbar-actions">
-              <label class="checkbox-label">
-                <input type="checkbox" id="tasksIncludeCompleted">
-                <span>Include completed</span>
-              </label>
-
-              <button type="button" class="btn btn-outline btn-sm" id="refreshTasksBtn">Refresh</button>
+        <section class="results-panel">
+          <div class="panel-header">
+            <h2>Results</h2>
+          </div>
+          <div class="panel-body">
+            <div id="results">
+              <p class="results-placeholder">Your journey results will appear here.</p>
             </div>
           </div>
+        </section>
+      </div>
 
-          <p class="tasks-hint">Les tâches sont gérées dans Google Tasks. Ajoutez <code>#mavigo: lieu</code> dans la description d’une tâche pour l’utiliser dans vos trajets.</p>
-
-        </div>
-      </section>
-
-      <section class="results-panel">
-        <div class="panel-header">
-          <h2>Tasks</h2>
-        </div>
-        <div class="panel-body">
-          <div id="tasksResults">
-            <p class="results-placeholder">Tasks will appear here.</p>
+      <!-- VIEW: Tasks -->
+      <div id="tasksView" class="hidden">
+        <section class="journey-panel">
+          <div class="panel-header">
+            <h2>Google Tasks</h2>
           </div>
-        </div>
-      </section>
+          <div class="panel-body">
+
+            <div class="tasks-toolbar">
+              <p class="tasks-listname" id="tasksListName">Default list: —</p>
+
+              <div class="tasks-toolbar-actions">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="tasksIncludeCompleted">
+                  <span>Include completed</span>
+                </label>
+
+                <button type="button" class="btn btn-outline btn-sm" id="refreshTasksBtn">Refresh</button>
+              </div>
+            </div>
+
+            <div class="panel-header panel-header-inline">
+              <h2>Create a Task</h2>
+            </div>
+
+            <form id="createTaskForm">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="taskTitle">Title</label>
+                  <input type="text" id="taskTitle" placeholder="e.g. Buy groceries" required>
+                </div>
+                <div class="form-group">
+                  <label for="taskDue">Due date</label>
+                  <input type="date" id="taskDue">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="taskLocationQuery">Location (PRIM)</label>
+                  <input type="text" id="taskLocationQuery" placeholder="e.g. Châtelet">
+                </div>
+                <div class="form-group">
+                  <label for="taskNotes">Notes</label>
+                  <input type="text" id="taskNotes" placeholder="Optional notes">
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary">Create Task</button>
+            </form>
+
+          </div>
+        </section>
+
+        <section class="results-panel">
+          <div class="panel-header">
+            <h2>Tasks</h2>
+          </div>
+          <div class="panel-body">
+            <div id="tasksResults">
+              <p class="results-placeholder">Tasks will appear here.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
     </div>
+  </main>
 
-  </div>
-</main>
-
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 
 </html>

@@ -59,6 +59,8 @@ let currentUser = null;
 let currentView = localStorage.getItem("mavigo_view") || "journey";
 let defaultTaskList = null;
 let currentJourney = null;
+let lastNotifiedJourneyId = null;
+let lastTasksSignature = null;
 
 // ============================================================
 // DOM ELEMENTS
@@ -106,13 +108,26 @@ const comfortProfileModal = document.getElementById("comfortProfileModal");
 const comfortProfileForm = document.getElementById("comfortProfileForm");
 const comfortProfileSummary = document.getElementById("comfortProfileSummary");
 const editComfortProfileBtn = document.getElementById("editComfortProfileBtn");
-const closeComfortProfileModal = document.getElementById(
-  "closeComfortProfileModal"
-);
-const clearComfortProfileBtn = document.getElementById(
-  "clearComfortProfileBtn"
-);
-const comfortCheckbox = document.getElementById("comfort");
+const closeComfortProfileModal = document.getElementById("closeComfortProfileModal");
+
+// New Refactored Elements
+const comfortProfileListView = document.getElementById("comfortProfileListView");
+const comfortProfileFormView = document.getElementById("comfortProfileFormView");
+const namedSettingsList = document.getElementById("namedSettingsList");
+const addNewComfortSettingBtn = document.getElementById("addNewComfortSettingBtn");
+const backToComfortListBtn = document.getElementById("backToComfortListBtn");
+const comfortFormTitle = document.getElementById("comfortFormTitle");
+const comfortFormSubtitle = document.getElementById("comfortFormSubtitle");
+const editingSettingId = document.getElementById("editingSettingId");
+const saveComfortSettingBtn = document.getElementById("saveComfortSettingBtn");
+const deleteComfortSettingBtn = document.getElementById("deleteComfortSettingBtn");
+const settingNameInput = document.getElementById("settingName");
+
+const comfortOnboardingModal = document.getElementById("comfortOnboardingModal");
+const setupComfortNowBtn = document.getElementById("setupComfortNowBtn");
+const skipComfortOnboardingBtn = document.getElementById("skipComfortOnboardingBtn");
+
+const journeyComfortSelection = document.getElementById("journeyComfortSelection");
 
 // User Dropdown Elements
 const userDropdownTrigger = document.getElementById("userDropdownTrigger");
@@ -137,8 +152,10 @@ function init() {
   setupNav();
   setupTasks();
   setupDropdown();
+  setupOnboardingListeners();
   setDefaultDepartureTime();
   ensureToastUI();
+  ensureTasksModalUI();
   restoreSession();
 }
 
@@ -332,6 +349,8 @@ function logout() {
   clearGoogleLinkStatus();
   resetTasksUI();
   updateUI();
+  lastNotifiedJourneyId = null;
+  lastTasksSignature = null;
 }
 
 function setCurrentUser(user, opts = {}) {
@@ -370,6 +389,7 @@ function updateUI() {
     renderUserInfo();
     renderGoogleLinkStatus(currentUser);
     renderComfortProfileSummary();
+    loadNamedComfortSettings();
     setView(currentView);
   } else {
     loggedOutView?.classList.remove("hidden");
@@ -412,62 +432,47 @@ function setupJourneyActions() {
 
 async function startJourney(journeyId, btnElement) {
   if (!currentUser) return;
+
   const allButtons = document.querySelectorAll(".start-journey-btn");
+
   if (btnElement) {
     btnElement.disabled = true;
-    btnElement.textContent = "Démarrage…";
+    btnElement.textContent = "Starting...";
   }
-  allButtons.forEach((btn) => { if (btn !== btnElement) btn.classList.add("hidden"); });
+
+  allButtons.forEach((btn) => {
+    if (btn !== btnElement) btn.classList.add("hidden");
+  });
 
   try {
     const journey = await api.post(`/api/journeys/${journeyId}/start`);
-    const stored = lastDisplayedJourneysById?.get(journeyId);
-    const merged = stored && (stored.includedTasks?.length || stored.segments)
-      ? { ...journey, includedTasks: journey.includedTasks ?? stored.includedTasks, segments: journey.segments ?? stored.segments }
-      : journey;
-    updateCurrentJourney(merged);
+    updateCurrentJourney(journey);
   } catch (err) {
-    showToast(err?.message || "Erreur", { variant: "warning" });
+    showToast(err.message, { variant: "warning" });
     allButtons.forEach((btn) => {
       btn.classList.remove("hidden");
       btn.disabled = false;
-      if (btn === btnElement) btn.textContent = "Démarrer le trajet";
+      if (btn === btnElement) btn.textContent = "Start Journey";
     });
   }
 }
 
 async function completeJourney() {
   if (!currentJourney) return;
-  const includedTasks = Array.isArray(currentJourney.includedTasks) ? currentJourney.includedTasks : [];
-  const googleTaskIds = includedTasks.map((t) => t.googleTaskId).filter(Boolean);
-
   try {
-    const journey = await api.post(`/api/journeys/${currentJourney.journeyId}/complete`);
-    if (googleTaskIds.length && currentUser) {
-      try {
-        const list = await api.get(`/api/google/tasks/users/${currentUser.userId}/default-list`);
-        const listId = list?.id;
-        if (listId) {
-          for (const taskId of googleTaskIds) {
-            await api.patch(
-              `/api/google/tasks/users/${currentUser.userId}/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}/complete`
-            );
-          }
-        }
-      } catch (e) {
-        console.warn("Could not mark Google task(s) complete:", e);
-      }
-    }
+    const journey = await api.post(
+      `/api/journeys/${currentJourney.journeyId}/complete`
+    );
     updateCurrentJourney(journey);
-    showToast("Trajet terminé.", { variant: "success" });
+    showToast("Journey completed!", { variant: "success" });
   } catch (err) {
-    showToast(err?.message || "Erreur", { variant: "warning" });
+    showToast(err.message, { variant: "warning" });
   }
 }
 
 async function cancelJourney() {
   if (!currentJourney) return;
-  if (!confirm("Annuler ce trajet ?")) return;
+  if (!confirm("Are you sure you want to cancel this journey?")) return;
 
   try {
     const journey = await api.post(
@@ -490,12 +495,15 @@ function updateCurrentJourney(journey) {
   ) {
     currentJourneyPanel.classList.remove("hidden");
     renderCurrentJourney(journey);
-    document.querySelector(".results-panel")?.classList.add("hidden");
+
+    // Hide results if we have an active journey
+    document.querySelector(".results-panel").classList.add("hidden");
   } else {
+    // Journey finished or cancelled
     currentJourneyPanel.classList.add("hidden");
-    document.querySelector(".results-panel")?.classList.remove("hidden");
-    if (resultsDiv)
-      resultsDiv.innerHTML = "<p class=\"results-placeholder\">Vos résultats de trajet s'afficheront ici.</p>";
+    document.querySelector(".results-panel").classList.remove("hidden");
+    resultsDiv.innerHTML =
+      '<p class="results-placeholder">Your journey results will appear here.</p>';
     currentJourney = null;
   }
 }
@@ -521,63 +529,39 @@ function renderCurrentJourney(journey) {
   const statusClass =
     journey.status === "IN_PROGRESS" ? "status-active" : "status-planned";
   const progress = calculateProgress(journey);
-  const hasSegments = Array.isArray(journey.segments) && journey.segments.length > 0;
-  const hasTasks = Array.isArray(journey.includedTasks) && journey.includedTasks.length > 0;
-  const showSteps = (journey.status === "IN_PROGRESS" || journey.status === "REROUTED") && (hasSegments || hasTasks);
-
-  // Process segments for display
-  const segments = Array.isArray(journey?.segments) ? journey.segments : [];
-  const includedTasks = Array.isArray(journey?.includedTasks) ? journey.includedTasks : [];
-  const processedSegments = segments
-    .map((seg) => {
-      const points = Array.isArray(seg.points) ? seg.points : [];
-      const originPoint = points[0];
-      const destPoint = points.length > 1 ? points[points.length - 1] : originPoint;
-      return {
-        ...seg,
-        originLabel: originPoint?.name || seg.lineName || "?",
-        destinationLabel: destPoint?.name || seg.lineName || "?",
-        mode: seg.transitMode || seg.segmentType || "OTHER"
-      };
-    })
-    .filter((seg) => {
-      const duration = seg.durationSeconds || 0;
-      const samePlace = seg.originLabel === seg.destinationLabel;
-      if (seg.segmentType === "WAITING") return false;
-      if (duration < 30 && samePlace) return false;
-      return true;
-    });
-  const stepsHtml = showSteps ? buildItineraryStepsHtmlFromSegments(processedSegments, includedTasks) : "";
 
   currentJourneyContent.innerHTML = `
         <div class="journey-status-card">
-            <div class="status-badge ${statusClass}">${journey.status === "IN_PROGRESS" ? "En cours" : journey.status}</div>
-            ${
-              journey.status === "REROUTED" || journey.disruptionCount > 0
-                ? '<div class="disruption-warning">⚠️ Perturbation : nouvel itinéraire</div>'
-                : ""
-            }
-            <h3>${escapeHtml(journey.originLabel || "—")} → ${escapeHtml(journey.destinationLabel || "—")}</h3>
-            ${
-              journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
-                ? `
+            <div class="status-badge ${statusClass}">${journey.status}</div>
+            ${journey.status === "REROUTED" || journey.disruptionCount > 0
+      ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>'
+      : ""
+    }
+            <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
+            
+            ${journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
+      ? `
                 <div class="progress-container">
                     <div class="progress-bar" style="width: ${progress}%"></div>
                 </div>
-                <span class="progress-text">${progress}% effectué</span>
+                <span class="progress-text">${progress}% Completed</span>
             `
-                : ""
-            }
-            <p><strong>Départ prévu :</strong> ${formatDateTime(journey.plannedDeparture)}</p>
-            ${journey.actualDeparture ? `<p><strong>Démarré à :</strong> ${formatDateTime(journey.actualDeparture)}</p>` : ""}
-            <p><strong>Arrivée prévue :</strong> ${formatDateTime(journey.plannedArrival)}</p>
+      : ""
+    }
+
+            <p><strong>Planned Departure:</strong> ${formatDateTime(
+      journey.plannedDeparture
+    )}</p>
+            ${journey.actualDeparture
+      ? `<p><strong>Started:</strong> ${formatDateTime(
+        journey.actualDeparture
+      )}</p>`
+      : ""
+    }
+            <p><strong>Planned Arrival:</strong> ${formatDateTime(
+      journey.plannedArrival
+    )}</p>
         </div>
-        ${showSteps ? `
-        <div class="current-journey-itinerary">
-            <h4 class="current-journey-itinerary-title">Étapes de l'itinéraire</h4>
-            <ul class="journey-legs">${stepsHtml}</ul>
-        </div>
-        ` : ""}
     `;
 
   if (journey.status === "IN_PROGRESS" || journey.status === "REROUTED") {
@@ -856,7 +840,7 @@ async function handleJourneySubmit(e) {
   const from = (document.getElementById("from")?.value || "").trim();
   const to = (document.getElementById("to")?.value || "").trim();
   const departure = departureInput?.value || "";
-  const comfort = !!document.getElementById("comfort")?.checked;
+  const comfortSelection = journeyComfortSelection?.value || "disabled";
   const touristic = !!document.getElementById("touristic")?.checked;
 
   if (!departure) {
@@ -866,28 +850,8 @@ async function handleJourneySubmit(e) {
     return;
   }
 
-  if (comfort && !validateComfortMode()) {
+  if (comfortSelection !== "disabled" && !validateComfortMode()) {
     return;
-  }
-
-  // Tâches depuis Google uniquement (/for-journey), sans stockage local
-  let taskDetails = [];
-  try {
-    const tasks = await api.get(`/api/google/tasks/users/${currentUser.userId}/for-journey?includeCompleted=false`);
-    if (Array.isArray(tasks)) {
-      taskDetails = tasks
-        .filter(t => t && !t.completed && t.id && t.locationQuery && t.locationHint && t.locationHint.lat != null && t.locationHint.lng != null)
-        .map(t => ({
-          id: t.id,
-          title: t.title || "",
-          locationQuery: t.locationQuery || "",
-          lat: t.locationHint.lat,
-          lng: t.locationHint.lng,
-          completed: !!t.completed,
-        }));
-    }
-  } catch (err) {
-    console.debug("Could not load tasks for optimization:", err);
   }
 
   const payload = {
@@ -896,12 +860,11 @@ async function handleJourneySubmit(e) {
       originQuery: from,
       destinationQuery: to,
       departureTime: departure,
-      taskIds: null,
-      taskDetails: taskDetails.length > 0 ? taskDetails : null,
     },
     preferences: {
-      comfortMode: comfort,
+      comfortMode: comfortSelection !== "disabled",
       touristicMode: touristic,
+      namedComfortSettingId: (comfortSelection !== "disabled") ? comfortSelection : null
     },
   };
 
@@ -920,27 +883,58 @@ async function handleJourneySubmit(e) {
     }
 
     displayJourneyResults(list);
+    if (list.length > 0) notifyTasksOnRouteIfAny(list[0]);
   } catch (err) {
     if (resultsDiv)
       resultsDiv.innerHTML = '<p class="error-message">No journey found.</p>';
   }
 }
 
-let lastDisplayedJourneysById = null;
-
+/**
+ * Displays journey results with shared info (tasks, modes) shown once at top
+ */
 function displayJourneyResults(journeys) {
   if (!resultsDiv || !journeys.length) return;
-  lastDisplayedJourneysById = new Map();
-  journeys.forEach((j) => lastDisplayedJourneysById.set(j.journeyId, j));
 
   const firstJourney = journeys[0];
+  const allTasks = collectUniqueTasksFromJourneys(journeys);
+
+  // Build header with shared info (tasks banner + modes)
+  const tasksBannerHtml = allTasks.length
+    ? `
+      <div class="tasks-on-route-banner">
+        <div>
+          <div class="tasks-on-route-title">${allTasks.length} task${allTasks.length > 1 ? "s" : ""
+    } on your route</div>
+          <div class="tasks-on-route-sub">${escapeHtml(
+      allTasks[0]?.title || "Task"
+    )}</div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn">View</button>
+      </div>
+    `
+    : "";
+
   const modesHtml = `
     <div class="journey-modes">
-      <span>Confort: ${firstJourney?.comfortModeEnabled ? "Oui" : "Non"}</span>
-      <span>Touristique: ${firstJourney?.touristicModeEnabled ? "Oui" : "Non"}</span>
+      <span>Comfort: ${firstJourney?.comfortModeEnabled ? "On" : "Off"}</span>
+      <span>Touristic: ${firstJourney?.touristicModeEnabled ? "On" : "Off"
+    }</span>
     </div>
   `;
-  resultsDiv.innerHTML = `<div class="journey-results-header">${modesHtml}</div>`;
+
+  resultsDiv.innerHTML = `
+    <div class="journey-results-header">
+      ${tasksBannerHtml}
+      ${modesHtml}
+    </div>
+  `;
+
+  if (allTasks.length) {
+    document
+      .getElementById("viewTasksOnRouteBtn")
+      ?.addEventListener("click", () => openTasksModal(allTasks));
+  }
 
   journeys.forEach((journey, index) =>
     displayJourneyCard(journey, index + 1, journeys.length)
@@ -948,7 +942,31 @@ function displayJourneyResults(journeys) {
 }
 
 /**
- * Displays a single journey card
+ * Collects unique tasks from all journeys (deduped by ID or title)
+ */
+function collectUniqueTasksFromJourneys(journeys) {
+  const seen = new Set();
+  const uniqueTasks = [];
+
+  for (const journey of journeys) {
+    const tasks = Array.isArray(journey?.tasksOnRoute)
+      ? journey.tasksOnRoute
+      : [];
+    for (const task of tasks) {
+      const key =
+        task?.id || task?.taskId || task?.title || JSON.stringify(task);
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueTasks.push(task);
+      }
+    }
+  }
+
+  return uniqueTasks;
+}
+
+/**
+ * Displays a single journey card (without shared info)
  */
 function displayJourneyCard(journey, index, total) {
   if (!resultsDiv) return;
@@ -959,7 +977,7 @@ function displayJourneyCard(journey, index, total) {
   const arrival = journey?.plannedArrival
     ? formatDateTime(journey.plannedArrival)
     : "—";
-  
+
   // Calculer la durée totale du trajet
   let totalDuration = null;
   if (journey?.plannedDeparture && journey?.plannedArrival) {
@@ -979,7 +997,6 @@ function displayJourneyCard(journey, index, total) {
   }
 
   const segments = Array.isArray(journey?.segments) ? journey.segments : [];
-  const includedTasks = Array.isArray(journey?.includedTasks) ? journey.includedTasks : [];
 
   // Process segments: filter out noise, format for display
   const processedSegments = segments
@@ -1000,8 +1017,8 @@ function displayJourneyCard(journey, index, total) {
       const duration = seg.durationSeconds || 0;
       const samePlace = seg.originLabel === seg.destinationLabel;
       const isTransferOrWalk = seg.segmentType === "WALKING" ||
-                               seg.segmentType === "TRANSFER" ||
-                               seg.segmentType === "WAITING";
+        seg.segmentType === "TRANSFER" ||
+        seg.segmentType === "WAITING";
 
       // Filter out:
       // 1. Zero or very short duration same-place segments (noise)
@@ -1017,87 +1034,39 @@ function displayJourneyCard(journey, index, total) {
       return true;
     });
 
-  const transportSummary = getTransportModesSummaryFromSegments(processedSegments);
-  const cardId = "journey-card-" + (journey.journeyId || index);
-  const stepsId = "journey-steps-" + (journey.journeyId || index);
-  const isOptimized = includedTasks.length > 0;
-
   const legsHtml = processedSegments.length
     ? processedSegments
-        .map(
-          (seg) => `
+      .map(
+        (seg) => `
         <li class="journey-leg-item">
             <div class="leg-marker-container">
                 ${formatLineBadge(seg.mode, seg.lineCode, seg.lineColor)}
             </div>
             <div class="leg-content">
-                <span class="leg-mode">${formatMode(seg.mode)}${
-            seg.lineName ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>` : ""
+                <span class="leg-mode">${formatMode(seg.mode)}${seg.lineName ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>` : ""
           }</span>
-                <span class="leg-route">${seg.originLabel || "?"} → ${
-            seg.destinationLabel || "?"
+                <span class="leg-route">${seg.originLabel || "?"} → ${seg.destinationLabel || "?"
           }</span>
                 <div class="leg-times">
-                    ${
-                      seg.scheduledDeparture
-                        ? formatDateTime(seg.scheduledDeparture)
-                        : "?"
-                    } -
-                    ${
-                      seg.scheduledArrival
-                        ? formatDateTime(seg.scheduledArrival)
-                        : "?"
-                    }
-                    <span class="leg-duration">(${
-                      seg.durationSeconds
-                        ? formatDuration(seg.durationSeconds)
-                        : "?"
-                    })</span>
+                    ${seg.scheduledDeparture
+            ? formatDateTime(seg.scheduledDeparture)
+            : "?"
+          } -
+                    ${seg.scheduledArrival
+            ? formatDateTime(seg.scheduledArrival)
+            : "?"
+          }
+                    <span class="leg-duration">(${seg.durationSeconds
+            ? formatDuration(seg.durationSeconds)
+            : "?"
+          })</span>
                 </div>
             </div>
         </li>
     `
-        )
-        .join("")
+      )
+      .join("")
     : "<li>No route details available</li>";
-
-  // Add included tasks to the steps HTML
-  const stepsHtml = buildItineraryStepsHtmlFromSegments(processedSegments, includedTasks);
-
-  if (isOptimized) {
-    const badgeLabel = index === 1
-      ? "Meilleur trajet avec une tâche"
-      : "Trajet avec cette tâche";
-    const html = `
-    <div class="journey-result journey-result-collapsible" id="${escapeHtml(cardId)}" data-journey-id="${escapeHtml(String(journey.journeyId || ""))}">
-      <div class="journey-result-header" role="button" tabindex="0" aria-expanded="false" aria-controls="${escapeHtml(stepsId)}">
-        <span class="journey-optimized-badge">${escapeHtml(badgeLabel)}</span>
-        <h3 class="journey-result-title">${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
-        <p class="journey-meta">Départ: ${departure} • Arrivée: ${arrival}${totalDuration ? ` • Durée: <strong>${totalDuration}</strong>` : ""}</p>
-        <p class="journey-transport-summary">Transports: ${escapeHtml(transportSummary)}</p>
-        <span class="journey-toggle-steps" aria-hidden="true">Afficher les étapes</span>
-      </div>
-      <div class="journey-result-steps" id="${escapeHtml(stepsId)}" hidden>
-        <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${escapeHtml(String(journey.journeyId || ""))}', this)">Démarrer le trajet</button>
-        <h4 class="journey-steps-heading">Étapes de l'itinéraire</h4>
-        <ul class="journey-legs">${stepsHtml}</ul>
-      </div>
-    </div>
-    `;
-    resultsDiv.insertAdjacentHTML("beforeend", html);
-    const card = document.getElementById(cardId);
-    const stepsEl = document.getElementById(stepsId);
-    const toggleLabel = card?.querySelector(".journey-toggle-steps");
-    card?.querySelector(".journey-result-header")?.addEventListener("click", () => {
-      if (!stepsEl) return;
-      const isOpen = !stepsEl.hidden;
-      stepsEl.hidden = isOpen;
-      if (toggleLabel) toggleLabel.textContent = isOpen ? "Afficher les étapes" : "Masquer les étapes";
-      card?.querySelector(".journey-result-header")?.setAttribute("aria-expanded", String(!isOpen));
-      card?.classList.toggle("journey-result-open", !isOpen);
-    });
-    return;
-  }
 
   const optionLabel =
     total > 1 ? `<span class="route-option-label">Option ${index}</span> ` : "";
@@ -1108,13 +1077,17 @@ function displayJourneyCard(journey, index, total) {
 
   const html = `
     <div class="journey-result">
-      <h3>${optionLabel}${escapeHtml(journey?.originLabel || "—")} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
+      <h3>${optionLabel}${escapeHtml(
+    journey?.originLabel || "—"
+  )} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
       <p class="journey-meta">Départ: ${departure} • Arrivée: ${arrival}${totalDurationHtml}</p>
-      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${journey.journeyId}', this)">Démarrer le trajet</button>
-      <h4 class="journey-steps-heading">Étapes de l'itinéraire</h4>
+      <button class="btn btn-primary btn-sm start-journey-btn" onclick="startJourney('${journey.journeyId
+    }', this)">Start Journey</button>
+      <h4>Itinerary Steps:</h4>
       <ul class="journey-legs">${legsHtml}</ul>
     </div>
   `;
+
   resultsDiv.insertAdjacentHTML("beforeend", html);
 }
 
@@ -1128,6 +1101,7 @@ function setupTasks() {
   tasksIncludeCompleted?.addEventListener("change", () =>
     loadTasksFromDefaultList()
   );
+  createTaskForm?.addEventListener("submit", createTask);
   updateTasksUIState();
 }
 
@@ -1226,11 +1200,10 @@ async function loadTasksFromDefaultList() {
 
   try {
     const includeCompleted = !!tasksIncludeCompleted?.checked;
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(
-      defaultTaskList.id
-    )}/tasks?includeCompleted=${includeCompleted}`;
+    const url = `/api/google/tasks/users/${currentUser.userId
+      }/lists/${encodeURIComponent(
+        defaultTaskList.id
+      )}/tasks?includeCompleted=${includeCompleted}`;
     const tasks = await api.get(url);
     renderTasks(tasks);
   } catch (err) {
@@ -1268,8 +1241,8 @@ function renderTasks(tasks) {
       const completeBtn = completed
         ? `<button type="button" class="btn btn-success btn-sm" disabled>Completed</button>`
         : `<button type="button" class="btn btn-success btn-sm" data-action="complete" data-task-id="${escapeHtml(
-            id
-          )}">Complete</button>`;
+          id
+        )}">Complete</button>`;
 
       return `
         <div class="task-card ${completed ? "completed" : ""}">
@@ -1280,8 +1253,8 @@ function renderTasks(tasks) {
           <div class="task-actions">
             ${completeBtn}
             <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-task-id="${escapeHtml(
-              id
-            )}">Delete</button>
+        id
+      )}">Delete</button>
           </div>
         </div>
       `;
@@ -1311,11 +1284,10 @@ async function completeTask(taskId) {
   if (!currentUser || !defaultTaskList?.id) return;
 
   try {
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(
-      defaultTaskList.id
-    )}/tasks/${encodeURIComponent(taskId)}/complete`;
+    const url = `/api/google/tasks/users/${currentUser.userId
+      }/lists/${encodeURIComponent(
+        defaultTaskList.id
+      )}/tasks/${encodeURIComponent(taskId)}/complete`;
     await api.patch(url);
     showToast("Task completed!", { variant: "success" });
     await loadTasksFromDefaultList();
@@ -1335,11 +1307,10 @@ async function deleteTask(taskId) {
   if (!confirm("Delete this task?")) return;
 
   try {
-    const url = `/api/google/tasks/users/${
-      currentUser.userId
-    }/lists/${encodeURIComponent(
-      defaultTaskList.id
-    )}/tasks/${encodeURIComponent(taskId)}`;
+    const url = `/api/google/tasks/users/${currentUser.userId
+      }/lists/${encodeURIComponent(
+        defaultTaskList.id
+      )}/tasks/${encodeURIComponent(taskId)}`;
     await api.delete(url);
     showToast("Task deleted.", { variant: "success" });
     await loadTasksFromDefaultList();
@@ -1350,6 +1321,60 @@ async function deleteTask(taskId) {
       showToast(err?.message || "Failed to delete task", {
         variant: "warning",
       });
+    }
+  }
+}
+
+async function createTask(e) {
+  e.preventDefault();
+
+  if (!currentUser)
+    return showToast("Please log in first.", { variant: "warning" });
+  if (!isGoogleLinked())
+    return showToast("Link Google Tasks first.", { variant: "warning" });
+  if (!defaultTaskList?.id)
+    return showToast("Default list not loaded yet.", { variant: "warning" });
+
+  const payload = {
+    title: (taskTitle?.value || "").trim(),
+    notes: (taskNotes?.value || "").trim() || null,
+    due: (taskDue?.value || "").trim() || null,
+    locationQuery: (taskLocationQuery?.value || "").trim() || null,
+  };
+
+  if (!payload.title)
+    return showToast("Title is required.", { variant: "warning" });
+
+  if (tasksResults)
+    tasksResults.innerHTML = '<p class="loading">Creating task...</p>';
+
+  try {
+    const url = `/api/google/tasks/users/${currentUser.userId
+      }/lists/${encodeURIComponent(defaultTaskList.id)}/tasks`;
+    const created = await api.post(url, payload);
+
+    if (created?.locationWarning) {
+      showToast(
+        `Task created, but location failed: ${created.locationWarning}`,
+        { variant: "warning", durationMs: 6000 }
+      );
+    } else {
+      showToast("Task created!", { variant: "success" });
+    }
+
+    createTaskForm?.reset();
+    await loadTasksFromDefaultList();
+  } catch (err) {
+    if (err.authError) {
+      if (tasksResults)
+        tasksResults.innerHTML =
+          '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
+      showToast("Link Google Tasks first.", { variant: "warning" });
+    } else {
+      if (tasksResults)
+        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
+          err?.message || "Unknown error"
+        )}</p>`;
     }
   }
 }
@@ -1447,12 +1472,17 @@ function handleGoogleLinkMessage(event) {
 // ============================================================
 function setupComfortProfileListeners() {
   editComfortProfileBtn?.addEventListener("click", openComfortProfileModal);
-  closeComfortProfileModal?.addEventListener(
-    "click",
-    closeComfortProfileModalFn
-  );
-  clearComfortProfileBtn?.addEventListener("click", clearComfortProfile);
-  comfortProfileForm?.addEventListener("submit", saveComfortProfile);
+  closeComfortProfileModal?.addEventListener("click", closeComfortProfileModalFn);
+
+  addNewComfortSettingBtn?.addEventListener("click", () => showComfortFormView());
+  backToComfortListBtn?.addEventListener("click", () => showComfortListView());
+
+  deleteComfortSettingBtn?.addEventListener("click", () => {
+    const id = editingSettingId?.value;
+    if (id) deleteNamedSetting(id);
+  });
+
+  comfortProfileForm?.addEventListener("submit", saveComfortSetting);
 
   comfortProfileModal?.addEventListener("click", (e) => {
     if (e.target === comfortProfileModal) closeComfortProfileModalFn();
@@ -1460,20 +1490,51 @@ function setupComfortProfileListeners() {
 }
 
 function openComfortProfileModal() {
-  if (!comfortProfileModal) return;
-  comfortProfileModal.classList.remove("hidden");
-  loadComfortProfileIntoForm();
+  if (!comfortProfileModal || !currentUser) return;
+
+  if (!currentUser.hasSeenComfortPrompt && !hasComfortSettings(currentUser.comfortProfile)) {
+    comfortOnboardingModal?.classList.remove("hidden");
+  } else {
+    comfortProfileModal.classList.remove("hidden");
+    showComfortListView();
+  }
 }
 
 function closeComfortProfileModalFn() {
   if (!comfortProfileModal) return;
   comfortProfileModal.classList.add("hidden");
   document.getElementById("comfortProfileError")?.classList.add("hidden");
+  resetComfortForm();
 }
 
-function loadComfortProfileIntoForm() {
-  if (!currentUser?.comfortProfile) return;
-  const profile = currentUser.comfortProfile;
+function showComfortListView() {
+  comfortProfileListView?.classList.remove("hidden");
+  comfortProfileFormView?.classList.add("hidden");
+  loadNamedComfortSettings();
+}
+
+function showComfortFormView(setting = null) {
+  comfortProfileListView?.classList.add("hidden");
+  comfortProfileFormView?.classList.remove("hidden");
+
+  if (setting) {
+    if (comfortFormTitle) comfortFormTitle.textContent = "Edit Setting";
+    if (comfortFormSubtitle) comfortFormSubtitle.textContent = `Modifying "${setting.name}"`;
+    if (editingSettingId) editingSettingId.value = setting.id;
+    if (deleteComfortSettingBtn) deleteComfortSettingBtn.classList.remove("hidden");
+    loadSettingIntoForm(setting);
+  } else {
+    if (comfortFormTitle) comfortFormTitle.textContent = "Add Setting";
+    if (comfortFormSubtitle) comfortFormSubtitle.textContent = "Set your travel preferences";
+    if (editingSettingId) editingSettingId.value = "";
+    if (deleteComfortSettingBtn) deleteComfortSettingBtn.classList.add("hidden");
+    resetComfortForm();
+  }
+}
+
+function loadSettingIntoForm(setting) {
+  const p = setting.comfortProfile;
+  if (settingNameInput) settingNameInput.value = setting.name || "";
 
   const directPath = document.getElementById("directPath");
   const requireAC = document.getElementById("requireAirConditioning");
@@ -1481,17 +1542,16 @@ function loadComfortProfileIntoForm() {
   const maxWaiting = document.getElementById("maxWaitingDuration");
   const maxWalking = document.getElementById("maxWalkingDuration");
 
-  if (directPath) directPath.value = profile.directPath || "";
-  if (requireAC) requireAC.checked = !!profile.requireAirConditioning;
-  if (maxTransfers) maxTransfers.value = profile.maxNbTransfers ?? "";
-  if (maxWaiting)
-    maxWaiting.value = profile.maxWaitingDuration
-      ? Math.round(profile.maxWaitingDuration / 60)
-      : "";
-  if (maxWalking)
-    maxWalking.value = profile.maxWalkingDuration
-      ? Math.round(profile.maxWalkingDuration / 60)
-      : "";
+  if (directPath) directPath.value = p.directPath || "";
+  if (requireAC) requireAC.checked = !!p.requireAirConditioning;
+  if (maxTransfers) maxTransfers.value = p.maxNbTransfers ?? "";
+  if (maxWaiting) maxWaiting.value = p.maxWaitingDuration ? Math.round(p.maxWaitingDuration / 60) : "";
+  if (maxWalking) maxWalking.value = p.maxWalkingDuration ? Math.round(p.maxWalkingDuration / 60) : "";
+}
+
+function resetComfortForm() {
+  comfortProfileForm?.reset();
+  if (editingSettingId) editingSettingId.value = "";
 }
 
 async function saveComfortProfile(e) {
@@ -1549,6 +1609,166 @@ async function clearComfortProfile() {
   }
 }
 
+async function loadNamedComfortSettings() {
+  if (!currentUser) return;
+
+  try {
+    const settings = await api.get(`/api/users/${currentUser.userId}/comfort-settings`);
+    renderNamedSettings(settings);
+    populateJourneyComfortDropdown(settings);
+    checkComfortOnboarding(settings);
+  } catch (err) {
+    console.error("Failed to load named settings", err);
+  }
+}
+
+function renderNamedSettings(settings) {
+  if (!namedSettingsList) return;
+
+  if (!settings || settings.length === 0) {
+    namedSettingsList.innerHTML = `
+      <div class="empty-state text-center py-8">
+        <p class="text-muted">No saved comfort settings yet.</p>
+      </div>
+    `;
+    return;
+  }
+
+  namedSettingsList.innerHTML = settings.map(s => {
+    const p = s.comfortProfile;
+    const details = [];
+    if (p.directPath && p.directPath !== 'indifferent') details.push(p.directPath);
+    if (p.requireAirConditioning) details.push("AC");
+    if (p.maxNbTransfers !== null) details.push(`${p.maxNbTransfers} transfers`);
+
+    return `
+      <div class="named-setting-card" data-id="${s.id}">
+        <div class="named-setting-info">
+          <span class="named-setting-name">${escapeHtml(s.name)}</span>
+          <span class="named-setting-details">${escapeHtml(details.join(", ") || "No specific constraints")}</span>
+        </div>
+        <div class="named-setting-actions">
+          <button type="button" class="btn btn-ghost btn-sm apply-setting-btn" data-id="${s.id}" title="Preview/Apply">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  namedSettingsList.querySelectorAll(".named-setting-card").forEach(card => {
+    card.addEventListener("click", (e) => {
+      // Don't trigger edit if the apply button was clicked specifically
+      if (e.target.closest('.apply-setting-btn')) return;
+
+      const id = card.getAttribute("data-id");
+      const setting = settings.find(s => s.id === id);
+      if (setting) showComfortFormView(setting);
+    });
+  });
+
+  namedSettingsList.querySelectorAll(".apply-setting-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-id");
+      const setting = settings.find(s => s.id === id);
+      if (setting) {
+        showToast(`Applied preset: ${setting.name}`, { variant: "success" });
+        // Optional: auto-fill journey setup? The request said "modify or delete" in the modal.
+      }
+    });
+  });
+}
+
+function applyNamedSetting(setting) {
+  const p = setting.comfortProfile;
+
+  const directPath = document.getElementById("directPath");
+  const requireAC = document.getElementById("requireAirConditioning");
+  const maxTransfers = document.getElementById("maxNbTransfers");
+  const maxWaiting = document.getElementById("maxWaitingDuration");
+  const maxWalking = document.getElementById("maxWalkingDuration");
+
+  if (directPath) directPath.value = p.directPath || "";
+  if (requireAC) requireAC.checked = !!p.requireAirConditioning;
+  if (maxTransfers) maxTransfers.value = p.maxNbTransfers ?? "";
+  if (maxWaiting) maxWaiting.value = p.maxWaitingDuration ? Math.round(p.maxWaitingDuration / 60) : "";
+  if (maxWalking) maxWalking.value = p.maxWalkingDuration ? Math.round(p.maxWalkingDuration / 60) : "";
+
+  showToast(`Applied setting: ${setting.name}`, { variant: "success" });
+}
+
+async function saveComfortSetting(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const id = editingSettingId?.value;
+  const name = settingNameInput?.value?.trim();
+  if (!name) {
+    showToast("Please provide a name for the setting", { variant: "warning" });
+    settingNameInput?.focus();
+    return;
+  }
+
+  const payload = {
+    name: name,
+    comfortProfile: {
+      directPath: document.getElementById("directPath")?.value || null,
+      requireAirConditioning: !!document.getElementById("requireAirConditioning")?.checked,
+      maxNbTransfers: document.getElementById("maxNbTransfers")?.value ? parseInt(document.getElementById("maxNbTransfers").value, 10) : null,
+      maxWaitingDuration: document.getElementById("maxWaitingDuration")?.value ? parseInt(document.getElementById("maxWaitingDuration").value, 10) * 60 : null,
+      maxWalkingDuration: document.getElementById("maxWalkingDuration")?.value ? parseInt(document.getElementById("maxWalkingDuration").value, 10) * 60 : null,
+    }
+  };
+
+  try {
+    if (id) {
+      await api.put(`/api/users/${currentUser.userId}/comfort-settings/${id}`, payload);
+      showToast(`Updated setting: ${name}`, { variant: "success" });
+    } else {
+      await api.post(`/api/users/${currentUser.userId}/comfort-settings`, payload);
+      showToast(`Saved setting: ${name}`, { variant: "success" });
+    }
+    showComfortListView();
+  } catch (err) {
+    const errorEl = document.getElementById("comfortProfileError");
+    if (errorEl) {
+      errorEl.textContent = err?.message || "Failed to save";
+      errorEl.classList.remove("hidden");
+    }
+  }
+}
+
+function populateJourneyComfortDropdown(settings) {
+  if (!journeyComfortSelection) return;
+
+  const currentValue = journeyComfortSelection.value;
+  let html = `
+    <option value="disabled">Comfort mode Disabled</option>
+  `;
+
+  html += settings.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+
+  journeyComfortSelection.innerHTML = html;
+
+  if (Array.from(journeyComfortSelection.options).some(o => o.value === currentValue)) {
+    journeyComfortSelection.value = currentValue;
+  }
+}
+
+async function deleteNamedSetting(settingId) {
+  if (!currentUser || !confirm("Delete this saved setting?")) return;
+
+  try {
+    await api.delete(`/api/users/${currentUser.userId}/comfort-settings/${settingId}`);
+    showToast("Setting deleted", { variant: "success" });
+    showComfortListView();
+  } catch (err) {
+    showToast(err.message || "Failed to delete setting", { variant: "warning" });
+  }
+}
+
 function renderComfortProfileSummary() {
   if (!comfortProfileSummary) return;
 
@@ -1569,8 +1789,7 @@ function renderComfortProfileSummary() {
       only_with_alternatives: "Direct with alternatives",
     };
     items.push(
-      `<li>Direct Path: ${
-        labels[profile.directPath] || profile.directPath
+      `<li>Direct Path: ${labels[profile.directPath] || profile.directPath
       }</li>`
     );
   }
@@ -1610,11 +1829,17 @@ function hasComfortSettings(profile) {
 }
 
 function validateComfortMode() {
-  if (!comfortCheckbox?.checked) return true;
+  const comfortSelection = journeyComfortSelection?.value || "disabled";
+  if (comfortSelection === "disabled") return true;
+
+  // If a named setting is selected, it's already persisted and valid
+  if (comfortSelection !== "default" && comfortSelection !== "" && comfortSelection !== "disabled") {
+    return true;
+  }
 
   const profile = currentUser?.comfortProfile;
   if (!hasComfortSettings(profile)) {
-    showToast("Please configure your comfort profile first.", {
+    showToast("Please configure your comfort profile first or select a saved setting.", {
       variant: "warning",
       durationMs: 5000,
     });
@@ -1623,6 +1848,96 @@ function validateComfortMode() {
   }
 
   return true;
+}
+
+function setupOnboardingListeners() {
+  setupComfortNowBtn?.addEventListener("click", () => {
+    comfortOnboardingModal?.classList.add("hidden");
+    markComfortPromptSeen();
+    openComfortProfileModal();
+    showComfortFormView();
+  });
+
+  skipComfortOnboardingBtn?.addEventListener("click", () => {
+    comfortOnboardingModal?.classList.add("hidden");
+    markComfortPromptSeen();
+  });
+}
+
+function checkComfortOnboarding(settings = []) {
+  if (!currentUser || currentUser.hasSeenComfortPrompt) return;
+
+  // Show onboarding if no named settings and primary profile is empty
+  const hasSettings = settings.length > 0 || hasComfortSettings(currentUser.comfortProfile);
+
+  if (!hasSettings) {
+    comfortOnboardingModal?.classList.remove("hidden");
+  } else {
+    // If they already have settings but haven't "seen" the prompt, mark it anyway to avoid future popups
+    markComfortPromptSeen();
+  }
+}
+
+async function markComfortPromptSeen() {
+  if (!currentUser || currentUser.hasSeenComfortPrompt) return;
+
+  try {
+    const updated = await api.post(`/api/users/${currentUser.userId}/comfort-prompt-seen`);
+    currentUser.hasSeenComfortPrompt = true;
+  } catch (err) {
+    console.error("Failed to mark comfort prompt as seen", err);
+  }
+}
+
+// ============================================================
+// TASK NOTIFICATIONS
+// ============================================================
+function notifyTasksOnRouteIfAny(journey) {
+  const tasks =
+    journey && Array.isArray(journey.tasksOnRoute) ? journey.tasksOnRoute : [];
+  if (!tasks.length) return;
+
+  const journeyId = journey?.id || journey?.journeyId || null;
+
+  // 1 popup max par trajet
+  if (journeyId && lastNotifiedJourneyId === journeyId) return;
+
+  const sig = tasks
+    .map((t) =>
+      String(
+        t?.taskId ||
+        t?.id ||
+        t?.googleTaskId ||
+        t?.sourceTaskId ||
+        t?.title ||
+        ""
+      )
+    )
+    .filter(Boolean)
+    .sort()
+    .join("|");
+
+  // éviter plusieurs toasts pour le *même trajet* (ex: double-render)
+  if (journeyId && sig && lastTasksSignature === `${journeyId}:${sig}`) return;
+
+  lastNotifiedJourneyId = journeyId;
+  lastTasksSignature = journeyId ? `${journeyId}:${sig}` : sig;
+
+  const count = tasks.length;
+  const firstTitle = tasks[0]?.title || "a task";
+
+  const msg =
+    count === 1
+      ? `Task on your route: ${firstTitle}`
+      : `${count} tasks on your route`;
+
+  showToast(msg, {
+    variant: "warning",
+    important: true,
+    durationMs: 15000,
+    actionText: "View",
+    onAction: () => openTasksModal(tasks),
+  });
 }
 
 // ============================================================
@@ -1652,9 +1967,8 @@ function showToast(message, opts = {}) {
   if (!container) return;
 
   const toast = document.createElement("div");
-  toast.className = `toast ${opts.variant ? `toast-${opts.variant}` : ""} ${
-    opts.important ? "toast-important" : ""
-  }`.trim();
+  toast.className = `toast ${opts.variant ? `toast-${opts.variant}` : ""} ${opts.important ? "toast-important" : ""
+    }`.trim();
 
   const text = document.createElement("div");
   text.className = "toast-text";
@@ -1691,8 +2005,8 @@ function showToast(message, opts = {}) {
     typeof opts.durationMs === "number"
       ? opts.durationMs
       : opts.important
-      ? CONFIG.TOAST_IMPORTANT_DURATION_MS
-      : CONFIG.TOAST_DURATION_MS;
+        ? CONFIG.TOAST_IMPORTANT_DURATION_MS
+        : CONFIG.TOAST_DURATION_MS;
   const timer = setTimeout(() => removeToast(toast), ttl);
 
   toast.addEventListener("mouseenter", () => clearTimeout(timer));
@@ -1702,6 +2016,66 @@ function removeToast(toastEl) {
   if (!toastEl) return;
   toastEl.classList.add("toast-hide");
   setTimeout(() => toastEl.remove(), CONFIG.TOAST_HIDE_DELAY_MS);
+}
+
+function ensureTasksModalUI() {
+  if (document.getElementById("tasksModal")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "tasksModal";
+  overlay.className = "tasks-modal-overlay hidden";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "tasksModalTitle");
+
+  overlay.innerHTML = `
+    <div class="tasks-modal">
+      <button type="button" class="tasks-modal-close" id="tasksModalClose" aria-label="Close dialog">&times;</button>
+      <h3 class="tasks-modal-title" id="tasksModalTitle">Tasks on your route</h3>
+      <p class="tasks-modal-subtitle">These tasks are close to your planned journey.</p>
+      <div id="tasksModalList" class="tasks-modal-list"></div>
+      <div class="tasks-modal-footer">
+        <button type="button" class="btn btn-outline btn-sm" id="tasksModalOk">OK</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.classList.add("hidden");
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+
+  overlay.querySelector("#tasksModalClose")?.addEventListener("click", close);
+  overlay.querySelector("#tasksModalOk")?.addEventListener("click", close);
+}
+
+function openTasksModal(tasks) {
+  const overlay = document.getElementById("tasksModal");
+  const list = document.getElementById("tasksModalList");
+  if (!overlay || !list) return;
+
+  const items = (Array.isArray(tasks) ? tasks : [])
+    .map((t) => {
+      const title = escapeHtml(t?.title || "Untitled");
+      const dist =
+        typeof t?.distanceMeters === "number"
+          ? `${Math.round(t.distanceMeters)} m`
+          : "—";
+      return `
+        <div class="tasks-modal-item">
+          <div class="tasks-modal-item-title">${title}</div>
+          <div class="tasks-modal-item-meta">Distance: ${dist}</div>
+        </div>
+      `;
+    })
+    .join("");
+
+  list.innerHTML =
+    items || '<div class="tasks-modal-empty">No tasks found.</div>';
+  overlay.classList.remove("hidden");
 }
 
 function escapeHtml(str) {
@@ -1736,290 +2110,9 @@ function formatDateTime(dt) {
 function formatMode(mode) {
   if (!mode) return "Unknown";
   if (mode === "OTHER") return "Connection";
-  if (mode === "WALK") return "Marche";
-  const s = String(mode);
-  if (s === "METRO") return "Métro";
-  if (s === "RER" || s === "BUS" || s === "TRAM") return s.charAt(0) + s.slice(1).toLowerCase();
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-}
-
-/**
- * Résume les modes de transport d'un trajet (ex: "Bus 268, RER D, Métro 4, Marche").
- */
-function getTransportModesSummary(legs) {
-  if (!Array.isArray(legs) || !legs.length) return "—";
-  const seen = new Set();
-  const parts = [];
-  for (const leg of legs) {
-    const mode = (leg.mode || "").toUpperCase();
-    if (mode === "OTHER" || mode === "CONNECTION") continue;
-    const label = mode === "WALK" ? "Marche" : formatMode(leg.mode) + (leg.lineCode ? " " + leg.lineCode : "");
-    const key = label.trim();
-    if (!seen.has(key)) {
-      seen.add(key);
-      parts.push(key);
-    }
-  }
-  return parts.length ? parts.join(", ") : "—";
-}
-
-/**
- * Résume les modes de transport d'un trajet à partir des segments.
- */
-function getTransportModesSummaryFromSegments(segments) {
-  if (!Array.isArray(segments) || !segments.length) return "—";
-  const seen = new Set();
-  const parts = [];
-  for (const seg of segments) {
-    const mode = (seg.mode || seg.transitMode || "").toUpperCase();
-    if (mode === "OTHER" || mode === "CONNECTION" || mode === "WALKING" || mode === "TRANSFER") continue;
-    const label = mode === "WALK" ? "Marche" : formatMode(mode) + (seg.lineCode ? " " + seg.lineCode : "");
-    const key = label.trim();
-    if (!seen.has(key)) {
-      seen.add(key);
-      parts.push(key);
-    }
-  }
-  return parts.length ? parts.join(", ") : "—";
-}
-
-/**
- * Builds itinerary steps HTML from segments with included tasks.
- */
-function buildItineraryStepsHtmlFromSegments(segments, includedTasks) {
-  if (!Array.isArray(segments) || !segments.length) {
-    return "<li>Aucune étape disponible</li>";
-  }
-
-  const taskInsertionPoints = new Map();
-  if (Array.isArray(includedTasks) && includedTasks.length > 0) {
-    includedTasks.forEach((task, taskIdx) => {
-      const idx = findTaskInsertionIndexForSegments(task, segments, taskIdx, includedTasks.length);
-      if (idx >= 0 && idx <= segments.length) {
-        if (!taskInsertionPoints.has(idx)) taskInsertionPoints.set(idx, []);
-        taskInsertionPoints.get(idx).push({ task, originalIndex: taskIdx });
-      }
-    });
-  }
-
-  const mixedSteps = [];
-  for (let i = 0; i <= segments.length; i++) {
-    if (taskInsertionPoints.has(i)) {
-      const tasks = taskInsertionPoints.get(i).sort((a, b) => a.originalIndex - b.originalIndex);
-      tasks.forEach(({ task }) => mixedSteps.push({ type: "task", data: task }));
-    }
-    if (i < segments.length) mixedSteps.push({ type: "segment", data: segments[i] });
-  }
-
-  return mixedSteps
-    .map((step) => {
-      if (step.type === "task") {
-        const task = step.data;
-        return `
-        <li class="journey-section-label journey-task-section-start">Arrivée sur place pour la tâche</li>
-        <li class="journey-leg-item journey-task-stop">
-            <div class="leg-marker task-marker">✓</div>
-            <div class="leg-content">
-                <span class="leg-mode task-mode">📋 Tâche à réaliser</span>
-                <span class="leg-route task-title"><strong>${escapeHtml(task.title || "Tâche sans titre")}</strong></span>
-                <div class="leg-times task-location">📍 ${escapeHtml(task.locationQuery || "Localisation inconnue")}</div>
-                <p class="task-access-hint">Vous y accédez par les étapes de transport ci-dessus. Une fois sur place, effectuez la tâche puis reprenez le trajet ci-dessous.</p>
-            </div>
-        </li>
-        <li class="journey-section-label journey-task-section-end">Suite du trajet</li>
-    `;
-      }
-      const seg = step.data;
-      return `
-        <li class="journey-leg-item">
-            <div class="leg-marker-container">
-                ${formatLineBadge(seg.mode, seg.lineCode, seg.lineColor)}
-            </div>
-            <div class="leg-content">
-                <span class="leg-mode">${formatMode(seg.mode)}${
-            seg.lineName ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>` : ""
-          }</span>
-                <span class="leg-route">${seg.originLabel || "?"} → ${seg.destinationLabel || "?"}</span>
-                <div class="leg-times">
-                    ${seg.scheduledDeparture ? formatDateTime(seg.scheduledDeparture) : "?"} -
-                    ${seg.scheduledArrival ? formatDateTime(seg.scheduledArrival) : "?"}
-                    <span class="leg-duration">(${seg.durationSeconds ? formatDuration(seg.durationSeconds) : "?"})</span>
-                </div>
-            </div>
-        </li>
-    `;
-    })
-    .join("");
-}
-
-function findTaskInsertionIndexForSegments(task, segments, taskIndex, totalTasks) {
-  if (!task || segments.length === 0) return -1;
-  const taskLocation = (task.locationQuery || "").toLowerCase().trim();
-  if (!taskLocation) return Math.floor(segments.length / 2);
-
-  let bestMatch = -1;
-  let bestMatchScore = 0;
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    const destination = (seg.destinationLabel || "").toLowerCase().trim();
-    if (!destination) continue;
-    if (destination === taskLocation) return i + 1;
-    const taskWords = taskLocation.split(/[\s,]+/).filter((w) => w.length > 2);
-    const destWords = destination.split(/[\s,]+/).filter((w) => w.length > 2);
-    let matchCount = 0;
-    taskWords.forEach((tw) => {
-      const twClean = tw.replace(/[^\w]/g, "").toLowerCase();
-      destWords.forEach((dw) => {
-        const dwClean = dw.replace(/[^\w]/g, "").toLowerCase();
-        if (dwClean.includes(twClean) || twClean.includes(dwClean)) matchCount++;
-      });
-    });
-    if (matchCount >= 1 && matchCount > bestMatchScore) {
-      bestMatch = i + 1;
-      bestMatchScore = matchCount;
-    }
-    if (destination.includes(taskLocation) || taskLocation.includes(destination)) {
-      if (matchCount + 1 > bestMatchScore) {
-        bestMatch = i + 1;
-        bestMatchScore = matchCount + 1;
-      }
-    }
-  }
-  if (bestMatch >= 0 && bestMatchScore >= 1) return bestMatch;
-  if (totalTasks === 1) return Math.floor(segments.length / 2);
-  if (totalTasks > 1) {
-    const ratio = (taskIndex + 1) / (totalTasks + 1);
-    return Math.max(1, Math.min(Math.floor(ratio * segments.length), segments.length));
-  }
-  return -1;
-}
-
-function findTaskInsertionIndex(task, legs, taskIndex, totalTasks) {
-  if (!task || legs.length === 0) return -1;
-  const taskLocation = (task.locationQuery || "").toLowerCase().trim();
-  if (!taskLocation) return Math.floor(legs.length / 2);
-
-  let bestMatch = -1;
-  let bestMatchScore = 0;
-  for (let i = 0; i < legs.length; i++) {
-    const leg = legs[i];
-    const destination = (leg.destinationLabel || "").toLowerCase().trim();
-    if (!destination) continue;
-    if (destination === taskLocation) return i + 1;
-    const taskWords = taskLocation.split(/[\s,]+/).filter((w) => w.length > 2);
-    const destWords = destination.split(/[\s,]+/).filter((w) => w.length > 2);
-    let matchCount = 0;
-    taskWords.forEach((tw) => {
-      const twClean = tw.replace(/[^\w]/g, "").toLowerCase();
-      destWords.forEach((dw) => {
-        const dwClean = dw.replace(/[^\w]/g, "").toLowerCase();
-        if (dwClean.includes(twClean) || twClean.includes(dwClean)) matchCount++;
-      });
-    });
-    if (matchCount >= 1 && matchCount > bestMatchScore) {
-      bestMatch = i + 1;
-      bestMatchScore = matchCount;
-    }
-    if (destination.includes(taskLocation) || taskLocation.includes(destination)) {
-      if (matchCount + 1 > bestMatchScore) {
-        bestMatch = i + 1;
-        bestMatchScore = matchCount + 1;
-      }
-    }
-  }
-  if (bestMatch >= 0 && bestMatchScore >= 1) return bestMatch;
-  if (totalTasks === 1) return Math.floor(legs.length / 2);
-  if (totalTasks > 1) {
-    const ratio = (taskIndex + 1) / (totalTasks + 1);
-    return Math.max(1, Math.min(Math.floor(ratio * legs.length), legs.length));
-  }
-  return -1;
-}
-
-function formatLegRoute(leg) {
-  const mode = (leg.mode || "").toUpperCase();
-  const isConnection = mode === "OTHER" || mode === "CONNECTION";
-  const orig = (leg.originLabel || "").trim();
-  const dest = (leg.destinationLabel || "").trim();
-  const unknownOrig = !orig || orig === "Unknown origin" || orig === "?";
-  const unknownDest = !dest || dest === "Unknown destination" || dest === "?";
-  if (isConnection && (unknownOrig || unknownDest))
-    return "Correspondance · attente entre deux transports";
-  return `${unknownOrig ? "—" : orig} → ${unknownDest ? "—" : dest}`;
-}
-
-function buildItineraryStepsHtml(journey) {
-  const legs = Array.isArray(journey?.legs) ? journey.legs : [];
-  const includedTasks = Array.isArray(journey?.includedTasks) ? journey.includedTasks : [];
-  const processedLegs = legs
-    .filter((leg) => {
-      const d = leg.durationSeconds || 0;
-      const same = leg.originLabel === leg.destinationLabel;
-      return !(d < 60 && same);
-    })
-    .map((leg) => {
-      const d = leg.durationSeconds || 0;
-      const same = leg.originLabel === leg.destinationLabel;
-      if (d >= 60 && same && (leg.mode || "").toUpperCase() === "OTHER")
-        return { ...leg, mode: "WALK" };
-      return leg;
-    });
-
-  const taskInsertionPoints = new Map();
-  includedTasks.forEach((task, taskIdx) => {
-    const idx = findTaskInsertionIndex(task, processedLegs, taskIdx, includedTasks.length);
-    if (idx >= 0 && idx <= processedLegs.length) {
-      if (!taskInsertionPoints.has(idx)) taskInsertionPoints.set(idx, []);
-      taskInsertionPoints.get(idx).push({ task, originalIndex: taskIdx });
-    }
-  });
-
-  const mixedSteps = [];
-  for (let i = 0; i <= processedLegs.length; i++) {
-    if (taskInsertionPoints.has(i)) {
-      const tasks = taskInsertionPoints.get(i).sort((a, b) => a.originalIndex - b.originalIndex);
-      tasks.forEach(({ task }) => mixedSteps.push({ type: "task", data: task }));
-    }
-    if (i < processedLegs.length) mixedSteps.push({ type: "leg", data: processedLegs[i] });
-  }
-
-  if (mixedSteps.length === 0) return "<li>Aucune étape disponible</li>";
-  return mixedSteps
-    .map((step) => {
-      if (step.type === "task") {
-        const task = step.data;
-        return `
-        <li class="journey-section-label journey-task-section-start">Arrivée sur place pour la tâche</li>
-        <li class="journey-leg-item journey-task-stop">
-            <div class="leg-marker task-marker">✓</div>
-            <div class="leg-content">
-                <span class="leg-mode task-mode">📋 Tâche à réaliser</span>
-                <span class="leg-route task-title"><strong>${escapeHtml(task.title || "Tâche sans titre")}</strong></span>
-                <div class="leg-times task-location">📍 ${escapeHtml(task.locationQuery || "Localisation inconnue")}</div>
-                <p class="task-access-hint">Vous y accédez par les étapes de transport ci-dessus. Une fois sur place, effectuez la tâche puis reprenez le trajet ci-dessous.</p>
-            </div>
-        </li>
-        <li class="journey-section-label journey-task-section-end">Suite du trajet</li>
-    `;
-      }
-      const leg = step.data;
-      const routeText = formatLegRoute(leg);
-      const modeLabel = (leg.mode && String(leg.mode).toUpperCase() === "OTHER") ? "Correspondance" : formatMode(leg.mode);
-      return `
-        <li class="journey-leg-item">
-            <div class="leg-marker"></div>
-            <div class="leg-content">
-                <span class="leg-mode">${modeLabel}${leg.lineCode ? ` <span class="leg-line">${leg.lineCode}</span>` : ""}</span>
-                <span class="leg-route">${escapeHtml(routeText)}</span>
-                <div class="leg-times">
-                    ${leg.estimatedDeparture ? formatDateTime(leg.estimatedDeparture) : "?"} - ${leg.estimatedArrival ? formatDateTime(leg.estimatedArrival) : "?"}
-                    <span class="leg-duration">(${leg.durationSeconds ? formatDuration(leg.durationSeconds) : "?"})</span>
-                </div>
-            </div>
-        </li>
-    `;
-    })
-    .join("");
+  if (mode === "WALK") return "Walk";
+  // Capitalize first letter, lowercase rest for others
+  return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
 }
 
 /**
