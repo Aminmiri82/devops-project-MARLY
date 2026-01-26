@@ -3,7 +3,6 @@ package org.marly.mavigo.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.marly.mavigo.client.prim.PrimApiClient;
-import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.repository.UserTaskRepository;
 import org.marly.mavigo.service.user.UserService;
 import org.springframework.http.HttpHeaders;
@@ -23,7 +22,6 @@ class GoogleTasksControllerTest {
     private WebClient googleApiWebClient;
     private OAuth2AuthorizedClientService authorizedClientService;
     private UserService userService;
-    private UserRepository userRepository;
     private UserTaskRepository userTaskRepository;
     private PrimApiClient primApiClient;
 
@@ -48,7 +46,6 @@ class GoogleTasksControllerTest {
         this.googleApiWebClient = WebClient.builder().exchangeFunction(exchangeFunction).build();
         this.authorizedClientService = mock(OAuth2AuthorizedClientService.class);
         this.userService = mock(UserService.class);
-        this.userRepository = mock(UserRepository.class);
         this.userTaskRepository = mock(UserTaskRepository.class);
         this.primApiClient = mock(PrimApiClient.class);
 
@@ -56,10 +53,8 @@ class GoogleTasksControllerTest {
                 googleApiWebClient,
                 authorizedClientService,
                 userService,
-                userRepository,
                 userTaskRepository,
-                primApiClient
-        );
+                primApiClient);
     }
 
     @Test

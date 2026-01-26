@@ -24,7 +24,6 @@ import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.task.TaskSource;
 import org.marly.mavigo.models.task.UserTask;
 import org.marly.mavigo.models.user.User;
-import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.repository.UserTaskRepository;
 import org.marly.mavigo.service.tasks.GoogleTaskMapper;
 import org.marly.mavigo.service.user.UserService;
@@ -77,7 +76,6 @@ public class GoogleTasksController {
             WebClient googleApiWebClient,
             OAuth2AuthorizedClientService authorizedClientService,
             UserService userService,
-            UserRepository userRepository,
             UserTaskRepository userTaskRepository,
             PrimApiClient primApiClient) {
         this.googleApiWebClient = googleApiWebClient;

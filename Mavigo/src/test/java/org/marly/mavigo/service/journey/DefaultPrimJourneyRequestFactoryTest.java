@@ -27,7 +27,7 @@ class DefaultPrimJourneyRequestFactoryTest {
         JourneyPreferenceStrategy strategy = Mockito.mock(JourneyPreferenceStrategy.class);
         DefaultPrimJourneyRequestFactory factory = new DefaultPrimJourneyRequestFactory(List.of(strategy));
 
-        JourneyPreferences preferences = new JourneyPreferences(true, false);
+        JourneyPreferences preferences = new JourneyPreferences(true, false, null);
         JourneyPlanningContext context = buildContext(preferences);
 
         when(strategy.supports(preferences)).thenReturn(true);
@@ -71,4 +71,3 @@ class DefaultPrimJourneyRequestFactoryTest {
         return new JourneyPlanningContext(user, origin, destination, parameters);
     }
 }
-
