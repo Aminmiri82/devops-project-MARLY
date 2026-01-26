@@ -841,7 +841,6 @@ async function handleJourneySubmit(e) {
   const to = (document.getElementById("to")?.value || "").trim();
   const departure = departureInput?.value || "";
   const comfortSelection = journeyComfortSelection?.value || "disabled";
-  const touristic = !!document.getElementById("touristic")?.checked;
 
   if (!departure) {
     if (resultsDiv)
@@ -863,7 +862,6 @@ async function handleJourneySubmit(e) {
     },
     preferences: {
       comfortMode: comfortSelection !== "disabled",
-      touristicMode: touristic,
       namedComfortSettingId: (comfortSelection !== "disabled") ? comfortSelection : null
     },
   };
@@ -918,8 +916,6 @@ function displayJourneyResults(journeys) {
   const modesHtml = `
     <div class="journey-modes">
       <span>Comfort: ${firstJourney?.comfortModeEnabled ? "On" : "Off"}</span>
-      <span>Touristic: ${firstJourney?.touristicModeEnabled ? "On" : "Off"
-    }</span>
     </div>
   `;
 
@@ -1538,12 +1534,14 @@ function loadSettingIntoForm(setting) {
 
   const directPath = document.getElementById("directPath");
   const requireAC = document.getElementById("requireAirConditioning");
+  const wheelchair = document.getElementById("wheelchairAccessible");
   const maxTransfers = document.getElementById("maxNbTransfers");
   const maxWaiting = document.getElementById("maxWaitingDuration");
   const maxWalking = document.getElementById("maxWalkingDuration");
 
   if (directPath) directPath.value = p.directPath || "";
   if (requireAC) requireAC.checked = !!p.requireAirConditioning;
+  if (wheelchair) wheelchair.checked = !!p.wheelchairAccessible;
   if (maxTransfers) maxTransfers.value = p.maxNbTransfers ?? "";
   if (maxWaiting) maxWaiting.value = p.maxWaitingDuration ? Math.round(p.maxWaitingDuration / 60) : "";
   if (maxWalking) maxWalking.value = p.maxWalkingDuration ? Math.round(p.maxWalkingDuration / 60) : "";
@@ -1639,6 +1637,7 @@ function renderNamedSettings(settings) {
     const details = [];
     if (p.directPath && p.directPath !== 'indifferent') details.push(p.directPath);
     if (p.requireAirConditioning) details.push("AC");
+    if (p.wheelchairAccessible) details.push("Wheelchair");
     if (p.maxNbTransfers !== null) details.push(`${p.maxNbTransfers} transfers`);
 
     return `
@@ -1686,12 +1685,14 @@ function applyNamedSetting(setting) {
 
   const directPath = document.getElementById("directPath");
   const requireAC = document.getElementById("requireAirConditioning");
+  const wheelchair = document.getElementById("wheelchairAccessible");
   const maxTransfers = document.getElementById("maxNbTransfers");
   const maxWaiting = document.getElementById("maxWaitingDuration");
   const maxWalking = document.getElementById("maxWalkingDuration");
 
   if (directPath) directPath.value = p.directPath || "";
   if (requireAC) requireAC.checked = !!p.requireAirConditioning;
+  if (wheelchair) wheelchair.checked = !!p.wheelchairAccessible;
   if (maxTransfers) maxTransfers.value = p.maxNbTransfers ?? "";
   if (maxWaiting) maxWaiting.value = p.maxWaitingDuration ? Math.round(p.maxWaitingDuration / 60) : "";
   if (maxWalking) maxWalking.value = p.maxWalkingDuration ? Math.round(p.maxWalkingDuration / 60) : "";
@@ -1716,6 +1717,7 @@ async function saveComfortSetting(e) {
     comfortProfile: {
       directPath: document.getElementById("directPath")?.value || null,
       requireAirConditioning: !!document.getElementById("requireAirConditioning")?.checked,
+      wheelchairAccessible: !!document.getElementById("wheelchairAccessible")?.checked,
       maxNbTransfers: document.getElementById("maxNbTransfers")?.value ? parseInt(document.getElementById("maxNbTransfers").value, 10) : null,
       maxWaitingDuration: document.getElementById("maxWaitingDuration")?.value ? parseInt(document.getElementById("maxWaitingDuration").value, 10) * 60 : null,
       maxWalkingDuration: document.getElementById("maxWalkingDuration")?.value ? parseInt(document.getElementById("maxWalkingDuration").value, 10) * 60 : null,
@@ -1798,6 +1800,10 @@ function renderComfortProfileSummary() {
     items.push("<li>Require Air Conditioning: Yes</li>");
   }
 
+  if (profile.wheelchairAccessible) {
+    items.push("<li>Wheelchair Accessible: Yes</li>");
+  }
+
   if (profile.maxNbTransfers != null) {
     items.push(`<li>Max Transfers: ${profile.maxNbTransfers}</li>`);
   }
@@ -1822,6 +1828,7 @@ function hasComfortSettings(profile) {
   return (
     profile.directPath != null ||
     profile.requireAirConditioning === true ||
+    profile.wheelchairAccessible === true ||
     profile.maxNbTransfers != null ||
     profile.maxWaitingDuration != null ||
     profile.maxWalkingDuration != null
