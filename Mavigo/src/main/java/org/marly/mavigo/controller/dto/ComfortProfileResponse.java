@@ -7,17 +7,19 @@ public record ComfortProfileResponse(
         Boolean requireAirConditioning,
         Integer maxNbTransfers,
         Integer maxWaitingDuration,
-        Integer maxWalkingDuration) {
+        Integer maxWalkingDuration,
+        Boolean wheelchairAccessible) {
 
     public static ComfortProfileResponse from(ComfortProfile profile) {
         if (profile == null) {
-            return new ComfortProfileResponse(null, null, null, null, null);
+            return new ComfortProfileResponse(null, null, null, null, null, null);
         }
         return new ComfortProfileResponse(
                 profile.getDirectPath(),
                 profile.getRequireAirConditioning(),
                 profile.getMaxNbTransfers(),
                 profile.getMaxWaitingDuration(),
-                profile.getMaxWalkingDuration());
+                profile.getMaxWalkingDuration(),
+                profile.getWheelchairAccessible());
     }
 }

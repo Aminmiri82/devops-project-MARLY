@@ -44,9 +44,9 @@ public class ComfortModeJourneyStrategy implements JourneyPreferenceStrategy {
         }
 
         LOGGER.debug(
-                "Applying comfort profile details: directPath={}, transfers={}, waiting={}, walking={}, requireAC={}",
+                "Applying comfort profile details: directPath={}, transfers={}, waiting={}, walking={}, requireAC={}, wheelchair={}",
                 profile.getDirectPath(), profile.getMaxNbTransfers(), profile.getMaxWaitingDuration(),
-                profile.getMaxWalkingDuration(), profile.getRequireAirConditioning());
+                profile.getMaxWalkingDuration(), profile.getRequireAirConditioning(), profile.getWheelchairAccessible());
 
         if (profile.getDirectPath() != null) {
             request.withDirectPath(profile.getDirectPath());
@@ -67,6 +67,11 @@ public class ComfortModeJourneyStrategy implements JourneyPreferenceStrategy {
         if (Boolean.TRUE.equals(profile.getRequireAirConditioning())) {
             request.withEquipmentDetails(true);
             LOGGER.debug("Requesting equipment details for A/C filtering");
+        }
+
+        if (Boolean.TRUE.equals(profile.getWheelchairAccessible())) {
+            request.withWheelchair(true);
+            LOGGER.debug("Requesting wheelchair accessible routes");
         }
     }
 

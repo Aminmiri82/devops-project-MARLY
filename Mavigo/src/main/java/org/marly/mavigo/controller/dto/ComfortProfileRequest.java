@@ -20,5 +20,7 @@ public record ComfortProfileRequest(
 
         @Min(0)
         @Max(7200)
-        Integer maxWalkingDuration) {
+        Integer maxWalkingDuration,
+
+        Boolean wheelchairAccessible) {
 }
