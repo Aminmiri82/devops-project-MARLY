@@ -4,7 +4,10 @@ import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.marly.mavigo.models.user.ComfortProfile;
+import org.marly.mavigo.models.user.NamedComfortSetting;
 import org.marly.mavigo.models.user.User;
+import org.marly.mavigo.repository.NamedComfortSettingRepository;
 import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.service.user.dto.GoogleAccountLink;
 import org.springframework.stereotype.Service;
@@ -16,9 +19,11 @@ import org.springframework.util.StringUtils;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final NamedComfortSettingRepository namedComfortSettingRepository;
 
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(UserRepository userRepository, NamedComfortSettingRepository namedComfortSettingRepository) {
         this.userRepository = userRepository;
+        this.namedComfortSettingRepository = namedComfortSettingRepository;
     }
 
     @Override
@@ -44,8 +49,10 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public User getUser(UUID userId) {
         Objects.requireNonNull(userId, "userId must not be null");
-        return userRepository.findById(userId)
+        User user = userRepository.findWithSettingsById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
+        org.hibernate.Hibernate.initialize(user.getNamedComfortSettings());
+        return user;
     }
 
     @Override
@@ -75,18 +82,67 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = getUser(userId);
-        
+
         // If this user already has this Google account linked, just return (idempotent)
         if (subject.equals(user.getGoogleAccountSubject())) {
             return user;
         }
-        
+
         ensureGoogleSubjectAvailable(subject, userId);
 
         user.setGoogleAccountSubject(subject);
         user.setGoogleAccountEmail(googleAccountLink.email());
         user.setGoogleLinkedAt(OffsetDateTime.now());
 
+        return userRepository.save(user);
+    }
+
+    @Override
+    public User addNamedComfortSetting(UUID userId, String name, ComfortProfile profile) {
+        User user = getUser(userId);
+        NamedComfortSetting setting = new NamedComfortSetting(name, profile, user);
+        user.addNamedComfortSetting(setting);
+        User saved = userRepository.save(user);
+        org.hibernate.Hibernate.initialize(saved.getNamedComfortSettings());
+        return saved;
+    }
+
+    @Override
+    public User updateNamedComfortSetting(UUID userId, UUID settingId, String name, ComfortProfile profile) {
+        User user = getUser(userId);
+        NamedComfortSetting setting = namedComfortSettingRepository.findById(settingId)
+                .orElseThrow(() -> new IllegalArgumentException("Named comfort setting not found: " + settingId));
+
+        if (!setting.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("Setting does not belong to user");
+        }
+
+        setting.setName(name);
+        setting.setComfortProfile(profile);
+        User saved = userRepository.save(user);
+        org.hibernate.Hibernate.initialize(saved.getNamedComfortSettings());
+        return saved;
+    }
+
+    @Override
+    public User markComfortPromptAsSeen(UUID userId) {
+        User user = getUser(userId);
+        user.setHasSeenComfortPrompt(true);
+        return userRepository.save(user);
+    }
+
+    @Override
+    public User deleteNamedComfortSetting(UUID userId, UUID settingId) {
+        User user = getUser(userId);
+        NamedComfortSetting setting = namedComfortSettingRepository.findById(settingId)
+                .orElseThrow(() -> new IllegalArgumentException("Named comfort setting not found: " + settingId));
+
+        if (!setting.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("Setting does not belong to user");
+        }
+
+        user.removeNamedComfortSetting(setting);
+        namedComfortSettingRepository.delete(setting);
         return userRepository.save(user);
     }
 
@@ -130,4 +186,3 @@ public class UserServiceImpl implements UserService {
         }
     }
 }
-
