@@ -86,8 +86,7 @@ class JourneyControllerTasksOnRouteTest {
                         "departureTime", departureTime
                 ),
                 "preferences", Map.of(
-                        "comfortMode", false,
-                        "touristicMode", false
+                        "comfortMode", false
                 )
         );
 
