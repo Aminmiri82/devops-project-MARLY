@@ -119,7 +119,7 @@ class JourneyResultFilterTest {
 
     private JourneyPlanningContext createDefaultContext(User user, boolean comfortEnabled) {
         UUID userId = (user != null && user.getId() != null) ? user.getId() : UUID.randomUUID();
-        JourneyPreferences prefs = new JourneyPreferences(comfortEnabled, false, null);
+        JourneyPreferences prefs = new JourneyPreferences(comfortEnabled, null);
         JourneyPlanningParameters params = new JourneyPlanningParameters(
                 userId, "From", "To", LocalDateTime.now(), prefs);
         return new JourneyPlanningContext(user, null, null, params);

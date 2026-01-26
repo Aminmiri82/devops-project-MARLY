@@ -86,9 +86,6 @@ public class Journey {
     @Column(name = "comfort_mode_enabled", nullable = false)
     private boolean comfortModeEnabled = false;
 
-    @Column(name = "touristic_mode_enabled", nullable = false)
-    private boolean touristicModeEnabled = false;
-
     @Column(name = "named_comfort_setting_id")
     private UUID namedComfortSettingId;
 
@@ -340,14 +337,6 @@ public class Journey {
 
     public void setComfortModeEnabled(boolean comfortModeEnabled) {
         this.comfortModeEnabled = comfortModeEnabled;
-    }
-
-    public boolean isTouristicModeEnabled() {
-        return touristicModeEnabled;
-    }
-
-    public void setTouristicModeEnabled(boolean touristicModeEnabled) {
-        this.touristicModeEnabled = touristicModeEnabled;
     }
 
     public UUID getNamedComfortSettingId() {

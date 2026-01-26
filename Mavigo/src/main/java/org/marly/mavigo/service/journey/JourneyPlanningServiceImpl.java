@@ -160,7 +160,6 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
 
         JourneyPreferences preferences = new JourneyPreferences(
                 journey.isComfortModeEnabled(),
-                journey.isTouristicModeEnabled(),
                 journey.getNamedComfortSettingId());
 
         JourneyPlanningParameters params = new JourneyPlanningParameters(

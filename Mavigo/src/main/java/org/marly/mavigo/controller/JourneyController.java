@@ -289,7 +289,6 @@ public class JourneyController {
         }
         return new JourneyPreferences(
                 preferencesRequest.comfortMode(),
-                preferencesRequest.touristicMode(),
                 preferencesRequest.namedComfortSettingId());
     }
 }
