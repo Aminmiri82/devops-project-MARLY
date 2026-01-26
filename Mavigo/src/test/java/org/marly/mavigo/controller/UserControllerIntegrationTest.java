@@ -49,7 +49,7 @@ class UserControllerIntegrationTest {
     void createNamedComfortSetting_works() throws Exception {
         NamedComfortSettingRequest request = new NamedComfortSettingRequest(
                 "My Commute",
-                new ComfortProfileRequest("only", true, 1, 600, 300));
+                new ComfortProfileRequest("only", true, 1, 600, 300, null));
 
         mockMvc.perform(post("/api/users/{userId}/comfort-settings", testUser.getId())
                 .contentType(MediaType.APPLICATION_JSON)
