@@ -33,13 +33,13 @@ class ComfortModeJourneyStrategyTest {
 
     @Test
     void supports_returnsTrueWhenComfortModeEnabled() {
-        JourneyPreferences prefs = new JourneyPreferences(true, false, null);
+        JourneyPreferences prefs = new JourneyPreferences(true, null);
         assertThat(strategy.supports(prefs)).isTrue();
     }
 
     @Test
     void supports_returnsFalseWhenComfortModeDisabled() {
-        JourneyPreferences prefs = new JourneyPreferences(false, true, null);
+        JourneyPreferences prefs = new JourneyPreferences(false, null);
         assertThat(strategy.supports(prefs)).isFalse();
     }
 
@@ -233,7 +233,7 @@ class ComfortModeJourneyStrategyTest {
                 "origin-query",
                 "dest-query",
                 LocalDateTime.now(),
-                new JourneyPreferences(comfortEnabled, false, namedId));
+                new JourneyPreferences(comfortEnabled, namedId));
         StopArea origin = new StopArea("origin-ext", "Origin", new GeoPoint(48.8566, 2.3522));
         StopArea destination = new StopArea("dest-ext", "Destination", new GeoPoint(48.8606, 2.3376));
         return new JourneyPlanningContext(user, origin, destination, params);

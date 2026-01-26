@@ -56,7 +56,6 @@ public class JourneyAssembler {
         journey.setOriginCoordinate(resolveCoordinate(origin.getCoordinates(), plan, true));
         journey.setDestinationCoordinate(resolveCoordinate(destination.getCoordinates(), plan, false));
         journey.setComfortModeEnabled(preferences != null && preferences.comfortModeEnabled());
-        journey.setTouristicModeEnabled(preferences != null && preferences.touristicModeEnabled());
         journey.setPrimItineraryId(plan.journeyId());
         journey.setStatus(JourneyStatus.PLANNED);
 
