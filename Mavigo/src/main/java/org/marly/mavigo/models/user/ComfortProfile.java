@@ -71,6 +71,10 @@ public class ComfortProfile {
         return wheelchairAccessible;
     }
 
+    public boolean isWheelchairAccessible() {
+        return Boolean.TRUE.equals(wheelchairAccessible);
+    }
+
     public void setWheelchairAccessible(Boolean wheelchairAccessible) {
         this.wheelchairAccessible = wheelchairAccessible;
     }
