@@ -1,18 +1,27 @@
-= Mavigo - Documentation Technique
+= Mavigo - Technical Documentation
 :toc: left
-:toclevels: 3
+:toclevels: 4
 :sectnums:
 :icons: font
 :source-highlighter: highlight.js
 :imagesdir: images
+:version: 0.2.0
+:last-updated: 2026-01-30
+
+[NOTE]
+====
+*Documentation Version:* {version} +
+*Last Updated:* {last-updated} +
+*Git Branch:* docs-for-v0.2
+====
 
 <<<
 
-== Presentation de l'equipe
+== Team Presentation
 
 [cols="1", options="header"]
 |===
-|Membre
+|Team Member
 
 |Marie BIBI
 |Raphael MEIMOUN
@@ -20,39 +29,207 @@
 |Malado SOW
 |===
 
-== Presentation thematique
+== Project Overview
 
-=== Contexte
+=== Context
 
-Mavigo est un assistant personnel de transport en commun pour la ville de Paris. L'application aide les utilisateurs a naviguer dans le reseau de transport parisien avec une planification intelligente des trajets et des fonctionnalites ameliorant la qualite de vie.
+Mavigo is a personal public transportation assistant for the Paris metropolitan area (Île-de-France). The application helps users navigate the Parisian transit network with intelligent journey planning and quality-of-life features including accessibility support, Google Tasks integration, and disruption management.
 
-=== Objectifs
+=== Objectives
 
-* Simplifier la planification des trajets en Ile-de-France
-* Fournir des informations en temps reel sur les perturbations
-* Integrer la gestion des taches avec Google Tasks
-* Offrir des suggestions de trajets adaptees aux preferences utilisateurs
+* **Simplify journey planning** across Île-de-France public transportation
+* **Provide real-time information** on network disruptions and alternative routes
+* **Integrate task management** with Google Tasks for location-aware productivity
+* **Offer personalized suggestions** adapted to user accessibility and comfort preferences
+* **Enable multi-stop optimization** to complete errands efficiently along transit routes
 
-=== Fonctionnalites principales
+=== Main Features
 
-* **Planification de trajets** : Recherche d'itineraires optimaux via l'API PRIM
-* **Alertes en temps reel** : Notifications sur les perturbations du reseau
-* **Integration Google Tasks** : Synchronisation des trajets avec les taches
-* **Reroutage automatique** : Suggestions alternatives en cas de perturbation
-* **Suivi de position** : Progression en temps reel pendant le trajet
+==== Intelligent Journey Planning
+* **Three-tier architecture**: Journey → JourneySegment → JourneyPoint for granular tracking
+* **Comfort filtering**: Apply accessibility and comfort preferences (wheelchair, air conditioning, transfers, walking duration)
+* **Multi-criteria optimization**: Balance speed, comfort, and accessibility needs
+* **Real-time journey tracking**: Status lifecycle from PLANNED → IN_PROGRESS → COMPLETED/CANCELLED/REROUTED
+
+==== Google Tasks Integration
+* **OAuth2 authentication**: Secure Google account linking with token management
+* **Location tagging**: Use `#mavigo: Location Name` syntax in task notes/titles
+* **Automatic geocoding**: Convert location tags to coordinates via PRIM/BAN APIs
+* **Task-optimized journeys**: Plan routes that pass by task locations (300m-900m radius detection)
+* **Task-on-route detection**: Identify tasks along planned journey paths
+
+==== Disruption Management
+* **User-reported disruptions**: Report station or line disruptions during journeys
+* **Point-level tracking**: Mark individual JourneyPoints as DISRUPTED
+* **Automatic rerouting**: Generate alternative routes when disruptions are reported
+* **Disruption types**: STATION (specific stop) or LINE (entire transit line)
+
+==== Personalized Comfort Profiles
+* **Default profile**: Per-user comfort settings (wheelchair, AC, max transfers, walking/waiting limits)
+* **Named settings**: Save multiple comfort profiles with custom names
+* **Direct path preference**: Option to prefer direct routes over transfers
+* **Accessibility focus**: Wheelchair-accessible route filtering
+
+==== Real-time Position Tracking
+* **Journey lifecycle**: Track journey status from planning to completion
+* **Segment-level details**: Monitor progress through individual journey segments
+* **Disruption awareness**: Real-time integration of user-reported issues
+
+=== Competitive Analysis
+
+The Paris metropolitan transit app market is mature, with several established players offering journey planning and real-time information. Mavigo distinguishes itself through unique productivity features, advanced accessibility profiles, and community-driven intelligence that complement the core transit navigation experience.
+
+==== Feature Comparison Matrix
+
+The following comparison evaluates Mavigo against four major competitors across key functionality dimensions:
+
+[cols="4,2,2,2,2,2", options="header"]
+|===
+|Feature Category
+|Citymapper
+|Google Maps
+|RATP
+|IdF Mobilités
+|Mavigo
+
+|Basic Route Planning
+|Yes
+|Yes
+|Yes
+|Yes
+|Yes
+
+|Real-time Transit Info
+|Yes
+|Yes
+|Yes
+|Yes
+|Yes
+
+|Wheelchair Routes
+|Yes
+|Yes
+|Yes
+|Yes
+|Yes
+
+|Named Accessibility Profiles
+|No
+|No
+|No
+|No
+|*Yes*
+
+|Air Conditioning Filter
+|No
+|No
+|No
+|No
+|*Yes*
+
+|Comfort Settings
+|Limited
+|No
+|No
+|No
+|*Yes*
+
+|Google Tasks Integration
+|No
+|No
+|No
+|No
+|*Yes*
+
+|Location-Tagged Tasks
+|No
+|No
+|No
+|No
+|*Yes*
+
+|Multi-Waypoint w/ Tasks
+|No
+|Limited
+|No
+|No
+|*Yes*
+
+|User Disruption Reports
+|Limited
+|No
+|No
+|No
+|*Yes*
+
+|Point-Level Disruption
+|No
+|No
+|No
+|No
+|*Yes*
+
+|Auto Rerouting
+|Yes
+|Yes
+|No
+|No
+|*Yes*
+
+|===
+
+*Table Legend:*
+
+* *Yes* = Feature fully supported
+* *Limited* = Partial support only
+* *No* = Feature not available
+* *Italic* = Mavigo's unique or superior implementation
+
+==== Detailed Competitive Analysis
+
+**Accessibility and Personalization Leadership**
+
+While competitors like Citymapper and Google Maps offer basic wheelchair-accessible routing, these implementations typically function as a single toggle that filters results. Mavigo extends this concept significantly through its named comfort profile system, which allows users to create and save multiple accessibility configurations with distinct names. A user might maintain a "Full Accessibility" profile requiring wheelchair access and air conditioning on all segments, alongside a "Quick Commute" profile that relaxes some constraints for faster routes. This granularity extends to parameters such as maximum transfers, maximum walking duration, and maximum waiting time. The air conditioning requirement filter represents a comfort dimension absent from competitor offerings, directly addressing needs of users with temperature sensitivities or medical conditions. This multi-profile approach recognizes that accessibility needs are contextual and may vary based on time of day, weather conditions, or physical state.
+
+**Unique Productivity Integration**
+
+Mavigo is the only transit application offering native Google Tasks integration with location awareness. Users can tag tasks with locations using the `#mavigo: Location Name` syntax within Google Tasks notes or titles. The system automatically geocodes these locations and makes them available for journey optimization. When planning a route, users can include task locations as waypoints, and Mavigo generates optimized multi-stop itineraries that complete errands efficiently along transit routes. The task-on-route detection algorithm uses polyline densification and proximity calculations to identify when existing tasks fall near a planned journey path, alerting users to opportunities to complete tasks without significant detours. While Google Maps offers multi-waypoint routing, it does not integrate with task management systems or provide task-aware optimization. This integration transforms transit planning from simple A-to-B routing into a productivity tool that helps users accomplish multiple objectives in a single trip.
+
+**Community-Driven Disruption Intelligence**
+
+The disruption reporting landscape in Paris transit apps is fragmented. Official apps from RATP and Île-de-France Mobilités rely exclusively on operator-provided disruption data, which can lag behind ground truth during developing incidents. Citymapper offers crowdsourced reporting in select markets, though its disruption model treats disruptions at the journey level rather than tracking specific affected infrastructure. Mavigo implements a two-tier disruption system supporting both station-specific and line-wide disruptions. When a user reports a station disruption, the system marks the specific JourneyPoint as DISRUPTED, creates a Disruption entity with timestamp and reporter metadata, and automatically requests a reroute from the next valid point to the destination. This point-level granularity provides precise context for rerouting algorithms and maintains a detailed disruption history. The automatic rerouting response ensures users receive alternative routes immediately upon reporting issues, minimizing journey delays.
+
+**Technical Architecture for Future Innovation**
+
+Mavigo's three-tier journey architecture differentiates it from competitors at a structural level. Where most transit apps model journeys as flat sequences of steps or legs, Mavigo implements a Journey entity containing JourneySegments, each containing multiple JourneyPoints. This hierarchy enables segment-level metadata such as air conditioning availability and line information, while point-level status tracking distinguishes between normal and disrupted points. The granularity provides richer data for machine learning applications, such as predicting disruption patterns or personalizing route recommendations based on historical preferences. The architecture also supports more sophisticated journey lifecycle management, with clear status transitions from PLANNED through IN_PROGRESS to COMPLETED, REROUTED, or CANCELLED states. This design represents an investment in long-term platform capabilities rather than minimum viable routing functionality.
+
+==== Mavigo's Competitive Advantages
+
+Mavigo offers distinct value propositions across multiple user segments:
+
+* **Sole provider of Google Tasks integration**: Uniquely connects transit planning with task management through location-tagged tasks and optimized multi-waypoint routing
+* **Most comprehensive accessibility features**: Multiple named comfort profiles, air conditioning filter, and granular timing controls exceed basic wheelchair routing
+* **Community-powered disruption intelligence**: User-reported disruptions with point-level tracking and automatic rerouting provide real-time ground truth
+* **Productivity-focused journey planning**: Task-on-route detection and optimization help users complete errands efficiently during transit trips
+* **Advanced technical foundation**: Three-tier architecture enables future AI-driven features, predictive routing, and personalized recommendations
+* **Personalization-first design philosophy**: Named comfort settings and flexible preference system recognize that user needs vary by context
+
+==== Market Positioning
+
+Mavigo positions itself as the accessibility-first, productivity-integrated transit assistant for the Paris metropolitan area. While established competitors provide reliable basic routing and real-time transit information, Mavigo addresses underserved user segments with specific needs. For users with mobility challenges or accessibility requirements, the named profile system offers flexibility unavailable in single-toggle wheelchair filters. For productivity-conscious users who integrate tasks and errands into their daily commutes, the Google Tasks integration provides unique value. For community-minded users willing to contribute disruption intelligence in exchange for improved routing, the user reporting system creates a collaborative advantage. The technical architecture positions Mavigo for future differentiation through AI-powered features built on granular journey data.
 
 
 <<<
 
-== Technologies et methodologies
+== Technologies and Methodologies
 
-=== Stack technique
+=== Technical Stack
 
 ==== Backend
 
 [cols="1,2", options="header"]
 |===
-|Technologie |Version/Details
+|Technology |Version/Details
 
 |Java
 |21 (LTS)
@@ -61,195 +238,496 @@ Mavigo est un assistant personnel de transport en commun pour la ville de Paris.
 |3.5.7
 
 |Spring Data JPA
-|Persistance des donnees
+|Data persistence and ORM
 
 |Spring Security
-|OAuth2 avec Google
+|OAuth2 with Google
 
 |H2 Database
-|Base de donnees de developpement
+|Development database (in-memory)
 
 |Gradle
-|9.1 (systeme de build)
+|9.1 (build system)
 |===
 
 ==== Frontend
 
 * HTML5
 * CSS3
-* JavaScript (Vanilla, sans framework)
+* JavaScript (Vanilla, no framework)
 
-==== APIs externes
+==== External APIs
 
-* **PRIM API** : Ile-de-France Mobilites pour la planification de trajets
-* **Google Tasks API** : Gestion des taches utilisateur
-* **Weather API** : Donnees meteorologiques
+* **PRIM API**: Ile-de-France Mobilites for journey planning
+* **Google Tasks API v1**: User task management with OAuth2
+* **BAN Geocoding API**: Address and location geocoding
+* **Spring Security OAuth2 Client**: OAuth2 authentication flow
 
 === Methodologies
 
-* **Git Flow** : Branches feature, dev, main
-* **CI/CD** : GitHub Actions pour l'integration continue
-* **Code Review** : Pull requests obligatoires
+* **Git Flow**: Feature branches, dev branch, main branch workflow
+* **CI/CD**: GitHub Actions for continuous integration and testing
+* **Code Review**: Mandatory pull requests with peer review
+* **Testing**: Unit tests and integration tests with JUnit 5 and Spring Test
+* **API Documentation**: OpenAPI/Swagger annotations (available at `/swagger-ui.html`)
 
 <<<
 
 == Architecture
 
-=== Architecture globale
+=== Global Architecture
 
 [plantuml, architecture-globale, svg]
 ----
 @startuml
 
 rectangle "Frontend\n(HTML/CSS/JS)" as Frontend
-rectangle "Controllers" as Controllers
-rectangle "Services" as Services
-rectangle "Repositories" as Repos
-rectangle "API Clients" as Clients
-rectangle "PRIM API" as PRIM
-rectangle "Google Tasks" as Google
-rectangle "Weather API" as Weather
+rectangle "Controllers" {
+  component JourneyController
+  component UserController
+  component GoogleTasksController
+  component DisruptionController
+}
+
+rectangle "Services" {
+  package "journey" {
+    component JourneyPlanningService
+    component JourneyOptimizationService
+    component JourneyManagementService
+    component TaskOnRouteService
+  }
+  package "user" {
+    component UserService
+  }
+  package "disruption" {
+    component DisruptionReportingService
+  }
+  package "preferences" {
+    component JourneyPreferenceStrategy
+    component ComfortModeJourneyStrategy
+  }
+}
+
+rectangle "API Clients" as Clients {
+  component PrimApiClient
+  component GoogleApiClient
+}
+
+rectangle "Repositories" as Repos {
+  component JourneyRepository
+  component UserRepository
+  component UserTaskRepository
+  component DisruptionRepository
+}
+
+rectangle "External Services" {
+  component "PRIM API" as PRIM
+  component "Google Tasks API" as GoogleTasks
+  component "BAN Geocoding API" as BAN
+}
+
+component OAuth2AuthorizedClientService
+
 database "H2 Database" as DB
 
 Frontend --> Controllers : REST API
 Controllers --> Services
 Services --> Repos
 Services --> Clients
+Services --> OAuth2AuthorizedClientService
 Repos --> DB
 Clients --> PRIM
-Clients --> Google
-Clients --> Weather
+Clients --> GoogleTasks
+Clients --> BAN
 
 @enduml
 ----
 
 <<<
 
-=== Diagramme de classes - Modeles principaux
+=== Class Diagrams - Core Domain Models
 
-[plantuml, class-diagram, svg]
+==== Journey Hierarchy
+
+[plantuml, class-diagram-journey, svg]
+----
+@startuml
+
+class Journey {
+    -UUID id
+    -String originLabel
+    -String destinationLabel
+    -GeoPoint originCoordinate
+    -GeoPoint destinationCoordinate
+    -OffsetDateTime plannedDeparture
+    -OffsetDateTime plannedArrival
+    -OffsetDateTime actualDeparture
+    -OffsetDateTime actualArrival
+    -JourneyStatus status
+    -boolean comfortModeEnabled
+    -UUID namedComfortSettingId
+    -String primItineraryId
+    -int disruptionCount
+    +addSegment(segment)
+    +getAllPoints()
+    +getDisruptedPoints()
+}
+
+class JourneySegment {
+    -UUID id
+    -int sequenceOrder
+    -SegmentType segmentType
+    -TransitMode transitMode
+    -String primSectionId
+    -String lineCode
+    -String lineName
+    -String lineColor
+    -String networkName
+    -OffsetDateTime scheduledDeparture
+    -OffsetDateTime scheduledArrival
+    -Integer durationSeconds
+    -Integer distanceMeters
+    -Boolean hasAirConditioning
+    +addPoint(point)
+    +getDisruptedPoints()
+}
+
+class JourneyPoint {
+    -UUID id
+    -int sequenceInSegment
+    -JourneyPointType pointType
+    -String primStopPointId
+    -String primStopAreaId
+    -String name
+    -GeoPoint coordinates
+    -OffsetDateTime scheduledArrival
+    -OffsetDateTime scheduledDeparture
+    -JourneyPointStatus status
+    +isDisrupted()
+    +markDisrupted()
+}
+
+enum JourneyStatus {
+    PLANNED
+    IN_PROGRESS
+    REROUTED
+    COMPLETED
+    CANCELLED
+}
+
+enum SegmentType {
+    PUBLIC_TRANSPORT
+    TRANSFER
+    WAITING
+    WALKING
+    CROW_FLY
+}
+
+enum JourneyPointType {
+    ORIGIN
+    DESTINATION
+    TRANSFER_ARRIVAL
+    TRANSFER_DEPARTURE
+    INTERMEDIATE_STOP
+    WALKING_WAYPOINT
+}
+
+enum JourneyPointStatus {
+    NORMAL
+    DISRUPTED
+}
+
+Journey "1" --> "*" JourneySegment : segments
+JourneySegment "1" --> "*" JourneyPoint : points
+Journey --> JourneyStatus
+JourneySegment --> SegmentType
+JourneyPoint --> JourneyPointType
+JourneyPoint --> JourneyPointStatus
+
+@enduml
+----
+
+==== User and Comfort Profiles
+
+[plantuml, class-diagram-user, svg]
 ----
 @startuml
 
 class User {
-    -Long id
+    -UUID id
     -String email
+    -String displayName
+    -String googleAccountSubject
+    -String googleAccountEmail
+    -boolean comfortPromptSeen
+    -ComfortProfile comfortProfile
+    +linkGoogleAccount(subject, email)
+    +addNamedComfortSetting(name, profile)
+}
+
+class ComfortProfile <<Embeddable>> {
+    -String directPath
+    -Boolean requireAirConditioning
+    -Integer maxNbTransfers
+    -Integer maxWaitingDuration
+    -Integer maxWalkingDuration
+    -Boolean wheelchairAccessible
+    +hasSettings()
+    +isWheelchairAccessible()
+}
+
+class NamedComfortSetting {
+    -UUID id
     -String name
-    -String googleId
-    +getJourneys()
-    +getTasks()
+    -ComfortProfile comfortProfile
 }
 
-class Journey {
-    -Long id
-    -String departure
-    -String arrival
-    -LocalDateTime departureTime
-    -List<Leg> legs
-    +getDuration()
-    +getLegs()
-}
+User "1" *--> "1" ComfortProfile : embedded
+User "1" --> "*" NamedComfortSetting : namedComfortSettings
 
-class Leg {
-    -String mode
-    -String line
-    -String from
-    -String to
-    -Duration duration
-}
+@enduml
+----
+
+==== Tasks and Google Integration
+
+[plantuml, class-diagram-tasks, svg]
+----
+@startuml
 
 class UserTask {
-    -Long id
+    -UUID id
+    -String sourceTaskId
+    -TaskSource source
     -String title
-    -String description
-    -String location
-    -Boolean completed
+    -String notes
+    -OffsetDateTime dueAt
+    -boolean completed
+    -GeoPoint locationHint
+    -String locationQuery
+    -OffsetDateTime lastSyncedAt
 }
+
+enum TaskSource {
+    GOOGLE_TASKS
+    MANUAL
+}
+
+class User {
+    -UUID id
+    -String email
+    -String googleAccountSubject
+}
+
+User "1" --> "*" UserTask : tasks
+UserTask --> TaskSource
+
+note right of UserTask::locationQuery
+  Location extracted from
+  "#mavigo: Location Name"
+  tag in Google Tasks
+end note
+
+@enduml
+----
+
+==== Disruptions and Points of Interest
+
+[plantuml, class-diagram-disruption, svg]
+----
+@startuml
 
 class Disruption {
     -Long id
-    -String title
+    -DisruptionType disruptionType
+    -String affectedStopAreaId
+    -String affectedLineCode
+    -LocalDateTime createdAt
+    -LocalDateTime validUntil
+    +isStationDisruption()
+    +isLineDisruption()
+}
+
+enum DisruptionType {
+    STATION
+    LINE
+}
+
+class PointOfInterest {
+    -UUID id
+    -String name
     -String description
-    -String severity
-    -List<String> affectedLines
+    -GeoPoint coordinates
 }
 
-class TrafficAlert {
-    -Long id
-    -String message
-    -String type
-    -LocalDateTime timestamp
+class Journey {
+    -UUID id
+    -int disruptionCount
 }
 
-User "1" --> "*" Journey : possede
-User "1" --> "*" UserTask : cree
-Journey "1" --> "*" Leg : contient
-Disruption --> TrafficAlert : genere
+class User {
+    -UUID id
+}
+
+Journey "*" --> "*" Disruption : disruptions
+Journey "*" --> "*" PointOfInterest : pointOfInterests
+Disruption --> DisruptionType
+Disruption --> User : reportedBy
+Disruption --> Journey
 
 @enduml
 ----
 
 <<<
 
-=== Diagramme de sequence - Planification de trajet
+=== Sequence Diagrams
 
-[plantuml, sequence-journey, svg]
+==== Journey Planning with Comfort Profile
+
+[plantuml, sequence-journey-comfort, svg]
 ----
 @startuml
 
-actor Utilisateur
+actor User
 participant Frontend
 participant JourneyController
-participant JourneyService
+participant JourneyPlanningService
+participant ComfortModeJourneyStrategy
 participant PrimApiClient
 participant "PRIM API" as PRIM
 database "H2 DB" as DB
 
-Utilisateur -> Frontend : Saisir depart/arrivee
-Frontend -> JourneyController : POST /api/journey/plan
-JourneyController -> JourneyService : planJourney(request)
-JourneyService -> PrimApiClient : getJourneyPlan()
-PrimApiClient -> PRIM : HTTP Request
-PRIM --> PrimApiClient : Journey data
-PrimApiClient --> JourneyService : JourneyPlanDTO
-JourneyService -> DB : save(journey)
-JourneyService --> JourneyController : Journey
+User -> Frontend : Enter origin/destination\nEnable comfort mode
+Frontend -> JourneyController : POST /api/journeys\n{journey, preferences: {comfortMode: true}}
+JourneyController -> JourneyPlanningService : planAndPersist(parameters)
+JourneyPlanningService -> ComfortModeJourneyStrategy : applyPreferences(params, profile)
+ComfortModeJourneyStrategy -> ComfortModeJourneyStrategy : Add wheelchair=true\nAdd max_nb_transfers\nAdd max_duration_to_pt
+ComfortModeJourneyStrategy --> JourneyPlanningService : Modified parameters
+JourneyPlanningService -> PrimApiClient : getJourneys(params)
+PrimApiClient -> PRIM : HTTP GET /journeys\n?wheelchair=true&...
+PRIM --> PrimApiClient : Filtered journey data
+PrimApiClient --> JourneyPlanningService : List<Journey>
+JourneyPlanningService -> JourneyPlanningService : Build Journey entities\nwith JourneySegments\nand JourneyPoints
+JourneyPlanningService -> DB : save(journeys)
+JourneyPlanningService --> JourneyController : List<Journey>
 JourneyController --> Frontend : JSON Response
-Frontend --> Utilisateur : Afficher itineraire
+Frontend --> User : Display accessible routes
 
 @enduml
 ----
 
-=== Diagramme de sequence - Gestion des perturbations
+==== Task-Optimized Journey Planning
+
+[plantuml, sequence-journey-tasks, svg]
+----
+@startuml
+
+actor User
+participant Frontend
+participant JourneyController
+participant JourneyOptimizationService
+participant GoogleTasksController
+participant PrimApiClient
+participant TaskOnRouteService
+database DB
+
+User -> Frontend : Plan journey\nwith tasks
+Frontend -> GoogleTasksController : GET /api/google/tasks/users/{id}/for-journey
+GoogleTasksController -> GoogleTasksController : Extract #mavigo: tags\nGeocode locations
+GoogleTasksController --> Frontend : Tasks with coordinates
+Frontend -> JourneyController : POST /api/journeys\n{taskDetails: [...]}
+JourneyController -> JourneyOptimizationService : planOptimizedJourneyWithTaskDetails()
+JourneyOptimizationService -> JourneyOptimizationService : Generate waypoint permutations\n(origin → task1 → task2 → dest)
+loop For each permutation
+    JourneyOptimizationService -> PrimApiClient : Plan multi-leg journey
+    PrimApiClient --> JourneyOptimizationService : Journey data
+    JourneyOptimizationService -> JourneyOptimizationService : Calculate total duration
+end
+JourneyOptimizationService -> JourneyOptimizationService : Rank by duration\nReturn top 3
+JourneyOptimizationService -> DB : Save optimized journeys
+JourneyOptimizationService --> JourneyController : OptimizedResults
+JourneyController -> TaskOnRouteService : calculateTasksOnRoute(journey)
+TaskOnRouteService -> TaskOnRouteService : Densify polyline\nCheck proximity
+TaskOnRouteService --> JourneyController : TasksOnRoute
+JourneyController --> Frontend : Journeys with task info
+Frontend --> User : Display optimized routes
+
+@enduml
+----
+
+==== Disruption Reporting and Rerouting
 
 [plantuml, sequence-disruption, svg]
 ----
 @startuml
 
-actor Utilisateur
+actor User
 participant Frontend
-participant PerturbationController
-participant PerturbationService
-participant DisruptionClient
-participant "Disruption API" as API
+participant DisruptionController
+participant DisruptionReportingService
+participant JourneyPlanningService
+participant PrimApiClient
+database DB
 
-Utilisateur -> Frontend : Consulter perturbations
-Frontend -> PerturbationController : GET /api/perturbations
-PerturbationController -> PerturbationService : getPerturbations()
-PerturbationService -> DisruptionClient : fetchDisruptions()
-DisruptionClient -> API : HTTP Request
-API --> DisruptionClient : Disruption data
-DisruptionClient --> PerturbationService : List<Disruption>
-PerturbationService --> PerturbationController : Response
-PerturbationController --> Frontend : JSON
-Frontend --> Utilisateur : Afficher alertes
+User -> Frontend : Report station disruption
+Frontend -> DisruptionController : POST /journeys/{id}/disruptions/station\n{stopPointId: "..."}
+DisruptionController -> DisruptionReportingService : reportStationDisruption(journeyId, stopId)
+DisruptionReportingService -> DB : Load journey with segments
+DisruptionReportingService -> DisruptionReportingService : Find JourneyPoint by stopAreaId\nMark point as DISRUPTED
+DisruptionReportingService -> DB : Create Disruption entity\n(type: STATION)
+DisruptionReportingService -> DB : Update journey.disruptionCount
+DisruptionReportingService -> DisruptionReportingService : Find next point after disrupted
+DisruptionReportingService -> JourneyPlanningService : Reroute from next point to destination
+JourneyPlanningService -> PrimApiClient : GET /journeys (new route)
+PrimApiClient --> JourneyPlanningService : Alternative journey data
+JourneyPlanningService --> DisruptionReportingService : New journey
+DisruptionReportingService -> DB : Save rerouted journey\n(status: REROUTED)
+DisruptionReportingService --> DisruptionController : RerouteResult
+DisruptionController --> Frontend : {reroutedJourney, disruption}
+Frontend --> User : Show alternative route
+
+@enduml
+----
+
+==== Google Tasks OAuth2 and Task Linking
+
+[plantuml, sequence-google-oauth, svg]
+----
+@startuml
+
+actor User
+participant Frontend
+participant "Google OAuth" as OAuth
+participant GoogleTasksController
+participant UserService
+participant OAuth2AuthorizedClientService
+database DB
+
+User -> Frontend : Click "Link Google Tasks"
+Frontend -> Frontend : window.open(/oauth2/authorization/google\n?redirect=/api/google/tasks/link?userId=...)
+Frontend -> OAuth : Redirect to Google
+OAuth -> User : Login prompt
+User -> OAuth : Authenticate & grant permissions
+OAuth -> GoogleTasksController : Callback: GET /link?userId=xxx\n(with OAuth2Principal)
+GoogleTasksController -> UserService : linkGoogleAccount(userId, {subject, email})
+UserService -> DB : Update user.googleAccountSubject
+UserService -> OAuth2AuthorizedClientService : Store authorized client\n(principal = subject)
+UserService --> GoogleTasksController : Updated User
+GoogleTasksController --> Frontend : HTML success page\n+ postMessage event
+Frontend -> Frontend : Close popup\nReceive link confirmation
+Frontend -> User : "Google Tasks linked!"
+
+note over Frontend, DB
+  Future task fetches use:
+  OAuth2AuthorizedClient client =
+    authorizedClientService.loadAuthorizedClient("google", user.googleAccountSubject)
+end note
 
 @enduml
 ----
 
 <<<
 
-=== Structure des packages
+=== Package Structure
 
 [plantuml, package-structure, svg]
 ----
@@ -261,22 +739,29 @@ package "org.marly.mavigo" {
         class JourneyController
         class UserController
         class GoogleTasksController
-        class PerturbationController
-        class AuthController
+        class DisruptionController
     }
 
     package "service" {
         package "journey" {
-            class JourneyService
+            class JourneyPlanningService
+            class JourneyPlanningServiceImpl
+            class JourneyOptimizationService
+            class JourneyManagementService
+            class TaskOnRouteService
+            package "preferences" {
+                interface JourneyPreferenceStrategy
+                class ComfortModeJourneyStrategy
+            }
         }
         package "user" {
             class UserService
         }
         package "tasks" {
-            class TaskService
+            class GoogleTaskMapper
         }
-        package "perturbation" {
-            class PerturbationService
+        package "disruption" {
+            class DisruptionReportingService
         }
     }
 
@@ -287,148 +772,1090 @@ package "org.marly.mavigo" {
         package "google" {
             class GoogleApiClient
         }
-        package "disruption" {
-            class DisruptionClient
-        }
     }
 
     package "models" {
-        class User
-        class Journey
-        class UserTask
-        class Disruption
+        package "user" {
+            class User
+            class ComfortProfile <<Embeddable>>
+            class NamedComfortSetting
+        }
+        package "journey" {
+            class Journey
+            class JourneySegment
+            class JourneyPoint
+            enum JourneyStatus
+            enum SegmentType
+            enum JourneyPointType
+            enum JourneyPointStatus
+            enum TransitMode
+        }
+        package "task" {
+            class UserTask
+            enum TaskSource
+        }
+        package "disruption" {
+            class Disruption
+            enum DisruptionType
+        }
+        package "poi" {
+            class PointOfInterest
+        }
+        package "shared" {
+            class GeoPoint <<Embeddable>>
+        }
     }
 
     package "repository" {
         interface UserRepository
         interface JourneyRepository
         interface UserTaskRepository
+        interface DisruptionRepository
+        interface NamedComfortSettingRepository
+        interface PointOfInterestRepository
     }
 }
 
 @enduml
 ----
 
-== Endpoints API
+<<<
 
-=== Journey API
+=== Journey Filtering Strategy Pattern
+
+The application uses the **Strategy Pattern** to apply user preferences to journey planning. This allows flexible filtering of PRIM API results based on comfort profiles, accessibility needs, and other criteria.
+
+==== Architecture
+
+[plantuml, strategy-pattern, svg]
+----
+@startuml
+
+interface JourneyPreferenceStrategy {
+    +applyPreferences(params, profile): Map<String, String>
+}
+
+class ComfortModeJourneyStrategy {
+    +applyPreferences(params, profile): Map<String, String>
+}
+
+class JourneyPlanningServiceImpl {
+    -Map<String, JourneyPreferenceStrategy> strategies
+    +planAndPersist(parameters): List<Journey>
+}
+
+class ComfortProfile {
+    +wheelchairAccessible: Boolean
+    +requireAirConditioning: Boolean
+    +maxNbTransfers: Integer
+    +maxWaitingDuration: Integer
+    +maxWalkingDuration: Integer
+    +directPath: String
+}
+
+JourneyPreferenceStrategy <|.. ComfortModeJourneyStrategy
+JourneyPlanningServiceImpl --> JourneyPreferenceStrategy : uses
+ComfortModeJourneyStrategy --> ComfortProfile : reads
+
+@enduml
+----
+
+==== Comfort Parameters Applied to PRIM API
+
+When comfort mode is enabled, the `ComfortModeJourneyStrategy` transforms user preferences into PRIM API query parameters:
+
+[cols="1,2,2", options="header"]
+|===
+|Comfort Setting |PRIM Parameter |Description
+
+|`wheelchairAccessible = true`
+|`wheelchair=true`
+|Only return wheelchair-accessible routes
+
+|`maxNbTransfers`
+|`max_nb_transfers=N`
+|Limit the number of transfers in a journey
+
+|`maxWaitingDuration` (seconds)
+|`max_duration_to_pt=N`
+|Maximum walking time to first public transport stop
+
+|`maxWalkingDuration` (seconds)
+|`max_walking_duration_to_pt=N`
+|Maximum total walking duration in journey
+
+|`directPath = "only"`
+|`direct_path=only`
+|Prefer direct routes without transfers
+
+|`requireAirConditioning = true`
+|*(post-filter)*
+|Filter out segments without AC (applied after PRIM response)
+|===
+
+==== Filtering Workflow
+
+1. **User Request**: Frontend sends journey planning request with `comfortMode: true` or `namedComfortSettingId`
+2. **Load Profile**: Service loads user's `ComfortProfile` or named setting
+3. **Strategy Selection**: `JourneyPlanningServiceImpl` selects `ComfortModeJourneyStrategy`
+4. **Parameter Transformation**: Strategy converts profile settings to PRIM API parameters
+5. **API Call**: Enhanced parameters sent to PRIM API
+6. **Post-filtering**: Air conditioning requirement applied to returned journeys
+7. **Persistence**: Filtered journeys saved with `comfortModeEnabled = true`
+
+<<<
+
+=== Task Optimization Algorithm
+
+The **Task Optimization** feature allows users to plan journeys that pass by locations where they have pending Google Tasks. This enables efficient multi-stop route planning.
+
+==== Task-on-Route Detection
+
+The `TaskOnRouteService` determines if a task location is "on the route" of a planned journey:
+
+1. **Extract Route Points**: Get all `JourneyPoint` coordinates from journey segments
+2. **Polyline Densification**: Insert intermediate points every ~200m to avoid gaps
+3. **Proximity Calculation**: For each task location, find minimum distance to polyline
+4. **Radius Threshold**:
+   - **300m** for well-defined routes (many points)
+   - **900m** for sparse routes (≤3 points) to avoid false negatives
+
+[source,java]
+----
+// From JourneyController.java:134-162
+double BASE_RADIUS_METERS = 300.0;
+var baseRoutePoints = taskOnRouteService.extractRoutePoints(journey);
+var polyline = taskOnRouteService.densify(baseRoutePoints, 200);
+double radius = (polyline == null || polyline.size() <= 3) ? 900.0 : BASE_RADIUS_METERS;
+
+tasksOnRoute = tasks.stream()
+    .filter(t -> t.getLocationHint() != null)
+    .map(t -> {
+        double d = taskOnRouteService.minDistanceMetersToPolyline(t.getLocationHint(), polyline);
+        return (d <= radius) ? JourneyResponse.fromTask(t, d) : null;
+    })
+    .filter(Objects::nonNull)
+    .toList();
+----
+
+==== Multi-Waypoint Optimization
+
+The `JourneyOptimizationService` plans optimized routes through multiple task locations:
+
+[plantuml, optimization-flow, svg]
+----
+@startuml
+
+start
+
+:User provides origin, destination, and task list;
+
+:Generate waypoint permutations\n(e.g., O→T1→T2→D, O→T2→T1→D);
+
+partition "For each permutation" {
+  :Split into legs:\n- O to Task1\n- Task1 to Task2\n- Task2 to D;
+
+  fork
+    :Plan journey leg 1;
+  fork again
+    :Plan journey leg 2;
+  fork again
+    :Plan journey leg 3;
+  end fork
+
+  if (All legs successful?) then (yes)
+    :Combine legs into single journey;
+    :Calculate total duration;
+    :Store result;
+  else (no)
+    :Discard permutation;
+  endif
+}
+
+:Rank permutations by total duration;
+
+:Return top 3 results;
+
+stop
+
+@enduml
+----
+
+==== Time Delta Calculation
+
+Each optimized journey includes:
+
+* **Base Duration**: Estimated time for direct route (origin → destination, no tasks)
+* **Total Duration**: Actual time including all task waypoints
+* **Added Time per Task**: `(totalDuration - baseDuration) / numberOfTasks`
+
+This information helps users decide if the detour is worthwhile.
+
+<<<
+
+=== Disruption Management
+
+The disruption management system allows users to report issues during their journeys and receive alternative routes.
+
+==== Disruption Types
+
+[cols="1,2,2", options="header"]
+|===
+|Type |Scope |Example
+
+|**STATION**
+|Specific stop/station
+|"Station Châtelet is closed due to incident"
+
+|**LINE**
+|Entire transit line
+|"Line 1 is experiencing delays"
+|===
+
+==== Disruption Reporting Workflow
+
+1. **User Reports**: During journey, user reports disruption (station or line)
+2. **Point Marking**: System finds corresponding `JourneyPoint` and marks status as `DISRUPTED`
+3. **Disruption Entity**: Creates `Disruption` record with:
+   - Type (STATION/LINE)
+   - Affected stop area ID or line code
+   - Reporter (user)
+   - Timestamp
+4. **Update Count**: Increments `journey.disruptionCount`
+5. **Find Continuation Point**: Identifies next valid point after disruption
+6. **Reroute**: Requests new journey from continuation point to final destination
+7. **Create Alternative**: Saves new journey with status `REROUTED`
+
+==== Point-Level Disruption Tracking
+
+Unlike traditional disruption systems that mark entire journeys as affected, Mavigo tracks disruptions at the individual point level:
+
+* **Granularity**: Each `JourneyPoint` has a `status` field (NORMAL or DISRUPTED)
+* **Precision**: Exactly which stop/station is affected is recorded
+* **History**: Disrupted points remain in the journey history for debugging
+* **Rerouting Context**: System knows exactly where to resume journey planning
+
+==== Rerouting Process
+
+[source,java]
+----
+// From DisruptionReportingService pattern:
+1. Mark point as DISRUPTED
+2. Create Disruption entity
+3. Find next point: journey.getNextPointAfter(disruptedPoint)
+4. Plan new route: nextPoint.coordinates → journey.destination
+5. Save new journey with status = REROUTED
+6. Return both disruption info and new journey to user
+----
+
+The user receives:
+* **Original Journey**: With disrupted point marked (for reference)
+* **Rerouted Journey**: New route avoiding the disruption
+* **Disruption Details**: What was reported, when, by whom
+
+== API Endpoints
+
+=== Journey Planning API
 
 [cols="1,2,3", options="header"]
 |===
-|Methode |Endpoint |Description
+|Method |Endpoint |Description
 
 |POST
-|`/api/journey/plan`
-|Planifier un nouveau trajet
+|`/api/journeys`
+|Plan a new journey with optional comfort filtering and task optimization
 
 |GET
-|`/api/journey/{id}`
-|Obtenir les details d'un trajet
-
-|GET
-|`/api/journey/user`
-|Lister les trajets de l'utilisateur
-|===
-
-=== User API
-
-[cols="1,2,3", options="header"]
-|===
-|Methode |Endpoint |Description
-
-|GET
-|`/api/user/profile`
-|Obtenir le profil utilisateur
-
-|PUT
-|`/api/user/preferences`
-|Mettre a jour les preferences
-|===
-
-=== Tasks API
-
-[cols="1,2,3", options="header"]
-|===
-|Methode |Endpoint |Description
-
-|GET
-|`/api/tasks`
-|Lister les taches
+|`/api/journeys/{id}`
+|Retrieve journey details by ID
 
 |POST
-|`/api/tasks`
-|Creer une nouvelle tache
+|`/api/journeys/{id}/start`
+|Mark journey as IN_PROGRESS (sets actualDeparture timestamp)
+
+|POST
+|`/api/journeys/{id}/complete`
+|Mark journey as COMPLETED (sets actualArrival timestamp)
+
+|POST
+|`/api/journeys/{id}/cancel`
+|Mark journey as CANCELLED
+|===
+
+==== Example: Plan Journey with Comfort Profile
+
+**Request:**
+[source,json]
+----
+POST /api/journeys
+{
+  "journey": {
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "originQuery": "Gare de Lyon",
+    "destinationQuery": "Châtelet",
+    "departureTime": "2026-01-30T14:30:00"
+  },
+  "preferences": {
+    "comfortMode": true
+  }
+}
+----
+
+**Response:**
+[source,json]
+----
+[
+  {
+    "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "originLabel": "Gare de Lyon",
+    "destinationLabel": "Châtelet",
+    "plannedDeparture": "2026-01-30T14:30:00+01:00",
+    "plannedArrival": "2026-01-30T14:47:00+01:00",
+    "status": "PLANNED",
+    "comfortModeEnabled": true,
+    "segments": [
+      {
+        "sequenceOrder": 0,
+        "segmentType": "PUBLIC_TRANSPORT",
+        "lineCode": "14",
+        "lineName": "Métro 14",
+        "hasAirConditioning": true,
+        "points": [...]
+      }
+    ],
+    "tasksOnRoute": []
+  }
+]
+----
+
+==== Example: Plan Journey with Tasks
+
+**Request:**
+[source,json]
+----
+POST /api/journeys
+{
+  "journey": {
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "originQuery": "République",
+    "destinationQuery": "Nation",
+    "departureTime": "2026-01-30T15:00:00",
+    "taskDetails": [
+      {
+        "id": "task-123",
+        "title": "Buy groceries",
+        "locationQuery": "Gare de Lyon",
+        "locationHint": {"lat": 48.8443, "lng": 2.3730}
+      }
+    ]
+  }
+}
+----
+
+**Response includes:**
+[source,json]
+----
+[
+  {
+    "id": "...",
+    "includedTasks": [
+      {
+        "taskId": "task-123",
+        "title": "Buy groceries",
+        "locationQuery": "Gare de Lyon",
+        "addedTimeSeconds": 420
+      }
+    ],
+    "baseDurationSeconds": 1200,
+    "totalDurationSeconds": 1620
+  }
+]
+----
+
+<<<
+
+=== Comfort Profile API
+
+[cols="1,2,3", options="header"]
+|===
+|Method |Endpoint |Description
+
+|GET
+|`/api/users/{userId}/comfort-profile`
+|Get user's default comfort profile
 
 |PUT
-|`/api/tasks/{id}`
-|Modifier une tache
+|`/api/users/{userId}/comfort-profile`
+|Update default comfort profile
 
 |DELETE
-|`/api/tasks/{id}`
-|Supprimer une tache
+|`/api/users/{userId}/comfort-profile`
+|Reset comfort profile to defaults
+
+|GET
+|`/api/users/{userId}/comfort-settings`
+|List all named comfort settings
+
+|POST
+|`/api/users/{userId}/comfort-settings`
+|Create a new named comfort setting
+
+|PUT
+|`/api/users/{userId}/comfort-settings/{settingId}`
+|Update a named comfort setting
+
+|DELETE
+|`/api/users/{userId}/comfort-settings/{settingId}`
+|Delete a named comfort setting
+
+|POST
+|`/api/users/{userId}/comfort-prompt-seen`
+|Mark that user has seen comfort profile prompt
 |===
 
-=== Perturbations API
+==== Example: Update Comfort Profile
+
+**Request:**
+[source,json]
+----
+PUT /api/users/{userId}/comfort-profile
+{
+  "wheelchairAccessible": true,
+  "requireAirConditioning": true,
+  "maxNbTransfers": 2,
+  "maxWalkingDuration": 600,
+  "maxWaitingDuration": 300,
+  "directPath": "indifferent"
+}
+----
+
+**Response:**
+[source,json]
+----
+{
+  "wheelchairAccessible": true,
+  "requireAirConditioning": true,
+  "maxNbTransfers": 2,
+  "maxWalkingDuration": 600,
+  "maxWaitingDuration": 300,
+  "directPath": "indifferent"
+}
+----
+
+==== Example: Create Named Comfort Setting
+
+**Request:**
+[source,json]
+----
+POST /api/users/{userId}/comfort-settings
+{
+  "name": "Accessibility Priority",
+  "comfortProfile": {
+    "wheelchairAccessible": true,
+    "maxNbTransfers": 1,
+    "maxWalkingDuration": 300
+  }
+}
+----
+
+<<<
+
+=== Google Tasks Integration API
 
 [cols="1,2,3", options="header"]
 |===
-|Methode |Endpoint |Description
+|Method |Endpoint |Description
 
 |GET
-|`/api/perturbations`
-|Obtenir les perturbations actuelles
+|`/api/google/tasks/link?userId={id}`
+|Link Google account (OAuth2 callback endpoint)
 
 |GET
-|`/api/perturbations/line/{lineId}`
-|Perturbations pour une ligne specifique
+|`/api/google/tasks/users/{userId}/lists`
+|List user's Google Task lists
+
+|GET
+|`/api/google/tasks/users/{userId}/default-list`
+|Get default task list (first list)
+
+|GET
+|`/api/google/tasks/users/{userId}/lists/{listId}/tasks`
+|Get tasks from a specific list with location enrichment
+
+|GET
+|`/api/google/tasks/users/{userId}/for-journey`
+|Get tasks suitable for journey optimization (with #mavigo: tags)
+
+|GET
+|`/api/google/tasks/users/{userId}/local`
+|Get locally stored tasks
+
+|POST
+|`/api/google/tasks/users/{userId}/lists/{listId}/tasks`
+|Create a new task with optional location
+
+|PATCH
+|`/api/google/tasks/users/{userId}/lists/{listId}/tasks/{taskId}/complete`
+|Mark task as completed
+
+|DELETE
+|`/api/google/tasks/users/{userId}/lists/{listId}/tasks/{taskId}`
+|Delete a task
+
+|GET
+|`/api/google/tasks/me`
+|Debug: Get current OAuth2 user info
+
+|GET
+|`/api/google/tasks/token`
+|Debug: Get OAuth2 token details
 |===
 
-== Guide d'installation
+==== Location Tag Syntax
 
-=== Prerequis
+To associate a task with a location, add `#mavigo: Location Name` to the task notes or title:
 
-* Java 21 ou superieur
-* Gradle 9.1+ (ou utiliser le wrapper inclus)
-* Compte Google pour OAuth2 (optionnel)
-* Cle API PRIM
+**Example:**
+```
+Title: Buy milk
+Notes: Get organic milk from the store near the station
+#mavigo: Gare de Lyon
+```
 
-=== Installation
+The system will:
+1. Extract "Gare de Lyon" from the tag
+2. Geocode it using PRIM/BAN APIs
+3. Store coordinates in `UserTask.locationHint`
+4. Use it for task-on-route detection and journey optimization
+
+==== Example: Create Task with Location
+
+**Request:**
+[source,json]
+----
+POST /api/google/tasks/users/{userId}/lists/{listId}/tasks
+{
+  "title": "Pick up package",
+  "notes": "At the post office",
+  "locationQuery": "Gare du Nord",
+  "due": "2026-02-01"
+}
+----
+
+**Response:**
+[source,json]
+----
+{
+  "id": "google-task-xyz",
+  "title": "Pick up package",
+  "notes": "At the post office",
+  "localTaskId": "550e8400-e29b-41d4-a716-446655440001",
+  "locationResolved": true,
+  "locationLat": 48.8809,
+  "locationLng": 2.3553,
+  "status": "needsAction"
+}
+----
+
+<<<
+
+=== Disruption Reporting API
+
+[cols="1,2,3", options="header"]
+|===
+|Method |Endpoint |Description
+
+|GET
+|`/api/journeys/{journeyId}/lines`
+|Get all lines used in this journey
+
+|GET
+|`/api/journeys/{journeyId}/stops`
+|Get all stops in this journey
+
+|POST
+|`/api/journeys/{journeyId}/disruptions/station`
+|Report a station disruption and get reroute
+
+|POST
+|`/api/journeys/{journeyId}/disruptions/line`
+|Report a line disruption and get reroute
+|===
+
+==== Example: Report Station Disruption
+
+**Request:**
+[source,json]
+----
+POST /api/journeys/{journeyId}/disruptions/station
+{
+  "stopPointId": "stop_point:IDFM:71234"
+}
+----
+
+**Response:**
+[source,json]
+----
+{
+  "disruption": {
+    "id": 42,
+    "type": "STATION",
+    "affectedStopAreaId": "stop_area:IDFM:71234",
+    "createdAt": "2026-01-30T14:35:12"
+  },
+  "reroutedJourney": {
+    "id": "new-journey-uuid",
+    "status": "REROUTED",
+    "originLabel": "Next valid stop",
+    "destinationLabel": "Original destination",
+    "segments": [...]
+  },
+  "originalJourney": {
+    "id": "original-journey-uuid",
+    "disruptedPoints": [
+      {
+        "id": "point-uuid",
+        "name": "Châtelet",
+        "status": "DISRUPTED"
+      }
+    ]
+  }
+}
+----
+
+<<<
+
+=== User Management API
+
+[cols="1,2,3", options="header"]
+|===
+|Method |Endpoint |Description
+
+|POST
+|`/api/users`
+|Create a new user
+
+|POST
+|`/api/users/login`
+|Login with email (simplified auth)
+
+|GET
+|`/api/users/{userId}`
+|Get user details
+
+|PUT
+|`/api/users/{userId}`
+|Update user information
+
+|DELETE
+|`/api/users/{userId}`
+|Delete user account
+|===
+
+==== Example: Create User
+
+**Request:**
+[source,json]
+----
+POST /api/users
+{
+  "email": "user@example.com",
+  "displayName": "John Doe"
+}
+----
+
+**Response:**
+[source,json]
+----
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "email": "user@example.com",
+  "displayName": "John Doe",
+  "googleAccountLinked": false,
+  "comfortPromptSeen": false
+}
+----
+
+<<<
+
+== Google Tasks Integration
+
+=== Overview
+
+Mavigo integrates with Google Tasks API v1 to allow users to:
+
+* Link their Google account via OAuth2
+* View and manage their Google Tasks within Mavigo
+* Tag tasks with locations using `#mavigo: Location Name` syntax
+* Plan journeys that include task locations as waypoints
+* Get notified when tasks are near their planned routes
+
+=== OAuth2 Configuration
+
+==== Required Google Cloud Setup
+
+1. **Create a Google Cloud Project**: https://console.cloud.google.com/
+2. **Enable Google Tasks API**: In APIs & Services → Library → Search "Tasks API"
+3. **Create OAuth2 Credentials**:
+   - Navigate to APIs & Services → Credentials
+   - Create OAuth 2.0 Client ID
+   - Application type: Web application
+   - Authorized redirect URIs:
+     * `http://localhost:8080/login/oauth2/code/google` (development)
+     * `https://your-domain.com/login/oauth2/code/google` (production)
+
+4. **Note your credentials**:
+   - Client ID: `your-client-id.apps.googleusercontent.com`
+   - Client Secret: `your-client-secret`
+
+==== Application Configuration
+
+Add to `application.properties` or environment variables:
+
+[source,properties]
+----
+# Google OAuth2
+spring.security.oauth2.client.registration.google.client-id=${GOOGLE_CLIENT_ID}
+spring.security.oauth2.client.registration.google.client-secret=${GOOGLE_CLIENT_SECRET}
+spring.security.oauth2.client.registration.google.scope=openid,profile,email,https://www.googleapis.com/auth/tasks
+spring.security.oauth2.client.registration.google.redirect-uri={baseUrl}/login/oauth2/code/{registrationId}
+
+# Google Tasks API Base URL
+google.tasks.api.base-url=https://tasks.googleapis.com/tasks/v1
+----
+
+=== OAuth2 Flow
+
+[plantuml, oauth-flow-detailed, svg]
+----
+@startuml
+
+actor User
+participant "Frontend" as FE
+participant "Spring Security" as SS
+participant "Google OAuth" as Google
+participant "GoogleTasksController" as GTC
+participant "OAuth2AuthorizedClientService" as OACS
+database DB
+
+User -> FE : Click "Link Google Tasks"
+FE -> SS : Redirect to /oauth2/authorization/google\n?redirect_uri=/api/google/tasks/link?userId=X
+SS -> Google : Authorization request\n(scope: tasks, profile, email)
+Google -> User : Login & consent screen
+User -> Google : Grant permissions
+Google -> SS : Authorization code callback
+SS -> Google : Exchange code for tokens
+Google --> SS : Access token + Refresh token
+SS -> GTC : Continue to redirect_uri\n(with OAuth2Principal)
+GTC -> GTC : Extract subject from principal
+GTC -> DB : Update user.googleAccountSubject = subject
+GTC -> OACS : Store authorized client\n(principal = subject)
+GTC --> FE : Success HTML + postMessage
+FE -> User : "Google Tasks linked!"
+
+note over OACS, DB
+  Tokens are stored by Spring Security
+  and automatically refreshed when expired.
+  The subject (Google user ID) is used as
+  the principal name for client lookup.
+end note
+
+@enduml
+----
+
+=== Location Tag Processing
+
+==== Syntax
+
+Add `#mavigo: Location Name` anywhere in task notes or title:
+
+**Examples:**
+```
+Title: Buy milk #mavigo: Gare de Lyon
+Notes: Pick up dry cleaning at the shop near station #mavigo: Châtelet
+```
+
+==== Processing Workflow
+
+1. **Tag Extraction**: Regex pattern `(?i)#mavigo:\s*([^\n#]+)` extracts location
+2. **Geocoding**: Location query sent to PRIM API's `/places` endpoint
+3. **Coordinate Storage**: First valid result stored in `UserTask.locationHint`
+4. **Error Handling**: If geocoding fails, task is saved without coordinates (non-blocking)
+
+[source,java]
+----
+// From GoogleTasksController.java:258-277
+private String extractLocationTag(TaskDto dto) {
+    Pattern LOCATION_TAG = Pattern.compile("(?i)#mavigo:\\s*([^\\n#]+)");
+    String notes = dto.notes() == null ? "" : dto.notes();
+    String title = dto.title() == null ? "" : dto.title();
+
+    // Check notes first, then title
+    Matcher m = LOCATION_TAG.matcher(notes);
+    if (m.find()) return m.group(1).trim();
+
+    m = LOCATION_TAG.matcher(title);
+    if (m.find()) return m.group(1).trim();
+
+    return null;
+}
+----
+
+=== Synchronization Strategy
+
+* **Pull-based**: Frontend requests tasks from Google via Mavigo backend
+* **On-demand geocoding**: Location tags processed during fetch
+* **Local cache**: `UserTask` entities store geocoded coordinates
+* **Lazy refresh**: No automatic polling; user triggers sync by viewing tasks
+* **Bi-directional**: Changes in Google Tasks (completion, deletion) sync to local DB
+
+=== Security Considerations
+
+* **Token Storage**: OAuth2 tokens stored in `OAuth2AuthorizedClientService` (in-memory or JDBC-backed)
+* **Token Refresh**: Spring Security automatically refreshes expired access tokens using refresh token
+* **Principal Isolation**: Each user's Google account identified by unique `subject` claim
+* **Scope Limitation**: Only requests necessary scopes (`tasks`, `profile`, `email`)
+
+== Installation Guide
+
+=== Prerequisites
+
+* **Java 21** or higher (LTS version recommended)
+* **Gradle 9.1+** (or use included Gradle wrapper)
+* **PRIM API access**: Contact Ile-de-France Mobilités for API credentials
+* **Google Cloud account**: For OAuth2 and Google Tasks integration (optional but recommended)
+* **Git**: For cloning the repository
+
+=== Quick Start
 
 [source,bash]
 ----
-# Cloner le repository
+# Clone the repository
 git clone https://github.com/Aminmiri82/devops-project-MARLY.git
-cd devops-project-MARLY
+cd devops-project-MARLY/Mavigo
 
-# Configurer les variables d'environnement
-cd Mavigo
+# Copy environment template
 cp local.env.example local.env
-# Editer local.env avec vos cles API
 
-# Lancer l'application
+# Edit local.env with your API keys (see Configuration section below)
+nano local.env
+
+# Run the application
 ./gradlew bootRun
 ----
 
-L'application sera disponible sur http://localhost:8080
+The application will be available at **http://localhost:8080**
 
-=== Build
+=== Configuration
+
+==== Required Environment Variables
+
+Create a `local.env` file in the `Mavigo/` directory with the following variables:
 
 [source,bash]
 ----
-# Construire le JAR
+# PRIM API (Required)
+PRIM_API_KEY=your-prim-api-key-here
+PRIM_API_BASE_URL=https://prim.iledefrance-mobilites.fr/marketplace/v2
+
+# Google OAuth2 (Required for Google Tasks integration)
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+# Database (H2 in-memory - default)
+SPRING_DATASOURCE_URL=jdbc:h2:mem:mavigodb
+SPRING_DATASOURCE_USERNAME=sa
+SPRING_DATASOURCE_PASSWORD=
+
+# Application Server
+SERVER_PORT=8080
+SPRING_PROFILES_ACTIVE=dev
+----
+
+==== API Keys Setup
+
+===== PRIM API
+
+1. **Request access**: Contact https://prim.iledefrance-mobilites.fr/
+2. **Create an application**: Register your app in their marketplace
+3. **Get API key**: Copy the generated API key
+4. **Set environment variable**: Add to `local.env` as `PRIM_API_KEY`
+
+===== Google OAuth2
+
+Follow the steps in **Section 6 - Google Tasks Integration** to:
+
+1. Create Google Cloud project
+2. Enable Tasks API
+3. Create OAuth2 credentials
+4. Configure redirect URIs:
+   - Development: `http://localhost:8080/login/oauth2/code/google`
+   - Production: `https://your-domain.com/login/oauth2/code/google`
+5. Add Client ID and Secret to `local.env`
+
+==== Optional Configuration
+
+[source,bash]
+----
+# Logging
+LOGGING_LEVEL_ORG_MARLY_MAVIGO=DEBUG
+LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY=DEBUG
+
+# OAuth2 Client Service (for production)
+# Use JDBC instead of in-memory storage
+SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_SCOPE=openid,profile,email,https://www.googleapis.com/auth/tasks
+
+# Google Tasks API
+GOOGLE_TASKS_API_BASE_URL=https://tasks.googleapis.com/tasks/v1
+----
+
+=== Building the Application
+
+[source,bash]
+----
+# Build JAR file
 ./gradlew build
 
-# Le JAR sera dans build/libs/
+# Skip tests during build
+./gradlew build -x test
+
+# The JAR will be in build/libs/mavigo-0.2.0.jar
 ----
 
-=== Tests
+=== Running Tests
 
 [source,bash]
 ----
-# Executer les tests
+# Run all tests
 ./gradlew test
+
+# Run specific test class
+./gradlew test --tests "JourneyPlanningServiceTest"
+
+# Run with coverage report
+./gradlew test jacocoTestReport
+# Coverage report: build/reports/jacoco/test/html/index.html
 ----
 
-== Licence
+=== Deployment
 
-Ce projet est sous licence Apache 2.0. Voir le fichier LICENSE pour plus de details.
+==== Local Development
+
+[source,bash]
+----
+# Run with live reload (using Spring DevTools)
+./gradlew bootRun
+
+# Run with specific profile
+./gradlew bootRun --args='--spring.profiles.active=dev'
+----
+
+==== Production
+
+[source,bash]
+----
+# Build production JAR
+./gradlew clean build -Pproduction
+
+# Run the JAR
+java -jar build/libs/mavigo-0.2.0.jar
+
+# With environment variables
+PRIM_API_KEY=xxx GOOGLE_CLIENT_ID=yyy java -jar build/libs/mavigo-0.2.0.jar
+----
+
+==== Docker (Optional)
+
+[source,dockerfile]
+----
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY build/libs/mavigo-0.2.0.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+----
+
+[source,bash]
+----
+# Build Docker image
+docker build -t mavigo:0.2.0 .
+
+# Run container
+docker run -p 8080:8080 \
+  -e PRIM_API_KEY=xxx \
+  -e GOOGLE_CLIENT_ID=yyy \
+  -e GOOGLE_CLIENT_SECRET=zzz \
+  mavigo:0.2.0
+----
+
+=== Troubleshooting
+
+==== Common Issues
+
+**1. PRIM API 401 Unauthorized**
+```
+Solution: Verify PRIM_API_KEY is correct and has not expired
+Check: logs for "PRIM unauthorized" messages
+```
+
+**2. Google OAuth2 redirect mismatch**
+```
+Error: redirect_uri_mismatch
+Solution: Ensure redirect URI in Google Cloud Console exactly matches:
+  http://localhost:8080/login/oauth2/code/google
+```
+
+**3. H2 Database console not accessible**
+```
+Solution: Add to application.properties:
+  spring.h2.console.enabled=true
+Access at: http://localhost:8080/h2-console
+JDBC URL: jdbc:h2:mem:mavigodb
+```
+
+**4. Port 8080 already in use**
+```
+Solution: Change port in local.env:
+  SERVER_PORT=8081
+Or kill existing process:
+  lsof -ti:8080 | xargs kill -9
+```
+
+== License
+
+This project is licensed under the Apache License 2.0. See the LICENSE file for more details.
+
+<<<
+
+== Appendix
+
+=== Architecture Evolution
+
+This documentation reflects **Mavigo v0.2**, which represents a major architectural evolution from v0.1:
+
+**Key Changes:**
+
+* **Journey Model**: Migrated from simple `Journey → List<Leg>` to three-tier `Journey → JourneySegment → JourneyPoint` hierarchy
+* **Comfort Profiles**: Added comprehensive accessibility and comfort filtering system
+* **Google Integration**: Full OAuth2 integration with Tasks API and location tagging
+* **Disruption System**: Point-level disruption tracking with automatic rerouting
+* **Task Optimization**: Multi-waypoint journey planning for task locations
+
+=== Entity Counts
+
+* **Core Entities**: 10 (User, Journey, JourneySegment, JourneyPoint, UserTask, Disruption, PointOfInterest, NamedComfortSetting, ComfortProfile, GeoPoint)
+* **Enums**: 6 (JourneyStatus, SegmentType, JourneyPointType, JourneyPointStatus, TransitMode, DisruptionType, TaskSource)
+* **Controllers**: 4 (JourneyController, UserController, GoogleTasksController, DisruptionController)
+* **Services**: 10+ major service classes
+* **API Endpoints**: ~50 endpoints across 5 categories
+
+=== Contact and Support
+
+* **Repository**: https://github.com/Aminmiri82/devops-project-MARLY
+* **Issues**: https://github.com/Aminmiri82/devops-project-MARLY/issues
+* **PRIM API Documentation**: https://prim.iledefrance-mobilites.fr/
+* **Google Tasks API**: https://developers.google.com/tasks
+
+'''
+
+_Generated on {last-updated} for Mavigo v{version}_
