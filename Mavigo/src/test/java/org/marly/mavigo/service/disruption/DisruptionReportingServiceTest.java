@@ -2,6 +2,7 @@ package org.marly.mavigo.service.disruption;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -117,8 +118,8 @@ class DisruptionReportingServiceTest {
     void reportStationDisruptionMarksPointAsDisrupted() {
         Journey journey = new Journey(user, "A", "B", OffsetDateTime.now(), OffsetDateTime.now().plusHours(1));
         JourneySegment seg1 = new JourneySegment(journey, 0, SegmentType.PUBLIC_TRANSPORT);
-        JourneyPoint p1 = new JourneyPoint(seg1, 0, JourneyPointType.ORIGIN, "Stop 1");
-        p1.setPrimStopPointId("S1");
+        JourneyPoint p1 = mock(JourneyPoint.class);
+        when(p1.getPrimStopPointId()).thenReturn("S1");
         seg1.addPoint(p1);
         journey.addSegment(seg1);
 
@@ -128,7 +129,7 @@ class DisruptionReportingServiceTest {
         RerouteResult result = disruptionReportingService.reportStationDisruption(journeyId, "S1");
 
         assertThat(result.disruptedPoint()).isEqualTo(p1);
-        assertThat(p1.isDisrupted()).isTrue();
+        verify(p1).markDisrupted();
         verify(disruptionRepository).save(any(Disruption.class));
     }
 
