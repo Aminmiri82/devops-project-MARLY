@@ -2,7 +2,6 @@ package org.marly.mavigo.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -56,7 +55,7 @@ class DisruptionControllerTest {
     void reportStationShouldReturnOk() throws Exception {
         UUID journeyId = UUID.randomUUID();
         String stopId = "stop-123";
-        RerouteResult mockResult = mock(RerouteResult.class);
+        RerouteResult mockResult = new RerouteResult(null, null, null, List.of());
 
         when(disruptionService.reportStationDisruption(eq(journeyId), eq(stopId))).thenReturn(mockResult);
 
@@ -72,7 +71,7 @@ class DisruptionControllerTest {
     void reportLineShouldReturnOk() throws Exception {
         UUID journeyId = UUID.randomUUID();
         String lineCode = "M1";
-        RerouteResult mockResult = mock(RerouteResult.class);
+        RerouteResult mockResult = new RerouteResult(null, null, null, List.of());
 
         when(disruptionService.reportLineDisruption(eq(journeyId), eq(lineCode))).thenReturn(mockResult);
 
@@ -81,12 +80,5 @@ class DisruptionControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"lineCode\":\"" + lineCode + "\"}"))
                 .andExpect(status().isOk());
-    }
-}
-
-// Helper mock to avoid import issues
-class MockHelper {
-    public static RerouteResult mock(Class<RerouteResult> clazz) {
-        return org.mockito.Mockito.mock(clazz);
     }
 }
