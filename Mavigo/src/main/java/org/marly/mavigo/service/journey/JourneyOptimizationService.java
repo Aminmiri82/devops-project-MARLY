@@ -45,15 +45,22 @@ public class JourneyOptimizationService {
         this.userTaskRepository = userTaskRepository;
     }
 
-    /** DTO tâche pour optimisation (id, title, locationQuery, locationHint, completed). */
-    public record TaskForOptimization(String id, String title, String locationQuery, GeoPoint locationHint, boolean completed) {}
+    /**
+     * DTO tâche pour optimisation (id, title, locationQuery, locationHint,
+     * completed).
+     */
+    public record TaskForOptimization(String id, String title, String locationQuery, GeoPoint locationHint,
+            boolean completed) {
+    }
 
     /** Info tâche incluse dans le résultat (pour IncludedTaskResponse). */
-    public record IncludedTaskInfo(String id, String title, String locationQuery) {}
+    public record IncludedTaskInfo(String id, String title, String locationQuery) {
+    }
 
     /**
      * Calcule, pour chaque tâche de l'utilisateur, le trajet complet
-     * Origin → Tâche → Destination, puis renvoie tous les chemins pour la tâche gagnante.
+     * Origin → Tâche → Destination, puis renvoie tous les chemins pour la tâche
+     * gagnante.
      */
     public List<OptimizedJourneyResult> planOptimizedJourneyWithTasks(
             JourneyPlanningParameters parameters,
@@ -64,7 +71,8 @@ public class JourneyOptimizationService {
         List<TaskForOptimization> tasks = new ArrayList<>();
         for (UUID taskId : taskIds) {
             UserTask ut = userTaskRepository.findById(taskId).orElse(null);
-            if (ut == null || ut.getLocationHint() == null || ut.isCompleted()) continue;
+            if (ut == null || ut.getLocationHint() == null || ut.isCompleted())
+                continue;
             tasks.add(new TaskForOptimization(
                     ut.getId().toString(),
                     ut.getTitle(),
@@ -86,7 +94,8 @@ public class JourneyOptimizationService {
         }
         List<TaskForOptimization> tasks = new ArrayList<>();
         for (TaskDetailDto dto : taskDetails) {
-            if (dto.id() == null || dto.lat() == null || dto.lng() == null || dto.completed()) continue;
+            if (dto.id() == null || dto.lat() == null || dto.lng() == null || dto.completed())
+                continue;
             tasks.add(new TaskForOptimization(
                     dto.id(),
                     dto.title() != null ? dto.title() : "",
@@ -149,32 +158,36 @@ public class JourneyOptimizationService {
             Journey journey,
             List<IncludedTaskInfo> includedTasks,
             long totalDurationSeconds,
-            long baseDurationSeconds) {}
+            long baseDurationSeconds) {
+    }
 
     private List<OptimizedJourneyResult> calculateAllPathsForTaskOpt(
             JourneyPlanningParameters parameters,
             TaskForOptimization task,
             LocalDateTime initialDeparture,
             long baseDurationSeconds) {
-        if (task == null || task.locationHint() == null) return List.of();
-        String taskQuery = task.locationQuery() != null && !task.locationQuery().isBlank()
-                ? task.locationQuery()
-                : String.format(java.util.Locale.ROOT, "%.6f,%.6f",
-                        task.locationHint().getLatitude(), task.locationHint().getLongitude());
-        JourneyPlanningParameters segment1Params = new JourneyPlanningParameters(
-                parameters.userId(), parameters.originQuery(), taskQuery, initialDeparture, parameters.preferences());
-        List<Journey> segment1Journeys = journeyPlanningService.planAndPersist(segment1Params);
-        if (segment1Journeys.isEmpty()) return List.of();
+        if (task == null || task.locationHint() == null)
+            return List.of();
+
+        String taskQuery = getTaskLocationQuery(task);
+        List<Journey> segment1Journeys = planSegment1(parameters, taskQuery, initialDeparture);
+        if (segment1Journeys.isEmpty())
+            return List.of();
+
         List<OptimizedJourneyResult> results = new ArrayList<>();
         IncludedTaskInfo info = new IncludedTaskInfo(task.id(), task.title(), task.locationQuery());
         int maxSeg1 = Math.min(MAX_PATHS_PER_TASK, segment1Journeys.size());
+
         for (int i = 0; i < maxSeg1; i++) {
             Journey seg1 = segment1Journeys.get(i);
             LocalDateTime taskArrival = seg1.getPlannedArrival().toLocalDateTime();
             JourneyPlanningParameters segment2Params = new JourneyPlanningParameters(
-                    parameters.userId(), taskQuery, parameters.destinationQuery(), taskArrival, parameters.preferences());
+                    parameters.userId(), taskQuery, parameters.destinationQuery(), taskArrival,
+                    parameters.preferences());
             List<Journey> segment2Journeys = journeyPlanningService.planAndPersist(segment2Params);
-            if (segment2Journeys.isEmpty()) continue;
+            if (segment2Journeys.isEmpty())
+                continue;
+
             Journey seg2 = segment2Journeys.get(0);
             Journey aggregated = createAggregatedJourney(parameters, List.of(seg1, seg2),
                     initialDeparture, seg2.getPlannedArrival());
@@ -190,32 +203,51 @@ public class JourneyOptimizationService {
             JourneyPlanningParameters parameters,
             TaskForOptimization task,
             LocalDateTime initialDeparture) {
-        if (task == null || task.locationHint() == null) return null;
-        String taskQuery = task.locationQuery() != null && !task.locationQuery().isBlank()
-                ? task.locationQuery()
-                : String.format(java.util.Locale.ROOT, "%.6f,%.6f",
-                        task.locationHint().getLatitude(), task.locationHint().getLongitude());
-        JourneyPlanningParameters segment1Params = new JourneyPlanningParameters(
-                parameters.userId(), parameters.originQuery(), taskQuery, initialDeparture, parameters.preferences());
-        List<Journey> segment1Journeys = journeyPlanningService.planAndPersist(segment1Params);
-        if (segment1Journeys.isEmpty()) return null;
+        if (task == null || task.locationHint() == null)
+            return null;
+
+        String taskQuery = getTaskLocationQuery(task);
+        List<Journey> segment1Journeys = planSegment1(parameters, taskQuery, initialDeparture);
+        if (segment1Journeys.isEmpty())
+            return null;
+
         Journey bestSegment1 = segment1Journeys.get(0);
         LocalDateTime taskArrival = bestSegment1.getPlannedArrival().toLocalDateTime();
         JourneyPlanningParameters segment2Params = new JourneyPlanningParameters(
                 parameters.userId(), taskQuery, parameters.destinationQuery(), taskArrival, parameters.preferences());
         List<Journey> segment2Journeys = journeyPlanningService.planAndPersist(segment2Params);
-        if (segment2Journeys.isEmpty()) return null;
+        if (segment2Journeys.isEmpty())
+            return null;
+
         Journey bestSegment2 = segment2Journeys.get(0);
         Journey totalJourney = createAggregatedJourney(parameters, List.of(bestSegment1, bestSegment2),
                 initialDeparture, bestSegment2.getPlannedArrival());
+
         long totalDuration = getDurationSeconds(bestSegment1) + getDurationSeconds(bestSegment2);
         JourneyPlanningParameters baseParams = new JourneyPlanningParameters(
                 parameters.userId(), parameters.originQuery(), parameters.destinationQuery(),
                 initialDeparture, parameters.preferences());
         List<Journey> baseJourneys = journeyPlanningService.planAndPersist(baseParams);
         long baseDuration = baseJourneys.isEmpty() ? totalDuration : getDurationSeconds(baseJourneys.get(0));
-        return new OptimizedJourneyResult(totalJourney, List.of(new IncludedTaskInfo(task.id(), task.title(), task.locationQuery())),
+
+        return new OptimizedJourneyResult(totalJourney,
+                List.of(new IncludedTaskInfo(task.id(), task.title(), task.locationQuery())),
                 totalDuration, baseDuration);
+    }
+
+    private String getTaskLocationQuery(TaskForOptimization task) {
+        if (task.locationQuery() != null && !task.locationQuery().isBlank()) {
+            return task.locationQuery();
+        }
+        return String.format(java.util.Locale.ROOT, "%.6f,%.6f",
+                task.locationHint().getLatitude(), task.locationHint().getLongitude());
+    }
+
+    private List<Journey> planSegment1(JourneyPlanningParameters parameters, String taskQuery,
+            LocalDateTime initialDeparture) {
+        JourneyPlanningParameters segment1Params = new JourneyPlanningParameters(
+                parameters.userId(), parameters.originQuery(), taskQuery, initialDeparture, parameters.preferences());
+        return journeyPlanningService.planAndPersist(segment1Params);
     }
 
     /**
@@ -262,7 +294,8 @@ public class JourneyOptimizationService {
                     // Copy points
                     int pointSeq = 0;
                     for (JourneyPoint point : seg.getPoints()) {
-                        JourneyPoint newPoint = new JourneyPoint(newSeg, pointSeq++, point.getPointType(), point.getName());
+                        JourneyPoint newPoint = new JourneyPoint(newSeg, pointSeq++, point.getPointType(),
+                                point.getName());
                         newPoint.setPrimStopPointId(point.getPrimStopPointId());
                         newPoint.setPrimStopAreaId(point.getPrimStopAreaId());
                         newPoint.setCoordinates(point.getCoordinates());
