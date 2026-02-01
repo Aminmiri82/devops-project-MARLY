@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -59,7 +62,7 @@ jobs:
       with:
         name: build-artifacts
         path: Mavigo/build/libs/*.jar
-        retention-days: 7
+        retention-days: 30
 
   documentation:
     runs-on: ubuntu-latest
@@ -78,4 +81,67 @@ jobs:
       with:
         name: documentation
         path: docs/Mavigo-Documentation.pdf
-        retention-days: 7
+        retention-days: 30
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build, documentation]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts
+        path: ./artifacts/build
+
+    - name: Download documentation
+      uses: actions/download-artifact@v4
+      with:
+        name: documentation
+        path: ./artifacts/docs
+
+    - name: Generate version tag
+      id: version
+      run: |
+        # Extract version from build.gradle
+        VERSION=$(grep "^version = " Mavigo/build.gradle | sed "s/version = '\(.*\)'/\1/" | sed 's/-SNAPSHOT//')
+        DATE=$(date +%Y%m%d)
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        RELEASE_TAG="v${VERSION}-${DATE}-${SHORT_SHA}"
+        echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Generated release tag: ${RELEASE_TAG}"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: Release ${{ steps.version.outputs.tag }}
+        body: |
+          ## Mavigo Release ${{ steps.version.outputs.version }}
+          
+          **Build Date:** $(date +%Y-%m-%d)
+          **Commit:** ${{ github.sha }}
+          
+          ### Artifacts
+          - `mavigo-*.jar` - Application JAR file
+          - `Mavigo-Documentation.pdf` - Complete technical documentation
+          
+          ### Changes
+          ${{ github.event.head_commit.message }}
+          
+          For detailed changes, see the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
+        files: |
+          ./artifacts/build/*.jar
+          ./artifacts/docs/Mavigo-Documentation.pdf
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
