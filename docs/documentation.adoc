@@ -6,7 +6,7 @@
 :source-highlighter: highlight.js
 :imagesdir: images
 :version: 0.2.0
-:last-updated: 2026-01-30
+:last-updated: 2026-02-01
 
 [NOTE]
 ====
@@ -78,6 +78,8 @@ Mavigo is a personal public transportation assistant for the Paris metropolitan 
 === Competitive Analysis
 
 The Paris metropolitan transit app market is mature, with several established players offering journey planning and real-time information. Mavigo distinguishes itself through unique productivity features, advanced accessibility profiles, and community-driven intelligence that complement the core transit navigation experience.
+
+<<<
 
 ==== Feature Comparison Matrix
 
@@ -276,6 +278,9 @@ Mavigo positions itself as the accessibility-first, productivity-integrated tran
 == Architecture
 
 === Global Architecture
+
+[.landscape]
+<<<
 
 [plantuml, architecture-globale, svg]
 ----
@@ -488,6 +493,8 @@ User "1" --> "*" NamedComfortSetting : namedComfortSettings
 @enduml
 ----
 
+<<<
+
 ==== Tasks and Google Integration
 
 [plantuml, class-diagram-tasks, svg]
@@ -529,6 +536,8 @@ end note
 
 @enduml
 ----
+
+<<<
 
 ==== Disruptions and Points of Interest
 
@@ -728,6 +737,9 @@ end note
 <<<
 
 === Package Structure
+
+[.landscape]
+<<<
 
 [plantuml, package-structure, svg]
 ----
