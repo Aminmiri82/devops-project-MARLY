@@ -156,7 +156,9 @@ jobs:
       run: |
         # Extract version from build.gradle
         VERSION=$(grep "^version = " Mavigo/build.gradle | sed "s/version = '\(.*\)'/\1/" | sed 's/-SNAPSHOT//')
-        RELEASE_TAG="v${VERSION}"
+        DATE=$(date +%Y%m%d)
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        RELEASE_TAG="v${VERSION}-${DATE}-${SHORT_SHA}"
         echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
         echo "Generated release tag: ${RELEASE_TAG}"
