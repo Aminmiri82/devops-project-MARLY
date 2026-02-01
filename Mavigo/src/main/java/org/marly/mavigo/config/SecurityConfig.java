@@ -59,7 +59,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/app.js", "/style.css", "/favicon.ico").permitAll()
-                        .requestMatchers("/api/journeys/**", "/api/users/**").permitAll()
+                        .requestMatchers("/api/journeys", "/api/journeys/**", "/api/users", "/api/users/**").permitAll()
                         .requestMatchers("/api/google/**").authenticated()
                         .anyRequest().authenticated())
                 .oauth2Login(oauth -> oauth

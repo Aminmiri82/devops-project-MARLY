@@ -1,7 +1,7 @@
 package org.marly.mavigo.controller;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,7 +15,7 @@ import org.marly.mavigo.service.disruption.DisruptionReportingService;
 import org.marly.mavigo.service.disruption.dto.RerouteResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,7 +27,7 @@ class DisruptionControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private DisruptionReportingService disruptionService;
 
     @Test
@@ -55,7 +55,13 @@ class DisruptionControllerTest {
     void reportStationShouldReturnOk() throws Exception {
         UUID journeyId = UUID.randomUUID();
         String stopId = "stop-123";
-        RerouteResult mockResult = new RerouteResult(null, null, null, List.of());
+
+        org.marly.mavigo.models.disruption.Disruption mockDisruption = mock(
+                org.marly.mavigo.models.disruption.Disruption.class);
+        when(mockDisruption.getId()).thenReturn(1L);
+        when(mockDisruption.getDisruptionType()).thenReturn(org.marly.mavigo.models.disruption.DisruptionType.STATION);
+
+        RerouteResult mockResult = new RerouteResult(mockDisruption, null, null, List.of());
 
         when(disruptionService.reportStationDisruption(eq(journeyId), eq(stopId))).thenReturn(mockResult);
 
@@ -71,7 +77,13 @@ class DisruptionControllerTest {
     void reportLineShouldReturnOk() throws Exception {
         UUID journeyId = UUID.randomUUID();
         String lineCode = "M1";
-        RerouteResult mockResult = new RerouteResult(null, null, null, List.of());
+
+        org.marly.mavigo.models.disruption.Disruption mockDisruption = mock(
+                org.marly.mavigo.models.disruption.Disruption.class);
+        when(mockDisruption.getId()).thenReturn(2L);
+        when(mockDisruption.getDisruptionType()).thenReturn(org.marly.mavigo.models.disruption.DisruptionType.LINE);
+
+        RerouteResult mockResult = new RerouteResult(mockDisruption, null, null, List.of());
 
         when(disruptionService.reportLineDisruption(eq(journeyId), eq(lineCode))).thenReturn(mockResult);
 
