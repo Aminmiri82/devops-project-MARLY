@@ -92,7 +92,8 @@ public class DisruptionReportingService {
                 continue;
             }
             for (JourneyPoint pt : seg.getPoints()) {
-                stops.add(new StopInfo(pt.getPrimStopAreaId(), pt.getPrimStopPointId(), pt.getName(), seq++, seg.getLineCode()));
+                stops.add(new StopInfo(pt.getPrimStopAreaId(), pt.getPrimStopPointId(), pt.getName(), seq++,
+                        seg.getLineCode()));
             }
         }
         return stops;
@@ -101,9 +102,8 @@ public class DisruptionReportingService {
     public RerouteResult reportStationDisruption(UUID journeyId, String stopPointId) {
         Journey journey = loadJourney(journeyId);
 
-        // Find by stopPointId first, fallback to stopAreaId
         Optional<JourneyPoint> pointOpt = journey.getAllPoints().stream()
-                .filter(p -> stopPointId.equals(p.getPrimStopPointId()))
+                .filter(p -> java.util.Objects.equals(stopPointId, p.getPrimStopPointId()))
                 .findFirst();
         if (pointOpt.isEmpty()) {
             pointOpt = journey.getPointByStopAreaId(stopPointId);
@@ -148,7 +148,8 @@ public class DisruptionReportingService {
 
     private List<Journey> recalculateFrom(Journey original, JourneyPoint newOrigin) {
         String originId = newOrigin.getPrimStopAreaId();
-        if (originId == null) originId = newOrigin.getPrimStopPointId();
+        if (originId == null)
+            originId = newOrigin.getPrimStopPointId();
         if (originId == null) {
             GeoPoint coords = newOrigin.getCoordinates();
             if (coords != null && coords.isComplete()) {
@@ -174,9 +175,11 @@ public class DisruptionReportingService {
         return calculateAlternatives(original, origin, destination, excludedLine);
     }
 
-    private List<Journey> calculateAlternatives(Journey original, StopArea origin, StopArea destination, String excludedLine) {
+    private List<Journey> calculateAlternatives(Journey original, StopArea origin, StopArea destination,
+            String excludedLine) {
         try {
-            var request = new PrimJourneyRequest(origin.getExternalId(), destination.getExternalId(), LocalDateTime.now());
+            var request = new PrimJourneyRequest(origin.getExternalId(), destination.getExternalId(),
+                    LocalDateTime.now());
             List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
 
             var prefs = new JourneyPreferences(original.isComfortModeEnabled(), original.getNamedComfortSettingId());
@@ -186,17 +189,20 @@ public class DisruptionReportingService {
                     original.getDestinationLabel(),
                     LocalDateTime.now(),
                     prefs);
-            var context = new org.marly.mavigo.service.journey.dto.JourneyPlanningContext(original.getUser(), origin, destination, params);
+            var context = new org.marly.mavigo.service.journey.dto.JourneyPlanningContext(original.getUser(), origin,
+                    destination, params);
 
             options = journeyResultFilter.filterByComfortProfile(options, context, original.isComfortModeEnabled());
 
             if (excludedLine != null) {
                 options = options.stream()
-                        .filter(plan -> plan.legs() == null || plan.legs().stream().noneMatch(leg -> excludedLine.equals(leg.lineCode())))
+                        .filter(plan -> plan.legs() == null
+                                || plan.legs().stream().noneMatch(leg -> excludedLine.equals(leg.lineCode())))
                         .toList();
             }
 
-            if (options.isEmpty()) return List.of();
+            if (options.isEmpty())
+                return List.of();
             List<Journey> results = new ArrayList<>();
 
             for (PrimJourneyPlanDto opt : options.stream().limit(3).toList()) {
