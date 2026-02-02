@@ -22,22 +22,31 @@ class LoginFlowTest extends BaseSeleniumTest {
         loginPage.navigateToLogin();
 
         // Then
-        // The page should redirect to OAuth2 or show a login option
-        assertTrue(loginPage.isOnLoginPage() || loginPage.getCurrentUrl().contains("oauth2"),
-                "Should be on login page or redirected to OAuth");
+        // The page should redirect to OAuth2 provider (Google)
+        String currentUrl = loginPage.getCurrentUrl();
+        assertTrue(
+                loginPage.isOnLoginPage() ||
+                        currentUrl.contains("oauth2") ||
+                        currentUrl.contains("google") ||
+                        currentUrl.contains("accounts.google.com"),
+                "Should be on login page or redirected to OAuth. Current URL: " + currentUrl);
     }
 
     @Test
-    @DisplayName("L'endpoint /auth/status devrait être accessible")
-    void authStatus_shouldBeAccessible() {
+    @DisplayName("L'endpoint /auth/status devrait rediriger vers OAuth quand non authentifié")
+    void authStatus_shouldRedirectToOAuthWhenUnauthenticated() {
         // When
         navigateTo("/auth/status");
+        waitForPageLoad();
 
         // Then
-        waitForPageLoad();
-        // API endpoint should return JSON (not a 404)
-        assertFalse(driver.getPageSource().contains("404"),
-                "Auth status endpoint should be accessible");
+        // Should redirect to OAuth provider (Google) when not authenticated
+        String currentUrl = driver.getCurrentUrl();
+        assertTrue(
+                currentUrl.contains("oauth2") ||
+                        currentUrl.contains("google") ||
+                        currentUrl.contains("accounts.google.com"),
+                "Auth status should redirect to OAuth when unauthenticated. Current URL: " + currentUrl);
     }
 
     @Test

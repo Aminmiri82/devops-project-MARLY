@@ -64,6 +64,51 @@ jobs:
         path: Mavigo/build/libs/*.jar
         retention-days: 30
 
+  ui-tests:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./Mavigo
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.gradle/caches
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+        restore-keys: ${{ runner.os }}-gradle
+
+    - name: Set up Chrome
+      uses: browser-actions/setup-chrome@v1
+      with:
+        chrome-version: stable
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Run UI tests
+      env:
+        RUN_UI_TESTS: "true"
+      run: ./gradlew test --tests "org.marly.mavigo.ui.*"
+
+    - name: Upload UI test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ui-test-results
+        path: Mavigo/build/reports/tests/test/
+        retention-days: 7
+
   documentation:
     runs-on: ubuntu-latest
 
