@@ -23,10 +23,13 @@ class ComfortProfileFlowTest extends BaseSeleniumTest {
         waitForPageLoad();
 
         // Then
+        // Should redirect to OAuth provider (Google) when not authenticated
         String currentUrl = profilePage.getCurrentUrl();
         assertTrue(
                 currentUrl.contains("login") ||
                         currentUrl.contains("oauth2") ||
+                        currentUrl.contains("google") ||
+                        currentUrl.contains("accounts.google.com") ||
                         currentUrl.contains("unauthorized"),
                 "Profile page should require authentication. Current URL: " + currentUrl);
     }
