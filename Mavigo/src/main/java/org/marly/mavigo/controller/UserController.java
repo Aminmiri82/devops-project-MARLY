@@ -14,6 +14,7 @@ import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.service.user.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -62,6 +63,22 @@ public class UserController {
         request.apply(existing);
         User updated = userService.updateUser(existing);
         return UserResponse.from(updated);
+    }
+
+    @PutMapping("/{userId}/home-address")
+    public UserResponse updateHomeAddress(@PathVariable UUID userId, @RequestBody HomeAddressRequest request) {
+        User existing = userService.getUser(userId);
+        String value = request != null ? request.homeAddress() : null;
+        value = value != null ? value.trim() : null;
+        if (!StringUtils.hasText(value)) {
+            value = null;
+        }
+        existing.setHomeAddress(value);
+        User updated = userService.updateUser(existing);
+        return UserResponse.from(updated);
+    }
+
+    public record HomeAddressRequest(String homeAddress) {
     }
 
     @DeleteMapping("/{userId}")

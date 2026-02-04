@@ -22,7 +22,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "user_task")
+@Table(
+        name = "user_task",
+        uniqueConstraints = @jakarta.persistence.UniqueConstraint(
+                name = "uk_user_task_user_source_task",
+                columnNames = { "user_id", "source", "source_task_id" }))
 public class UserTask {
 
     @Id

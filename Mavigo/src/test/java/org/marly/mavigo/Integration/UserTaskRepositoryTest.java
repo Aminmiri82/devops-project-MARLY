@@ -15,6 +15,7 @@ import org.marly.mavigo.models.task.UserTask;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.repository.UserTaskRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -138,6 +139,20 @@ class UserTaskRepositoryTest {
         assertEquals(48.8584, found.get().getLocationHint().getLatitude());
         assertEquals(2.3470, found.get().getLocationHint().getLongitude());
         assertEquals("Châtelet", found.get().getLocationQuery());
+    }
+
+    @Test
+    @DisplayName("Unicité sur user/source/sourceTaskId devrait être respectée")
+    void testUniqueConstraintOnSourceTaskId() {
+        // Given
+        UserTask task1 = new UserTask(testUser, "dup-task", TaskSource.GOOGLE_TASKS, "First");
+        userTaskRepository.saveAndFlush(task1);
+
+        UserTask task2 = new UserTask(testUser, "dup-task", TaskSource.GOOGLE_TASKS, "Second");
+
+        // When / Then
+        assertThrows(DataIntegrityViolationException.class,
+                () -> userTaskRepository.saveAndFlush(task2));
     }
 
     @Test
