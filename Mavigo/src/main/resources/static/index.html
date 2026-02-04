@@ -48,6 +48,10 @@
                 <span>Link Google Tasks</span>
                 <span class="dropdown-status" id="googleLinkStatusBadge"></span>
               </button>
+              <button type="button" class="dropdown-action-btn" id="editHomeAddressBtn">
+                <span>Home Address</span>
+                <span class="dropdown-status" id="homeAddressStatusBadge"></span>
+              </button>
               <button type="button" class="dropdown-action-btn" id="editComfortProfileBtn">
                 <span>Comfort Settings</span>
               </button>
@@ -175,6 +179,28 @@
         </form>
       </div>
       <p id="comfortProfileError" class="form-error hidden"></p>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="homeAddressModal" role="dialog" aria-modal="true"
+    aria-labelledby="homeAddressModalTitle">
+    <div class="modal">
+      <button type="button" class="modal-close" id="homeAddressCloseBtn" aria-label="Close dialog">&times;</button>
+      <div class="auth-form">
+        <h2 id="homeAddressModalTitle">Set Home Address</h2>
+        <p class="form-subtitle">We will use this as the starting point for smart suggestions.</p>
+        <form id="homeAddressForm">
+          <div class="form-group">
+            <label for="homeAddressInput">Home Address</label>
+            <input type="text" id="homeAddressInput" placeholder="e.g. 12 Rue de Rivoli, Paris">
+          </div>
+          <div class="comfort-modal-actions">
+            <button type="submit" class="btn btn-primary btn-block" id="homeAddressSaveBtn">Save</button>
+            <button type="button" class="btn btn-ghost btn-block mt-2" id="homeAddressCancelBtn">Cancel</button>
+          </div>
+        </form>
+        <p id="homeAddressError" class="form-error hidden"></p>
+      </div>
     </div>
   </div>
 
@@ -343,6 +369,17 @@
       </div>
     </div>
   </main>
+
+  <div class="smart-suggestions-flyout hidden" id="smartSuggestionsFlyout" role="region"
+    aria-label="Smart Suggestions">
+    <div class="smart-suggestions-header">
+      <h3>Smart Suggestions</h3>
+      <button type="button" class="smart-suggestions-close" id="smartSuggestionsCloseBtn" aria-label="Dismiss">&times;</button>
+    </div>
+    <div class="smart-suggestions-body" id="smartSuggestionsContent">
+      <p class="results-placeholder">Loading smart suggestions…</p>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

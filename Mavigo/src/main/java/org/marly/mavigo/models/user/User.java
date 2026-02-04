@@ -1,5 +1,13 @@
 package org.marly.mavigo.models.user;
 
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
+import org.marly.mavigo.models.journey.Journey;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -10,13 +18,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-
-import org.marly.mavigo.models.journey.Journey;
 
 @Entity
 @Table(name = "app_user")
@@ -35,11 +36,8 @@ public class User {
     @Column(nullable = false)
     private String displayName;
 
-    @Column(name = "home_station_id")
-    private String homeStationId;
-
-    @Column(name = "work_station_id")
-    private String workStationId;
+    @Column(name = "home_address")
+    private String homeAddress;
 
     @Embedded
     private ComfortProfile comfortProfile = new ComfortProfile();
@@ -109,20 +107,12 @@ public class User {
         this.displayName = displayName;
     }
 
-    public String getHomeStationId() {
-        return homeStationId;
+    public String getHomeAddress() {
+        return homeAddress;
     }
 
-    public void setHomeStationId(String homeStationId) {
-        this.homeStationId = homeStationId;
-    }
-
-    public String getWorkStationId() {
-        return workStationId;
-    }
-
-    public void setWorkStationId(String workStationId) {
-        this.workStationId = workStationId;
+    public void setHomeAddress(String homeAddress) {
+        this.homeAddress = homeAddress;
     }
 
     public ComfortProfile getComfortProfile() {
