@@ -58,7 +58,14 @@ public class SecurityConfig {
             OAuth2AuthorizationRequestResolver googleAuthRequestResolver) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/index.html", "/app.js", "/style.css", "/favicon.ico").permitAll()
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/app.js",
+                                "/js/**",
+                                "/style.css",
+                                "/favicon.ico")
+                        .permitAll()
                         .requestMatchers("/api/journeys", "/api/journeys/**", "/api/users", "/api/users/**").permitAll()
                         .requestMatchers("/api/google/**").authenticated()
                         .anyRequest().authenticated())
