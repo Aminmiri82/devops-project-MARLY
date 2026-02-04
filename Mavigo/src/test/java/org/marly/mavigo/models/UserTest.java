@@ -1,10 +1,13 @@
 package org.marly.mavigo.models;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -147,19 +150,16 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("setters et getters pour stations devraient fonctionner")
-    void stationSettersAndGetters_shouldWork() {
+    @DisplayName("setters et getters pour homeAddress devraient fonctionner")
+    void homeAddressSettersAndGetters_shouldWork() {
         // Given
-        String homeStation = "stop:home";
-        String workStation = "stop:work";
+        String homeAddress = "12 Rue de Rivoli, Paris";
 
         // When
-        user.setHomeStationId(homeStation);
-        user.setWorkStationId(workStation);
+        user.setHomeAddress(homeAddress);
 
         // Then
-        assertEquals(homeStation, user.getHomeStationId());
-        assertEquals(workStation, user.getWorkStationId());
+        assertEquals(homeAddress, user.getHomeAddress());
     }
 
     @Test

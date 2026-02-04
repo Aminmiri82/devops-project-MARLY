@@ -61,6 +61,8 @@ let defaultTaskList = null;
 let currentJourney = null;
 let lastNotifiedJourneyId = null;
 let lastTasksSignature = null;
+let pendingSuggestionTask = null;
+let smartSuggestionsDismissedFor = null;
 
 // ============================================================
 // DOM ELEMENTS
@@ -129,12 +131,24 @@ const skipComfortOnboardingBtn = document.getElementById("skipComfortOnboardingB
 
 const journeyComfortSelection = document.getElementById("journeyComfortSelection");
 
+const smartSuggestionsFlyout = document.getElementById("smartSuggestionsFlyout");
+const smartSuggestionsContent = document.getElementById("smartSuggestionsContent");
+const smartSuggestionsCloseBtn = document.getElementById("smartSuggestionsCloseBtn");
+
 // User Dropdown Elements
 const userDropdownTrigger = document.getElementById("userDropdownTrigger");
 const userDropdown = document.getElementById("userDropdown");
 const dropdownUserName = document.getElementById("dropdownUserName");
 const dropdownUserEmail = document.getElementById("dropdownUserEmail");
 const googleLinkStatusBadge = document.getElementById("googleLinkStatusBadge");
+const editHomeAddressBtn = document.getElementById("editHomeAddressBtn");
+const homeAddressStatusBadge = document.getElementById("homeAddressStatusBadge");
+
+const homeAddressModal = document.getElementById("homeAddressModal");
+const homeAddressForm = document.getElementById("homeAddressForm");
+const homeAddressInput = document.getElementById("homeAddressInput");
+const homeAddressCloseBtn = document.getElementById("homeAddressCloseBtn");
+const homeAddressCancelBtn = document.getElementById("homeAddressCancelBtn");
 
 // ============================================================
 // INITIALIZATION
@@ -152,6 +166,8 @@ function init() {
   setupNav();
   setupTasks();
   setupDropdown();
+  setupHomeAddressListeners();
+  setupSmartSuggestionsListeners();
   setupOnboardingListeners();
   setDefaultDepartureTime();
   ensureToastUI();
@@ -213,6 +229,75 @@ function setupDropdown() {
       closeDropdown();
     }
   });
+}
+
+// ============================================================
+// HOME ADDRESS
+// ============================================================
+function setupHomeAddressListeners() {
+  editHomeAddressBtn?.addEventListener("click", () => openHomeAddressModal());
+  homeAddressCloseBtn?.addEventListener("click", closeHomeAddressModal);
+  homeAddressCancelBtn?.addEventListener("click", closeHomeAddressModal);
+  homeAddressForm?.addEventListener("submit", saveHomeAddress);
+
+  homeAddressModal?.addEventListener("click", (e) => {
+    if (e.target === homeAddressModal) closeHomeAddressModal();
+  });
+}
+
+function setupSmartSuggestionsListeners() {
+  smartSuggestionsCloseBtn?.addEventListener("click", dismissSmartSuggestions);
+}
+
+function openHomeAddressModal() {
+  if (!homeAddressModal) return;
+  if (homeAddressInput) {
+    homeAddressInput.value = currentUser?.homeAddress || "";
+    homeAddressInput.focus();
+  }
+  homeAddressModal.classList.remove("hidden");
+}
+
+function closeHomeAddressModal() {
+  if (!homeAddressModal) return;
+  homeAddressModal.classList.add("hidden");
+  document.getElementById("homeAddressError")?.classList.add("hidden");
+}
+
+async function saveHomeAddress(e) {
+  e?.preventDefault();
+  if (!currentUser?.userId) return;
+
+  const value = (homeAddressInput?.value || "").trim();
+  const payload = { homeAddress: value };
+  const errorEl = document.getElementById("homeAddressError");
+
+  try {
+    const updated = await api.put(
+      `/api/users/${currentUser.userId}/home-address`,
+      payload
+    );
+    currentUser = updated;
+    renderHomeAddressStatus(currentUser);
+    closeHomeAddressModal();
+
+    if (value) {
+      showToast("Home address saved.", { variant: "success" });
+    } else {
+      showToast("Home address cleared.", { variant: "warning" });
+    }
+
+    if (pendingSuggestionTask && currentUser.homeAddress) {
+      const task = pendingSuggestionTask;
+      pendingSuggestionTask = null;
+      prefillJourneyFromSuggestion(task);
+    }
+  } catch (err) {
+    if (errorEl) {
+      errorEl.textContent = err?.message || "Failed to save home address.";
+      errorEl.classList.remove("hidden");
+    }
+  }
 }
 
 function toggleDropdown() {
@@ -347,7 +432,11 @@ function logout() {
   defaultTaskList = null;
   localStorage.removeItem("mavigo_user_id");
   clearGoogleLinkStatus();
+  renderHomeAddressStatus(null);
   resetTasksUI();
+  if (smartSuggestionsFlyout) smartSuggestionsFlyout.classList.add("hidden");
+  pendingSuggestionTask = null;
+  smartSuggestionsDismissedFor = null;
   updateUI();
   lastNotifiedJourneyId = null;
   lastTasksSignature = null;
@@ -388,15 +477,18 @@ function updateUI() {
     mainContent?.classList.remove("hidden");
     renderUserInfo();
     renderGoogleLinkStatus(currentUser);
+    renderHomeAddressStatus(currentUser);
     renderComfortProfileSummary();
     loadNamedComfortSettings();
     setView(currentView);
+    loadSmartSuggestions();
   } else {
     loggedOutView?.classList.remove("hidden");
     loggedInView?.classList.add("hidden");
     notLoggedInPrompt?.classList.remove("hidden");
     mainContent?.classList.add("hidden");
     clearGoogleLinkStatus();
+    renderHomeAddressStatus(null);
     resetTasksUI();
   }
 }
@@ -1404,6 +1496,152 @@ async function createTask(e) {
 }
 
 // ============================================================
+// SMART SUGGESTIONS
+// ============================================================
+function getTomorrowDateString() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getTomorrowDepartureLocalIso() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(9, 0, 0, 0);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+function dismissSmartSuggestions() {
+  if (!smartSuggestionsFlyout) return;
+  smartSuggestionsFlyout.classList.add("hidden");
+  smartSuggestionsDismissedFor = getTomorrowDateString();
+}
+
+async function loadSmartSuggestions() {
+  if (!smartSuggestionsFlyout || !smartSuggestionsContent) return;
+
+  if (!currentUser || !isGoogleLinked()) {
+    smartSuggestionsFlyout.classList.add("hidden");
+    smartSuggestionsContent.innerHTML = "";
+    return;
+  }
+
+  const date = getTomorrowDateString();
+  if (smartSuggestionsDismissedFor === date) {
+    smartSuggestionsFlyout.classList.add("hidden");
+    return;
+  }
+
+  smartSuggestionsContent.innerHTML =
+    '<p class="loading">Loading smart suggestions...</p>';
+
+  try {
+    const url = `/api/google/tasks/users/${currentUser.userId}/suggestions?date=${encodeURIComponent(
+      date
+    )}`;
+    const tasks = await api.get(url);
+    const suggestions = (Array.isArray(tasks) ? tasks : []).filter(
+      (t) => t?.locationQuery
+    );
+
+    if (!suggestions.length) {
+      smartSuggestionsFlyout.classList.add("hidden");
+      smartSuggestionsContent.innerHTML = "";
+      return;
+    }
+
+    smartSuggestionsFlyout.classList.remove("hidden");
+    renderSmartSuggestions(suggestions);
+  } catch {
+    smartSuggestionsFlyout.classList.add("hidden");
+    smartSuggestionsContent.innerHTML = "";
+  }
+}
+
+function renderSmartSuggestions(tasks) {
+  if (!smartSuggestionsContent) return;
+
+  const intro = `
+    <div class="smart-suggestions-intro">
+      You’ve got tasks coming up tomorrow. Want to plan the journey for them?
+    </div>
+  `;
+
+  const listHtml = tasks
+    .map((t, idx) => {
+      const title = escapeHtml(t?.title || "Untitled");
+      const location = escapeHtml(t?.locationQuery || "Unknown location");
+      return `
+        <div class="smart-suggestion-item">
+          <div class="smart-suggestion-details">
+            <div class="smart-suggestion-title">${title}</div>
+            <div class="smart-suggestion-location">Location: <strong>${location}</strong></div>
+          </div>
+          <div class="smart-suggestion-actions">
+            <button type="button" class="btn btn-primary btn-sm smart-suggestion-cta" data-action="prefill" data-index="${idx}">
+              Show me the journey
+            </button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  smartSuggestionsContent.innerHTML = `
+    ${intro}
+    <div class="smart-suggestions-list">
+      ${listHtml}
+    </div>
+  `;
+
+  smartSuggestionsContent
+    .querySelectorAll("[data-action='prefill']")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-index"));
+        const task = tasks[idx];
+        handleSuggestionClick(task);
+      });
+    });
+}
+
+function handleSuggestionClick(task) {
+  if (!task) return;
+
+  dismissSmartSuggestions();
+
+  if (!currentUser?.homeAddress) {
+    pendingSuggestionTask = task;
+    openHomeAddressModal();
+    showToast("Add your home address to plan this journey.", {
+      variant: "warning",
+      durationMs: 5000,
+    });
+    return;
+  }
+
+  prefillJourneyFromSuggestion(task);
+}
+
+function prefillJourneyFromSuggestion(task) {
+  if (!task || !currentUser) return;
+  const fromInput = document.getElementById("from");
+  const toInput = document.getElementById("to");
+
+  if (fromInput) fromInput.value = currentUser.homeAddress || "";
+  if (toInput) toInput.value = task.locationQuery || "";
+  if (departureInput) departureInput.value = getTomorrowDepartureLocalIso();
+
+  setView("journey");
+  journeyForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast("Journey form prefilled.", { variant: "info" });
+}
+
+// ============================================================
 // GOOGLE ACCOUNT LINKING
 // ============================================================
 function setupGoogleLinkListeners() {
@@ -1459,6 +1697,7 @@ async function refreshGoogleLink() {
     renderGoogleLinkStatus(user);
     updateTasksUIState();
     if (currentView === "tasks") ensureDefaultTaskListLoaded({ force: true });
+    loadSmartSuggestions();
   } catch {
     // Silently fail on refresh
   }
@@ -1482,6 +1721,24 @@ function renderGoogleLinkStatus(user) {
   } else {
     googleLinkStatusBadge.textContent = "Linked";
     googleLinkStatusBadge.classList.add("linked");
+  }
+}
+
+function renderHomeAddressStatus(user) {
+  if (!homeAddressStatusBadge) return;
+  if (!user) {
+    homeAddressStatusBadge.textContent = "";
+    homeAddressStatusBadge.classList.remove("set");
+    return;
+  }
+
+  const hasHome = !!(user.homeAddress && String(user.homeAddress).trim());
+  if (!hasHome) {
+    homeAddressStatusBadge.textContent = "Not set";
+    homeAddressStatusBadge.classList.remove("set");
+  } else {
+    homeAddressStatusBadge.textContent = "Set";
+    homeAddressStatusBadge.classList.add("set");
   }
 }
 

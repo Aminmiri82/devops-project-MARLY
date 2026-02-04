@@ -39,6 +39,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
 import static org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction.oauth2AuthorizedClient;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -171,6 +172,37 @@ public class GoogleTasksController {
                 .toList();
     }
 
+    @GetMapping("/users/{userId}/suggestions")
+    public List<Map<String, Object>> suggestionsForUser(
+            @PathVariable UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        OAuth2AuthorizedClient client = requireAuthorizedClientForUser(userId);
+
+        List<TaskListDto> lists = fetchLists(client, 50, null);
+        if (lists == null || lists.isEmpty()) {
+            return List.of();
+        }
+
+        String listId = lists.get(0).id();
+        LocalDate targetDate = date != null ? date : LocalDate.now().plusDays(1);
+
+        List<TaskDto> googleTasks = fetchTasks(client, listId, targetDate, false);
+        if (googleTasks == null || googleTasks.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, UserTask> localTasksByGoogleId = buildLocalTaskLookup(userId);
+        syncLocationTagsFromGoogle(userId, googleTasks, localTasksByGoogleId);
+
+        return googleTasks.stream()
+                .map(task -> enrichWithLocalData(task, localTasksByGoogleId))
+                .filter(task -> {
+                    Object locationQuery = task.get("locationQuery");
+                    return locationQuery != null && StringUtils.hasText(String.valueOf(locationQuery));
+                })
+                .toList();
+    }
+
     private Map<String, UserTask> buildLocalTaskLookup(UUID userId) {
         return userTaskRepository.findByUser_Id(userId)
                 .stream()
@@ -243,7 +275,24 @@ public class GoogleTasksController {
             } catch (Exception ignore) {
             }
 
-            UserTask saved = userTaskRepository.save(ut);
+            UserTask saved;
+            try {
+                saved = userTaskRepository.save(ut);
+            } catch (DataIntegrityViolationException ex) {
+                // Another request inserted the same Google task concurrently, race condition
+                var existing = userTaskRepository.findByUser_IdAndSourceAndSourceTaskId(
+                        userId, TaskSource.GOOGLE_TASKS, dto.id());
+                if (existing.isPresent()) {
+                    UserTask existingTask = existing.get();
+                    existingTask.setLocationQuery(locationQuery);
+                    if (ut.getLocationHint() != null && ut.getLocationHint().isComplete()) {
+                        existingTask.setLocationHint(ut.getLocationHint());
+                    }
+                    saved = userTaskRepository.save(existingTask);
+                } else {
+                    throw ex;
+                }
+            }
             // Rafraîchir le lookup pour enrichWithLocalData()
             localTasksByGoogleId.put(dto.id(), saved);
         }

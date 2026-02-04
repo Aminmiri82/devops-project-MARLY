@@ -81,6 +81,37 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void updateHomeAddress_setsValue() throws Exception {
+        String payload = "{\"homeAddress\":\"12 Rue de Rivoli, Paris\"}";
+
+        mockMvc.perform(put("/api/users/{userId}/home-address", testUser.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.homeAddress").value("12 Rue de Rivoli, Paris"));
+
+        User updated = userRepository.findById(testUser.getId()).orElseThrow();
+        assertThat(updated.getHomeAddress()).isEqualTo("12 Rue de Rivoli, Paris");
+    }
+
+    @Test
+    void updateHomeAddress_clearsWhenBlank() throws Exception {
+        testUser.setHomeAddress("Existing address");
+        testUser = userRepository.save(testUser);
+
+        String payload = "{\"homeAddress\":\"   \"}";
+
+        mockMvc.perform(put("/api/users/{userId}/home-address", testUser.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.homeAddress").isEmpty());
+
+        User updated = userRepository.findById(testUser.getId()).orElseThrow();
+        assertThat(updated.getHomeAddress()).isNull();
+    }
+
+    @Test
     void deleteNamedComfortSetting_removesFromDb() throws Exception {
         org.marly.mavigo.models.user.NamedComfortSetting ns = new org.marly.mavigo.models.user.NamedComfortSetting(
                 "To Delete", new ComfortProfile(), testUser);

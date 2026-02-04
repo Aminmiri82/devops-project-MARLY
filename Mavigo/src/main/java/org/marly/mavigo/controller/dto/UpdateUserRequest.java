@@ -11,15 +11,12 @@ public record UpdateUserRequest(
         @Email
         String email,
         @NotBlank String displayName,
-        String homeStationId,
-        String workStationId) {
+        String homeAddress) {
 
     public void apply(User user) {
         user.setExternalId(externalId);
         user.setEmail(email);
         user.setDisplayName(displayName);
-        user.setHomeStationId(homeStationId);
-        user.setWorkStationId(workStationId);
+        user.setHomeAddress(homeAddress);
     }
 }
-
