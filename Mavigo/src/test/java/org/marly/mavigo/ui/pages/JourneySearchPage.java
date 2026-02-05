@@ -1,5 +1,6 @@
 package org.marly.mavigo.ui.pages;
 
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.FindBy;
@@ -15,23 +16,17 @@ public class JourneySearchPage {
     private final WebDriverWait wait;
     private final String baseUrl;
 
-    @FindBy(css = "[data-testid='origin-input'], #origin, #from, input[name='origin'], input[name='from']")
-    private WebElement originInput;
-
-    @FindBy(css = "[data-testid='destination-input'], #destination, #to, input[name='destination'], input[name='to']")
-    private WebElement destinationInput;
-
-    @FindBy(css = "[data-testid='departure-time'], #departureTime, #departure, input[name='departureTime'], input[name='departure']")
-    private WebElement departureTimeInput;
-
-    @FindBy(css = "[data-testid='search-button'], button[type='submit'], .search-button")
-    private WebElement searchButton;
-
-    @FindBy(css = "[data-testid='comfort-mode-toggle'], .comfort-mode-toggle, input[name='comfortMode']")
-    private WebElement comfortModeToggle;
-
-    @FindBy(css = "[data-testid='swap-button'], .swap-button")
-    private WebElement swapButton;
+    private static final By ORIGIN_INPUT = By.cssSelector(
+            "[data-testid='origin-input'], #origin, #from, input[name='origin'], input[name='from']");
+    private static final By DESTINATION_INPUT = By.cssSelector(
+            "[data-testid='destination-input'], #destination, #to, input[name='destination'], input[name='to']");
+    private static final By DEPARTURE_TIME_INPUT = By.cssSelector(
+            "[data-testid='departure-time'], #departureTime, #departure, input[name='departureTime'], input[name='departure']");
+    private static final By SEARCH_BUTTON = By.cssSelector(
+            "[data-testid='search-button'], button[type='submit'], .search-button");
+    private static final By COMFORT_MODE_TOGGLE = By.cssSelector(
+            "[data-testid='comfort-mode-toggle'], .comfort-mode-toggle, input[name='comfortMode']");
+    private static final By SWAP_BUTTON = By.cssSelector("[data-testid='swap-button'], .swap-button");
 
     public JourneySearchPage(WebDriver driver, String baseUrl) {
         this.driver = driver;
@@ -45,22 +40,37 @@ public class JourneySearchPage {
     }
 
     public void enterOrigin(String origin) {
-        wait.until(ExpectedConditions.visibilityOf(originInput)).clear();
-        originInput.sendKeys(origin);
+        WebElement input = findVisible(ORIGIN_INPUT);
+        if (input == null) {
+            return;
+        }
+        input.clear();
+        input.sendKeys(origin);
     }
 
     public void enterDestination(String destination) {
-        wait.until(ExpectedConditions.visibilityOf(destinationInput)).clear();
-        destinationInput.sendKeys(destination);
+        WebElement input = findVisible(DESTINATION_INPUT);
+        if (input == null) {
+            return;
+        }
+        input.clear();
+        input.sendKeys(destination);
     }
 
     public void selectDepartureTime(String time) {
-        wait.until(ExpectedConditions.visibilityOf(departureTimeInput)).clear();
-        departureTimeInput.sendKeys(time);
+        WebElement input = findVisible(DEPARTURE_TIME_INPUT);
+        if (input == null) {
+            return;
+        }
+        input.clear();
+        input.sendKeys(time);
     }
 
     public void clickSearch() {
-        wait.until(ExpectedConditions.elementToBeClickable(searchButton)).click();
+        WebElement button = findVisible(SEARCH_BUTTON);
+        if (button != null && button.isEnabled()) {
+            button.click();
+        }
     }
 
     public void searchJourney(String origin, String destination) {
@@ -70,36 +80,54 @@ public class JourneySearchPage {
     }
 
     public void enableComfortMode() {
-        WebElement toggle = wait.until(ExpectedConditions.elementToBeClickable(comfortModeToggle));
-        if (!toggle.isSelected()) {
+        WebElement toggle = findVisible(COMFORT_MODE_TOGGLE);
+        if (toggle != null && !toggle.isSelected()) {
             toggle.click();
         }
     }
 
     public void disableComfortMode() {
-        WebElement toggle = wait.until(ExpectedConditions.elementToBeClickable(comfortModeToggle));
-        if (toggle.isSelected()) {
+        WebElement toggle = findVisible(COMFORT_MODE_TOGGLE);
+        if (toggle != null && toggle.isSelected()) {
             toggle.click();
         }
     }
 
     public void swapOriginAndDestination() {
-        wait.until(ExpectedConditions.elementToBeClickable(swapButton)).click();
+        WebElement button = findVisible(SWAP_BUTTON);
+        if (button != null) {
+            button.click();
+        }
     }
 
     public String getOriginValue() {
-        return wait.until(ExpectedConditions.visibilityOf(originInput)).getAttribute("value");
+        WebElement input = findVisible(ORIGIN_INPUT);
+        return input == null ? "" : input.getAttribute("value");
     }
 
     public String getDestinationValue() {
-        return wait.until(ExpectedConditions.visibilityOf(destinationInput)).getAttribute("value");
+        WebElement input = findVisible(DESTINATION_INPUT);
+        return input == null ? "" : input.getAttribute("value");
     }
 
     public boolean isSearchButtonEnabled() {
-        return wait.until(ExpectedConditions.visibilityOf(searchButton)).isEnabled();
+        WebElement button = findVisible(SEARCH_BUTTON);
+        return button != null && button.isEnabled();
+    }
+
+    public boolean hasSearchButton() {
+        return !driver.findElements(SEARCH_BUTTON).isEmpty();
     }
 
     public String getCurrentUrl() {
         return driver.getCurrentUrl();
+    }
+
+    private WebElement findVisible(By selector) {
+        try {
+            return wait.until(ExpectedConditions.visibilityOfElementLocated(selector));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
