@@ -195,7 +195,7 @@ export function updateUI() {
     loggedOutView?.classList.remove("hidden");
     loggedInView?.classList.add("hidden");
     notLoggedInPrompt?.classList.remove("hidden");
-    mainContent?.classList.add("hidden");
+    mainContent?.classList.remove("hidden");
     clearGoogleLinkStatus();
     renderHomeAddressStatus(null);
     resetTasksUI();

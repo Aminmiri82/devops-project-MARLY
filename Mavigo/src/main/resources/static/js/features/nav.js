@@ -9,7 +9,14 @@ const tasksView = document.getElementById("tasksView");
 export function setupNav() {
   navJourneyBtn?.addEventListener("click", () => setView("journey"));
   navTasksBtn?.addEventListener("click", () => setView("tasks"));
-  setView(state.currentView);
+  const path = window.location.pathname || "";
+  if (path.startsWith("/tasks")) {
+    setView("tasks");
+  } else if (path.startsWith("/search") || path.startsWith("/results")) {
+    setView("journey");
+  } else {
+    setView(state.currentView);
+  }
 }
 
 export function setView(view) {
