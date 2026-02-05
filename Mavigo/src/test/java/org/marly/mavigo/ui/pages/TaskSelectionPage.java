@@ -17,10 +17,10 @@ public class TaskSelectionPage {
     private final WebDriverWait wait;
     private final String baseUrl;
 
-    @FindBy(css = "[data-testid='task-list'], .task-list, .task-selection-list")
+    @FindBy(css = "[data-testid='task-list'], .task-list, .task-selection-list, #tasksResults, .tasks-results")
     private WebElement taskList;
 
-    @FindBy(css = "[data-testid='task-item'], .task-item, .task-selection-item")
+    @FindBy(css = "[data-testid='task-item'], .task-item, .task-selection-item, .task-card")
     private List<WebElement> taskItems;
 
     @FindBy(css = "[data-testid='optimization-toggle'], .optimization-toggle, input[name='enableOptimization']")
