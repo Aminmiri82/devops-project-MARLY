@@ -12,6 +12,7 @@ sonar {
         property "sonar.organization", "aminmiri82"
         property "sonar.host.url", "https://sonarcloud.io"
         property "sonar.coverage.jacoco.xmlReportPaths", "${project.layout.buildDirectory.get()}/reports/jacoco/test/jacocoTestReport.xml"
+        property "sonar.coverage.exclusions", "**/controller/dto/**,**/client/**/model/**,**/*Request*,**/*Response*,**/*Exception*"
     }
 }
 
