@@ -1,0 +1,399 @@
+package org.marly.mavigo.controller;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.marly.mavigo.models.journey.Journey;
+import org.marly.mavigo.models.journey.JourneyStatus;
+import org.marly.mavigo.models.user.User;
+import org.marly.mavigo.repository.UserRepository;
+import org.marly.mavigo.repository.UserTaskRepository;
+import org.marly.mavigo.service.journey.JourneyManagementService;
+import org.marly.mavigo.service.journey.JourneyOptimizationService;
+import org.marly.mavigo.service.journey.JourneyOptimizationService.OptimizedJourneyResult;
+import org.marly.mavigo.service.journey.JourneyOptimizationService.IncludedTaskInfo;
+import org.marly.mavigo.service.journey.JourneyPlanningService;
+import org.marly.mavigo.service.journey.TaskOnRouteService;
+import org.marly.mavigo.service.journey.dto.JourneyPlanningParameters;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@WebMvcTest(JourneyController.class)
+@DisplayName("Tests avancés - JourneyController")
+class JourneyControllerAdvancedTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private JourneyPlanningService journeyPlanningService;
+
+    @MockitoBean
+    private UserTaskRepository userTaskRepository;
+
+    @MockitoBean
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private TaskOnRouteService taskOnRouteService;
+
+    @MockitoBean
+    private JourneyManagementService journeyManagementService;
+
+    @MockitoBean
+    private JourneyOptimizationService journeyOptimizationService;
+
+    @Nested
+    @DisplayName("Tests d'optimisation avec tâches")
+    class TaskOptimizationTests {
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney avec taskDetails utilise l'optimisation")
+        void planJourney_withTaskDetails_usesOptimization() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+            OptimizedJourneyResult optimizedResult = new OptimizedJourneyResult(
+                    mockJourney, List.of(), 3600, 4200);
+
+            when(journeyOptimizationService.planOptimizedJourneyWithTaskDetails(any(), anyList()))
+                    .thenReturn(List.of(optimizedResult));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "taskDetails": [
+                                {"id": "task-1", "title": "Buy groceries", "locationQuery": "Monoprix Gare de Lyon"}
+                            ]
+                        },
+                        "preferences": {
+                            "comfortMode": false
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().isCreated());
+
+            verify(journeyOptimizationService).planOptimizedJourneyWithTaskDetails(any(), anyList());
+            verify(journeyPlanningService, never()).planAndPersist(any());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney avec taskIds utilise l'optimisation")
+        void planJourney_withTaskIds_usesOptimization() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            UUID taskId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+            OptimizedJourneyResult optimizedResult = new OptimizedJourneyResult(
+                    mockJourney, List.of(), 3600, 4200);
+
+            when(journeyOptimizationService.planOptimizedJourneyWithTasks(any(), anyList()))
+                    .thenReturn(List.of(optimizedResult));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "taskIds": ["%s"]
+                        },
+                        "preferences": {
+                            "comfortMode": false
+                        }
+                    }
+                    """.formatted(userId, taskId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().isCreated());
+
+            verify(journeyOptimizationService).planOptimizedJourneyWithTasks(any(), anyList());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney retourne au trajet normal si l'optimisation échoue")
+        void planJourney_fallsBackWhenOptimizationFails() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+
+            when(journeyOptimizationService.planOptimizedJourneyWithTaskDetails(any(), anyList()))
+                    .thenReturn(List.of()); // Empty = optimization failed
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(mockJourney));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "taskDetails": [
+                                {"id": "task-1", "title": "Test", "locationQuery": "Test Location"}
+                            ]
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().isCreated());
+
+            // Verify fallback to normal planning
+            verify(journeyPlanningService).planAndPersist(any(JourneyPlanningParameters.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("Tests de parsing departureTime")
+    class DepartureTimeParsingTests {
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney accepte ISO avec offset")
+        void planJourney_acceptsIsoWithOffset() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(mockJourney));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00+01:00"
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney accepte ISO local avec secondes")
+        void planJourney_acceptsIsoLocalWithSeconds() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(mockJourney));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00"
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney accepte ISO local sans secondes")
+        void planJourney_acceptsIsoLocalWithoutSeconds() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(mockJourney));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00"
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().isCreated());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney accepte ISO avec timezone Z")
+        void planJourney_acceptsIsoWithZuluTimezone() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(mockJourney));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T17:00:00Z"
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().isCreated());
+        }
+    }
+
+    @Nested
+    @DisplayName("Tests sans tâches (trajet normal)")
+    class NormalJourneyTests {
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney sans tâches n'utilise pas l'optimisation")
+        void planJourney_withoutTasks_doesNotUseOptimization() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(mockJourney));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00"
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().isCreated());
+
+            verify(journeyPlanningService).planAndPersist(any(JourneyPlanningParameters.class));
+            verify(journeyOptimizationService, never()).planOptimizedJourneyWithTaskDetails(any(), anyList());
+            verify(journeyOptimizationService, never()).planOptimizedJourneyWithTasks(any(), anyList());
+        }
+    }
+
+    // Helper methods
+    private Journey createMockJourney(User user) {
+        Journey journey = new Journey(
+                user,
+                "Gare de Lyon",
+                "Châtelet",
+                OffsetDateTime.now(),
+                OffsetDateTime.now().plusHours(1));
+        journey.setStatus(JourneyStatus.PLANNED);
+        return journey;
+    }
+}
