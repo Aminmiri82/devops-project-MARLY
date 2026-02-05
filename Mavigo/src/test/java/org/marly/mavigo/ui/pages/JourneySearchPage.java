@@ -15,13 +15,13 @@ public class JourneySearchPage {
     private final WebDriverWait wait;
     private final String baseUrl;
 
-    @FindBy(css = "[data-testid='origin-input'], #origin, input[name='origin']")
+    @FindBy(css = "[data-testid='origin-input'], #origin, #from, input[name='origin'], input[name='from']")
     private WebElement originInput;
 
-    @FindBy(css = "[data-testid='destination-input'], #destination, input[name='destination']")
+    @FindBy(css = "[data-testid='destination-input'], #destination, #to, input[name='destination'], input[name='to']")
     private WebElement destinationInput;
 
-    @FindBy(css = "[data-testid='departure-time'], #departureTime, input[name='departureTime']")
+    @FindBy(css = "[data-testid='departure-time'], #departureTime, #departure, input[name='departureTime'], input[name='departure']")
     private WebElement departureTimeInput;
 
     @FindBy(css = "[data-testid='search-button'], button[type='submit'], .search-button")
