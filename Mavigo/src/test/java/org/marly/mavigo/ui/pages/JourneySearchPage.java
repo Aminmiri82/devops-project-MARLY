@@ -23,7 +23,7 @@ public class JourneySearchPage {
     private static final By DEPARTURE_TIME_INPUT = By.cssSelector(
             "[data-testid='departure-time'], #departureTime, #departure, input[name='departureTime'], input[name='departure']");
     private static final By SEARCH_BUTTON = By.cssSelector(
-            "[data-testid='search-button'], button[type='submit'], .search-button");
+            "[data-testid='search-button'], #journeyForm button[type='submit'], #journeyForm .search-button");
     private static final By COMFORT_MODE_TOGGLE = By.cssSelector(
             "[data-testid='comfort-mode-toggle'], .comfort-mode-toggle, input[name='comfortMode']");
     private static final By SWAP_BUTTON = By.cssSelector("[data-testid='swap-button'], .swap-button");
