@@ -8,12 +8,6 @@ const tasksResults = document.getElementById("tasksResults");
 const tasksListName = document.getElementById("tasksListName");
 const refreshTasksBtn = document.getElementById("refreshTasksBtn");
 
-const createTaskForm = document.getElementById("createTaskForm");
-const taskTitle = document.getElementById("taskTitle");
-const taskNotes = document.getElementById("taskNotes");
-const taskDue = document.getElementById("taskDue");
-const taskLocationQuery = document.getElementById("taskLocationQuery");
-
 export function setupTasks() {
   refreshTasksBtn?.addEventListener("click", () =>
     ensureDefaultTaskListLoaded({ force: true })
@@ -21,7 +15,6 @@ export function setupTasks() {
   tasksIncludeCompleted?.addEventListener("change", () =>
     loadTasksFromDefaultList()
   );
-  createTaskForm?.addEventListener("submit", createTask);
   updateTasksUIState();
 }
 
@@ -37,15 +30,6 @@ export function updateTasksUIState() {
   const enabled = !!state.currentUser && isGoogleLinked();
 
   if (refreshTasksBtn) refreshTasksBtn.disabled = !enabled;
-
-  if (createTaskForm) {
-    const submitBtn = createTaskForm.querySelector('button[type="submit"]');
-    if (submitBtn) submitBtn.disabled = !enabled;
-    if (taskTitle) taskTitle.disabled = !enabled;
-    if (taskNotes) taskNotes.disabled = !enabled;
-    if (taskDue) taskDue.disabled = !enabled;
-    if (taskLocationQuery) taskLocationQuery.disabled = !enabled;
-  }
 
   if (tasksListName) {
     if (!state.currentUser) tasksListName.textContent = "Default list: —";
@@ -247,56 +231,3 @@ async function deleteTask(taskId) {
   }
 }
 
-async function createTask(e) {
-  e.preventDefault();
-
-  if (!state.currentUser)
-    return showToast("Please log in first.", { variant: "warning" });
-  if (!isGoogleLinked())
-    return showToast("Link Google Tasks first.", { variant: "warning" });
-  if (!state.defaultTaskList?.id)
-    return showToast("Default list not loaded yet.", { variant: "warning" });
-
-  const payload = {
-    title: (taskTitle?.value || "").trim(),
-    notes: (taskNotes?.value || "").trim() || null,
-    due: (taskDue?.value || "").trim() || null,
-    locationQuery: (taskLocationQuery?.value || "").trim() || null,
-  };
-
-  if (!payload.title)
-    return showToast("Title is required.", { variant: "warning" });
-
-  if (tasksResults) tasksResults.innerHTML = '<p class="loading">Creating task...</p>';
-
-  try {
-    const url = `/api/google/tasks/users/${state.currentUser.userId}/lists/${encodeURIComponent(
-      state.defaultTaskList.id
-    )}/tasks`;
-    const created = await api.post(url, payload);
-
-    if (created?.locationWarning) {
-      showToast(
-        `Task created, but location failed: ${created.locationWarning}`,
-        { variant: "warning", durationMs: 6000 }
-      );
-    } else {
-      showToast("Task created!", { variant: "success" });
-    }
-
-    createTaskForm?.reset();
-    await loadTasksFromDefaultList();
-  } catch (err) {
-    if (err.authError) {
-      if (tasksResults)
-        tasksResults.innerHTML =
-          '<p class="error-message">Google Tasks not authorized. Click "Link Google Tasks".</p>';
-      showToast("Link Google Tasks first.", { variant: "warning" });
-    } else {
-      if (tasksResults)
-        tasksResults.innerHTML = `<p class="error-message">Error: ${escapeHtml(
-          err?.message || "Unknown error"
-        )}</p>`;
-    }
-  }
-}
