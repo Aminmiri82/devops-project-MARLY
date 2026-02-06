@@ -10,7 +10,6 @@ import {
 } from "../core/utils.js";
 import { showToast } from "../ui/toast.js";
 import { openTasksModal } from "../ui/tasks-modal.js";
-import { notifyTasksOnRouteIfAny } from "./task-notifications.js";
 import { validateComfortMode } from "./comfort-profile.js";
 import { setView } from "./nav.js";
 import { openDisruptionModal } from "./disruption.js";
@@ -25,6 +24,7 @@ const departureInput = document.getElementById("departure");
 const reportDisruptionBtn = document.getElementById("reportDisruptionBtn");
 const journeyComfortSelection = document.getElementById("journeyComfortSelection");
 const planJourneyPanel = document.getElementById("planJourneyPanel");
+const journeyIncludeTask = document.getElementById("journeyIncludeTask");
 
 export function setupJourneyForm() {
   journeyForm?.addEventListener("submit", handleJourneySubmit);
@@ -90,10 +90,19 @@ async function startJourney(journeyId, btnElement) {
 
   try {
     const journey = await api.post(`/api/journeys/${journeyId}/start`);
-    updateCurrentJourney(journey);
-    if (journey.newBadges && journey.newBadges.length > 0) {
+    const prev = (state.lastDisplayedJourneys || []).find(
+      (j) => String(j?.journeyId) === String(journeyId)
+    );
+    const withTasks =
+      prev &&
+      Array.isArray(prev.includedTasks) &&
+      prev.includedTasks.length > 0
+        ? { ...journey, includedTasks: prev.includedTasks }
+        : journey;
+    updateCurrentJourney(withTasks);
+    if (withTasks.newBadges && withTasks.newBadges.length > 0) {
       import("./badge-unlock.js").then((module) => {
-        module.showBadgeUnlocks(journey.newBadges);
+        module.showBadgeUnlocks(withTasks.newBadges);
       });
     }
   } catch (err) {
@@ -108,10 +117,12 @@ async function startJourney(journeyId, btnElement) {
 
 async function completeJourney() {
   if (!state.currentJourney) return;
+  const journeyWithTasks = state.currentJourney;
   try {
     const journey = await api.post(
       `/api/journeys/${state.currentJourney.journeyId}/complete`
     );
+    await completeIncludedTasksIfAny(journeyWithTasks);
     updateCurrentJourney(journey);
     showToast("Journey completed!", { variant: "success" });
 
@@ -137,6 +148,67 @@ async function cancelJourney() {
     updateCurrentJourney(journey);
   } catch (err) {
     showToast(err.message, { variant: "warning" });
+  }
+}
+
+/**
+ * Récupère l'ID de la liste Google Tasks par défaut (avec cache dans state.defaultTaskList).
+ */
+async function getDefaultTaskListId() {
+  if (!state.currentUser) return null;
+
+  if (state.defaultTaskList?.id) {
+    return state.defaultTaskList.id;
+  }
+
+  try {
+    const list = await api.get(
+      `/api/google/tasks/users/${state.currentUser.userId}/default-list`
+    );
+    if (list?.id) {
+      state.defaultTaskList = { id: list.id, title: list.title || "Default" };
+      return list.id;
+    }
+  } catch (err) {
+    // On ne bloque pas la complétion du trajet si on ne peut pas charger la liste
+    showToast(
+      err?.message || "Could not load default Google Tasks list to complete task.",
+      { variant: "warning" }
+    );
+  }
+  return null;
+}
+
+/**
+ * Marque comme complétées, dans Google Tasks, les tâches incluses dans le trajet.
+ * On réutilise l’endpoint backend existant /complete, sans stockage local.
+ */
+async function completeIncludedTasksIfAny(journey) {
+  if (!journey || !state.currentUser) return;
+
+  const includedTasks = Array.isArray(journey.includedTasks)
+    ? journey.includedTasks
+    : [];
+  if (!includedTasks.length) return;
+
+  const listId = await getDefaultTaskListId();
+  if (!listId) return;
+
+  const userId = state.currentUser.userId;
+
+  for (const t of includedTasks) {
+    const googleTaskId =
+      t.googleTaskId || t.taskId || t.id || null;
+    if (!googleTaskId) continue;
+
+    try {
+      const url = `/api/google/tasks/users/${userId}/lists/${encodeURIComponent(
+        listId
+      )}/tasks/${encodeURIComponent(googleTaskId)}/complete`;
+      await api.patch(url);
+    } catch (_err) {
+      // Ne pas bloquer la complétion du trajet si une tâche Google échoue
+    }
   }
 }
 
@@ -166,10 +238,28 @@ export function updateCurrentJourney(journey) {
   }
 }
 
+function calculateProgress(journey) {
+  if (journey.status !== "IN_PROGRESS" && journey.status !== "REROUTED")
+    return 0;
+
+  const now = new Date();
+  const start = new Date(journey.actualDeparture || journey.plannedDeparture);
+  const end = new Date(journey.plannedArrival);
+
+  if (isNaN(start) || isNaN(end) || end <= start) return 0;
+
+  if (now < start) return 0;
+  if (now > end) return 100;
+
+  const progress = ((now - start) / (end - start)) * 100;
+  return Math.min(Math.max(Math.round(progress), 0), 100);
+}
+
 function renderCurrentJourney(journey) {
   if (!currentJourneyContent) return;
   const statusClass =
     journey.status === "IN_PROGRESS" ? "status-active" : "status-planned";
+  const progress = calculateProgress(journey);
   const hasSegments =
     Array.isArray(journey.segments) && journey.segments.length > 0;
   const hasTasks =
@@ -183,7 +273,17 @@ function renderCurrentJourney(journey) {
       : ""
     }
             <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
-            
+
+            ${journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
+      ? `
+                <div class="progress-container">
+                    <div class="progress-bar" style="width: ${progress}%"></div>
+                </div>
+                <span class="progress-text">${progress}% Completed</span>
+            `
+      : ""
+    }
+
             <p><strong>Planned Departure:</strong> ${formatDateTime(
       journey.plannedDeparture
     )}</p>
@@ -224,6 +324,7 @@ async function handleJourneySubmit(e) {
   const to = (document.getElementById("to")?.value || "").trim();
   const departure = departureInput?.value || "";
   const comfortSelection = journeyComfortSelection?.value || "disabled";
+  const includeTask = !!journeyIncludeTask?.checked;
 
   if (!departure) {
     if (resultsDiv)
@@ -255,14 +356,43 @@ async function handleJourneySubmit(e) {
     },
   };
 
+  // Optionnel : inclure une tâche Google sur le chemin (optimisation côté backend)
+  if (includeTask) {
+    const taskDetails = await loadTasksForJourney();
+    if (Array.isArray(taskDetails) && taskDetails.length > 0) {
+      payload.journey.taskDetails = taskDetails;
+    }
+  }
+
+  const taskOptimizationRequested =
+    !!payload.journey.taskDetails &&
+    Array.isArray(payload.journey.taskDetails) &&
+    payload.journey.taskDetails.length > 0;
+
   if (resultsDiv)
     resultsDiv.innerHTML = '<p class="loading">Planning your journey...</p>';
 
   try {
-    const journeys = await api.post("/api/journeys", payload);
+    let journeys = await api.post("/api/journeys", payload);
 
     if (resultsDiv) resultsDiv.innerHTML = "";
-    const list = Array.isArray(journeys) ? journeys : [journeys];
+    let list = Array.isArray(journeys) ? journeys : [journeys];
+
+    // Si l’optimisation avec tâche ne renvoie rien, on retente sans tâche
+    if (list.length === 0 && taskOptimizationRequested) {
+      const fallbackPayload = {
+        ...payload,
+        journey: { ...payload.journey },
+      };
+      delete fallbackPayload.journey.taskDetails;
+
+      try {
+        journeys = await api.post("/api/journeys", fallbackPayload);
+        list = Array.isArray(journeys) ? journeys : [journeys];
+      } catch {
+        // on ignore, on tombera sur le message "No journey found"
+      }
+    }
 
     if (list.length === 0) {
       if (resultsDiv)
@@ -271,10 +401,52 @@ async function handleJourneySubmit(e) {
     }
 
     displayJourneyResults(list);
-    if (list.length > 0) notifyTasksOnRouteIfAny(list[0]);
   } catch (err) {
     if (resultsDiv)
       resultsDiv.innerHTML = '<p class="error-message">No journey found.</p>';
+  }
+}
+
+/**
+ * Charge les tâches Google pertinentes pour un trajet et les convertit
+ * au format attendu par le backend (TaskDetailDto), sans duplication de logique.
+ */
+async function loadTasksForJourney() {
+  if (!state.currentUser) return [];
+
+  try {
+    const url = `/api/google/tasks/users/${state.currentUser.userId}/for-journey?includeCompleted=false`;
+    const tasks = await api.get(url);
+
+    const list = Array.isArray(tasks) ? tasks : [];
+
+    return list
+      .map((t) => {
+        const locationHint = t?.locationHint || {};
+        const lat = typeof locationHint.lat === "number" ? locationHint.lat : null;
+        const lng = typeof locationHint.lng === "number" ? locationHint.lng : null;
+
+        return {
+          id: String(t?.id || ""),
+          title: t?.title || "",
+          locationQuery: t?.locationQuery || "",
+          lat,
+          lng,
+          completed: !!t?.completed,
+        };
+      })
+      .filter(
+        (t) =>
+          t.id &&
+          t.lat !== null &&
+          t.lng !== null &&
+          !t.completed
+      );
+  } catch (err) {
+    showToast(err?.message || "Could not load tasks for journey.", {
+      variant: "warning",
+    });
+    return [];
   }
 }
 
@@ -284,6 +456,7 @@ async function handleJourneySubmit(e) {
 export function displayJourneyResults(journeys) {
   if (!resultsDiv || !journeys.length) return;
 
+  state.lastDisplayedJourneys = journeys;
   const firstJourney = journeys[0];
   const allTasks = collectUniqueTasksFromJourneys(journeys);
 
@@ -328,9 +501,6 @@ export function displayJourneyResults(journeys) {
   );
 }
 
-/**
- * Collects unique tasks from all journeys (deduped by ID or title)
- */
 function collectUniqueTasksFromJourneys(journeys) {
   const seen = new Set();
   const uniqueTasks = [];
@@ -412,10 +582,11 @@ function displayJourneyCard(journey, index, total) {
       return true;
     });
 
-  const legsHtml = processedSegments.length
-    ? processedSegments
-      .map(
-        (seg) => `
+  const includedTasks = Array.isArray(journey?.includedTasks)
+    ? journey.includedTasks
+    : [];
+  const legItems = processedSegments.map(
+    (seg) => `
         <li class="journey-leg-item">
             <div class="leg-marker-container">
                 ${formatLineBadge(seg.mode, seg.lineCode, seg.lineColor)}
@@ -444,9 +615,55 @@ function displayJourneyCard(journey, index, total) {
             </div>
         </li>
     `
-      )
-      .join("")
-    : "<li>No route details available</li>";
+  );
+
+  // Insérer la step de tâche au bon endroit dans la chronologie si une tâche est incluse
+  if (includedTasks.length > 0) {
+    const task = includedTasks[0];
+    const taskTitle = task.title || "Task";
+    const taskLocation = (task.locationQuery || "").toLowerCase();
+
+    const taskStepHtml = `
+      <li class="journey-leg-item task-leg-item">
+        <div class="leg-marker-container">
+          <span class="task-badge">TASK</span>
+        </div>
+        <div class="leg-content">
+          <span class="leg-mode">Task stop</span>
+          <span class="leg-route">${escapeHtml(taskTitle)}${
+            taskLocation
+              ? ` – ${escapeHtml(task.locationQuery)}`
+              : ""
+          }</span>
+        </div>
+      </li>
+    `;
+
+    let insertIndex = -1;
+    if (taskLocation) {
+      for (let i = 0; i < processedSegments.length; i++) {
+        const seg = processedSegments[i];
+        const o = (seg.originLabel || "").toLowerCase();
+        const d = (seg.destinationLabel || "").toLowerCase();
+        if (o.includes(taskLocation) || d.includes(taskLocation)) {
+          insertIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (insertIndex < 0) {
+      insertIndex = Math.floor(legItems.length / 2);
+    }
+
+    const safeIndex = Math.min(Math.max(insertIndex + 1, 0), legItems.length);
+    legItems.splice(safeIndex, 0, taskStepHtml);
+  }
+
+  const legsHtml =
+    legItems.length > 0
+      ? legItems.join("")
+      : "<li>No route details available</li>";
 
   const optionLabel =
     total > 1 ? `<span class="route-option-label">Option ${index}</span> ` : "";
@@ -483,7 +700,9 @@ function displayJourneyCard(journey, index, total) {
     journey.journeyId
   )}">Start Journey</button>
       <h4>Itinerary Steps:</h4>
-      <ul class="journey-legs">${legsHtml}</ul>
+      <ul class="journey-legs">
+        ${legsHtml}
+      </ul>
     </div>
   `;
 
