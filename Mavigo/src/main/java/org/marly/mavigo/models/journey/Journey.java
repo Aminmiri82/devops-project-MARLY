@@ -86,6 +86,9 @@ public class Journey {
     @Column(name = "comfort_mode_enabled", nullable = false)
     private boolean comfortModeEnabled = false;
 
+    @Column(name = "eco_mode_enabled", nullable = false)
+    private boolean ecoModeEnabled = false;
+
     @Column(name = "named_comfort_setting_id")
     private UUID namedComfortSettingId;
 
@@ -100,11 +103,7 @@ public class Journey {
     private List<JourneySegment> segments = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "journey_disruption",
-        joinColumns = @JoinColumn(name = "journey_id"),
-        inverseJoinColumns = @JoinColumn(name = "disruption_id")
-    )
+    @JoinTable(name = "journey_disruption", joinColumns = @JoinColumn(name = "journey_id"), inverseJoinColumns = @JoinColumn(name = "disruption_id"))
     private List<Disruption> disruptions = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -149,7 +148,8 @@ public class Journey {
     }
 
     /**
-     * Returns points that are transfer points (TRANSFER_ARRIVAL or TRANSFER_DEPARTURE).
+     * Returns points that are transfer points (TRANSFER_ARRIVAL or
+     * TRANSFER_DEPARTURE).
      */
     public List<JourneyPoint> getTransferPoints() {
         return getAllPoints().stream()
@@ -337,6 +337,14 @@ public class Journey {
 
     public void setComfortModeEnabled(boolean comfortModeEnabled) {
         this.comfortModeEnabled = comfortModeEnabled;
+    }
+
+    public boolean isEcoModeEnabled() {
+        return ecoModeEnabled;
+    }
+
+    public void setEcoModeEnabled(boolean ecoModeEnabled) {
+        this.ecoModeEnabled = ecoModeEnabled;
     }
 
     public UUID getNamedComfortSettingId() {

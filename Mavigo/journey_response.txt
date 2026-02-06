@@ -1,0 +1,35 @@
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Host localhost:8080 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:8080...
+* Connected to localhost (::1) port 8080
+> POST /api/journeys HTTP/1.1
+> Host: localhost:8080
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Content-Type: application/json
+> Content-Length: 267
+> 
+} [267 bytes data]
+* upload completely sent off: 267 bytes
+100   267    0     0  100   267      0    201  0:00:01  0:00:01 --:--:--   201< HTTP/1.1 201 
+< Vary: Origin
+< Vary: Access-Control-Request-Method
+< Vary: Access-Control-Request-Headers
+< X-Content-Type-Options: nosniff
+< X-XSS-Protection: 0
+< Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+< Pragma: no-cache
+< Expires: 0
+< X-Frame-Options: SAMEORIGIN
+< Content-Type: application/json
+< Transfer-Encoding: chunked
+< Date: Fri, 06 Feb 2026 18:03:02 GMT
+< 
+{ [4550 bytes data]
+[{"journeyId":"13d116a4-0d81-4adc-899e-a638113fe11d","userId":"d80db4ab-d655-4386-bd86-053dc97b402e","originLabel":"Gare de Lyon","destinationLabel":"Châtelet","plannedDeparture":"2026-02-06T18:01:00+01:00","plannedArrival":"2026-02-06T18:03:00+01:00","comfortModeEnabled":false,"primItineraryId":null,"status":"PLANNED","actualDeparture":null,"actualArrival":null,"disruptionCount":0,"summary":{"totalSegments":3,"totalPoints":4,"transferCount":0,"disruptedCount":0,"linesUsed":["14"]},"segments":[{"segmentId":"8d29c938-3d90-4b4b-a022-4ff2806a88ab","sequenceOrder":0,"segmentType":"CROW_FLY","transitMode":"OTHER","lineCode":null,"lineName":null,"lineColor":null,"networkName":null,"scheduledDeparture":"2026-02-06T18:01:00+01:00","scheduledArrival":"2026-02-06T18:01:00+01:00","durationSeconds":0,"distanceMeters":0,"hasAirConditioning":false,"points":[{"pointId":"698d3bee-d9d2-400e-9090-3f1970da50e7","sequenceInSegment":0,"pointType":"ORIGIN","name":"Gare de Lyon (Paris)","primStopPointId":"stop_area:IDFM:73626","primStopAreaId":null,"latitude":null,"longitude":null,"scheduledArrival":null,"scheduledDeparture":"2026-02-06T18:01:00+01:00","isDisrupted":false}]},{"segmentId":"375f0e48-1db9-40b1-ae15-1f181761f062","sequenceOrder":1,"segmentType":"PUBLIC_TRANSPORT","transitMode":"METRO","lineCode":"14","lineName":"14","lineColor":"62259D","networkName":"RATP","scheduledDeparture":"2026-02-06T18:01:00+01:00","scheduledArrival":"2026-02-06T18:03:00+01:00","durationSeconds":120,"distanceMeters":2559,"hasAirConditioning":true,"points":[{"pointId":"bf5bb8da-fcda-4ed6-a4b2-a4325cae9ab2","sequenceInSegment":0,"pointType":"ORIGIN","name":"Gare de Lyon","primStopPointId":"stop_point:IDFM:21958","primStopAreaId":null,"latitude":48.84425,"longitude":2.37252,"scheduledArrival":"2026-02-06T18:00:00+01:00","scheduledDeparture":"2026-02-06T18:01:00+01:00","isDisrupted":false},{"pointId":"3781f5c7-987b-4ecf-b5f7-7528c8a21292","sequenceInSegment":1,"pointType":"DESTINATION","name":"Châtelet","primStopPointId":"stop_point:IDFM:463159","primStopAreaId":null,"latitude":48.859557,"longitude":2.346412,"scheduledArrival":"2026-02-06T18:03:00+01:00","scheduledDeparture":"2026-02-06T18:04:00+01:00","isDisrupted":false}]},{"segmentId":"54a61655-bc77-4172-9e7d-1d18d35ee4b7","sequenceOrder":2,"segmentType":"CROW_FLY","transitMode":"OTHER","lineCode":null,"lineName":null,"lineColor":null,"networkName":null,"scheduledDeparture":"2026-02-06T18:03:00+01:00","scheduledArrival":"2026-02-06T18:03:00+01:00","durationSeconds":0,"distanceMeters":0,"hasAirConditioning":false,"points":[{"pointId":"3e6a1dd0-6eb2-468d-8de9-c115ce4d36e3","sequenceInSegment":0,"pointType":"ORIGIN","name":"Châtelet (Paris)","primStopPointId":"stop_point:IDFM:463159","primStopAreaId":null,"latitude":null,"longitude":null,"scheduledArrival":null,"scheduledDeparture":"2026-02-06T18:03:00+01:00","isDisrupted":false}]}],"tasksOnRoute":[],"includedTasks":[],"baseDurationSeconds":null,"newBadges":[]},{"journeyId":"35409c7a-e462-4520-9497-1ab1a82c29c8","userId":"d80db4ab-d655-4386-bd86-053dc97b402e","originLabel":"Gare de Lyon","destinationLabel":"Châtelet","plannedDeparture":"2026-02-06T18:00:00+01:00","plannedArrival":"2026-02-06T18:48:08+01:00","comfortModeEnabled":false,"primItineraryId":null,"status":"PLANNED","actualDeparture":null,"actualArrival":null,"disruptionCount":0,"summary":{"totalSegments":1,"totalPoints":2,"transferCount":0,"disruptedCount":0,"linesUsed":[]},"segments":[{"segmentId":"75544d3c-dc8b-4114-8bd7-2c2069226464","sequenceOrder":0,"segmentType":"WALKING","transitMode":"WALK","lineCode":null,"lineName":null,"lineColor":null,"networkName":null,"scheduledDeparture":"2026-02-06T18:00:00+01:00","scheduledArrival":"2026-02-06T18:48:08+01:00","durationSeconds":2888,"distanceMeters":0,"hasAirConditioning":false,"points":[{"pointId":"529ccea9-3d8a-44c3-821e-cf654b8c76fe","sequenceInSegment":0,"pointType":"ORIGIN","name":"Gare de Lyon (Paris)","primStopPointId":"stop_area:IDFM:73626","primStopAreaId":null,"latitude":null,"longitude":null,"scheduledArrival":null,"scheduledDeparture":"100  4809    0  4542  100   267   2233    131  0:00:02  0:00:02 --:--:--  2365
+* Connection #0 to host localhost left intact
+2026-02-06T18:00:00+01:00","isDisrupted":false},{"pointId":"31278ab7-d288-4d58-8d63-ab52138e7892","sequenceInSegment":1,"pointType":"DESTINATION","name":"Châtelet (Paris)","primStopPointId":"stop_area:IDFM:71264","primStopAreaId":null,"latitude":null,"longitude":null,"scheduledArrival":"2026-02-06T18:48:08+01:00","scheduledDeparture":null,"isDisrupted":false}]}],"tasksOnRoute":[],"includedTasks":[],"baseDurationSeconds":null,"newBadges":[]}]

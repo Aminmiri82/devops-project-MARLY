@@ -36,4 +36,7 @@ export const api = {
     }
     return resp.text();
   },
+  async getEcoDashboard(userId) {
+    return this.get(`/api/eco/dashboard?userId=${userId}`);
+  },
 };

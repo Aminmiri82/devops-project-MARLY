@@ -66,7 +66,8 @@ public class JourneySteps {
                     origin,
                     destination,
                     LocalDateTime.now().plusHours(1),
-                    JourneyPreferences.disabled());
+                    JourneyPreferences.disabled(),
+                    false);
             plannedJourneys = journeyPlanningService.planAndPersist(params);
         } catch (Exception e) {
             lastException = e;
@@ -76,13 +77,14 @@ public class JourneySteps {
     @When("je planifie un trajet de {string} à {string} avec le mode confort activé")
     public void je_planifie_un_trajet_avec_mode_confort(String origin, String destination) {
         try {
-            JourneyPreferences preferences = new JourneyPreferences(true, null);
+            JourneyPreferences preferences = new JourneyPreferences(true, false, null);
             JourneyPlanningParameters params = new JourneyPlanningParameters(
                     currentUser.getId(),
                     origin,
                     destination,
                     LocalDateTime.now().plusHours(1),
-                    preferences);
+                    preferences,
+                    false);
             plannedJourneys = journeyPlanningService.planAndPersist(params);
         } catch (Exception e) {
             lastException = e;

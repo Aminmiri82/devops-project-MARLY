@@ -12,6 +12,7 @@ import { setupTasks } from "./features/tasks.js";
 import { setupDropdown } from "./features/user-dropdown.js";
 import { setupHomeAddressListeners } from "./features/home-address.js";
 import { setupSmartSuggestionsListeners } from "./features/smart-suggestions.js";
+import { setupEcoScore } from "./features/eco-score.js";
 
 init();
 
@@ -29,6 +30,7 @@ function init() {
   setupHomeAddressListeners();
   setupSmartSuggestionsListeners();
   setupOnboardingListeners();
+  setupEcoScore();
   setDefaultDepartureTime();
   ensureToastUI();
   ensureTasksModalUI();

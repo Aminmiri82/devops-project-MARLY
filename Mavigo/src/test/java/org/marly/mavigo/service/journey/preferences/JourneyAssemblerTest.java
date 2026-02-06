@@ -39,15 +39,14 @@ class JourneyAssemblerTest {
                 OffsetDateTime.now().plusHours(1),
                 3600,
                 0,
-                Collections.emptyList()
-        );
+                Collections.emptyList());
     }
 
     @Test
     @DisplayName("Assembler avec comfort mode doit l'activer sur le journey")
     void testAssemble_WithComfortMode_ShouldEnableComfortMode() {
         // Given
-        JourneyPreferences preferences = new JourneyPreferences(true, null);
+        JourneyPreferences preferences = new JourneyPreferences(true, false, null);
 
         // When
         Journey journey = journeyAssembler.assemble(testUser, origin, destination, primPlan, preferences);
@@ -61,7 +60,7 @@ class JourneyAssemblerTest {
     @DisplayName("Assembler sans comfort mode ne doit pas l'activer")
     void testAssemble_WithoutComfortMode_ShouldNotEnableComfortMode() {
         // Given
-        JourneyPreferences preferences = new JourneyPreferences(false, null);
+        JourneyPreferences preferences = new JourneyPreferences(false, false, null);
 
         // When
         Journey journey = journeyAssembler.assemble(testUser, origin, destination, primPlan, preferences);
@@ -76,7 +75,7 @@ class JourneyAssemblerTest {
     void testAssemble_WithNamedComfortSetting_ShouldStoreSettingId() {
         // Given
         UUID settingId = UUID.randomUUID();
-        JourneyPreferences preferences = new JourneyPreferences(true, settingId);
+        JourneyPreferences preferences = new JourneyPreferences(true, false, settingId);
 
         // When
         Journey journey = journeyAssembler.assemble(testUser, origin, destination, primPlan, preferences);
@@ -99,7 +98,7 @@ class JourneyAssemblerTest {
     @DisplayName("Assembler doit définir le statut PLANNED")
     void testAssemble_ShouldSetStatusPlanned() {
         // Given
-        JourneyPreferences preferences = new JourneyPreferences(false, null);
+        JourneyPreferences preferences = new JourneyPreferences(false, false, null);
 
         // When
         Journey journey = journeyAssembler.assemble(testUser, origin, destination, primPlan, preferences);
@@ -112,7 +111,7 @@ class JourneyAssemblerTest {
     @DisplayName("Assembler doit définir les labels origin et destination")
     void testAssemble_ShouldSetOriginAndDestinationLabels() {
         // Given
-        JourneyPreferences preferences = new JourneyPreferences(false, null);
+        JourneyPreferences preferences = new JourneyPreferences(false, false, null);
 
         // When
         Journey journey = journeyAssembler.assemble(testUser, origin, destination, primPlan, preferences);
@@ -126,7 +125,7 @@ class JourneyAssemblerTest {
     @DisplayName("Assembler doit définir l'utilisateur")
     void testAssemble_ShouldSetUser() {
         // Given
-        JourneyPreferences preferences = new JourneyPreferences(false, null);
+        JourneyPreferences preferences = new JourneyPreferences(false, false, null);
 
         // When
         Journey journey = journeyAssembler.assemble(testUser, origin, destination, primPlan, preferences);
@@ -140,7 +139,7 @@ class JourneyAssemblerTest {
     @DisplayName("Assembler doit définir le Prim itinerary ID")
     void testAssemble_ShouldSetPrimItineraryId() {
         // Given
-        JourneyPreferences preferences = new JourneyPreferences(false, null);
+        JourneyPreferences preferences = new JourneyPreferences(false, false, null);
 
         // When
         Journey journey = journeyAssembler.assemble(testUser, origin, destination, primPlan, preferences);
@@ -153,7 +152,7 @@ class JourneyAssemblerTest {
     @DisplayName("Assembler avec user null doit lever une exception")
     void testAssemble_WithNullUser_ShouldThrowException() {
         // Given
-        JourneyPreferences preferences = new JourneyPreferences(false, null);
+        JourneyPreferences preferences = new JourneyPreferences(false, false, null);
 
         // When & Then
         assertThrows(NullPointerException.class, () -> {
@@ -165,7 +164,7 @@ class JourneyAssemblerTest {
     @DisplayName("Assembler avec origin null doit lever une exception")
     void testAssemble_WithNullOrigin_ShouldThrowException() {
         // Given
-        JourneyPreferences preferences = new JourneyPreferences(false, null);
+        JourneyPreferences preferences = new JourneyPreferences(false, false, null);
 
         // When & Then
         assertThrows(NullPointerException.class, () -> {

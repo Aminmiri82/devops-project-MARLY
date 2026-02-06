@@ -1,0 +1,48 @@
+> Task :clean
+> Task :compileJava
+> Task :processResources
+> Task :classes
+
+> Task :compileTestJava
+/Users/macbookair/Documents/M1/S7/DevOps/devops-project-MARLY/Mavigo/src/test/java/org/marly/mavigo/controller/EcoScoreControllerTest.java:32: warning: [removal] MockBean in org.springframework.boot.test.mock.mockito has been deprecated and marked for removal
+    @MockBean
+     ^
+/Users/macbookair/Documents/M1/S7/DevOps/devops-project-MARLY/Mavigo/src/test/java/org/marly/mavigo/service/journey/JourneyPlanningServiceImplTest.java:172: error: constructor JourneyPlanningParameters in record JourneyPlanningParameters cannot be applied to given types;
+                JourneyPlanningParameters parameters = new JourneyPlanningParameters(
+                                                       ^
+  required: UUID,String,String,LocalDateTime,JourneyPreferences,boolean
+  found:    UUID,String,String,LocalDateTime,JourneyPreferences
+  reason: actual and formal argument lists differ in length
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+1 error
+1 warning
+
+> Task :compileTestJava FAILED
+
+[Incubating] Problems report is available at: file:///Users/macbookair/Documents/M1/S7/DevOps/devops-project-MARLY/Mavigo/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileTestJava'.
+> Compilation failed; see the compiler output below.
+  /Users/macbookair/Documents/M1/S7/DevOps/devops-project-MARLY/Mavigo/src/test/java/org/marly/mavigo/controller/EcoScoreControllerTest.java:32: warning: [removal] MockBean in org.springframework.boot.test.mock.mockito has been deprecated and marked for removal
+      @MockBean
+       ^
+  1 error
+  1 warning
+
+* Try:
+> Run with --scan to generate a Build Scan (Powered by Develocity).
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.1.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 12s
+4 actionable tasks: 4 executed

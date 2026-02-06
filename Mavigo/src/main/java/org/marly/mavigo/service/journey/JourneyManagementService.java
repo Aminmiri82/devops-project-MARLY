@@ -5,12 +5,14 @@ import java.util.UUID;
 import org.marly.mavigo.models.journey.Journey;
 
 public interface JourneyManagementService {
-    
-    Journey startJourney(UUID journeyId);
 
-    Journey completeJourney(UUID journeyId);
+    JourneyActionResult startJourney(UUID journeyId);
+
+    JourneyActionResult completeJourney(UUID journeyId);
 
     Journey cancelJourney(UUID journeyId);
 
     Journey getJourney(UUID journeyId);
+
+    void clearAllData();
 }

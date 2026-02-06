@@ -98,7 +98,8 @@ class JourneyAssemblerAdvancedTest {
         @Test
         @DisplayName("mapSegments filtre les segments sans points")
         void mapSegments_filtersSegmentsWithNoPoints() {
-            // Given - a leg with same origin/destination and short duration won't create two points
+            // Given - a leg with same origin/destination and short duration won't create
+            // two points
             LegDto samePointLeg = createLegDto(0, "section-1", "transfer", null,
                     "Same Station", "Same Station", 48.88, 2.35, 48.88, 2.35);
             samePointLeg = new LegDto(0, "section-1", "transfer", null, null, null, null, null,
@@ -434,7 +435,7 @@ class JourneyAssemblerAdvancedTest {
             // Given
             LegDto leg = createTransitLeg("Metro", "M1", "Ligne 1");
             PrimJourneyPlanDto plan = createPlanWithLegs(List.of(leg));
-            JourneyPreferences preferences = new JourneyPreferences(true, null);
+            JourneyPreferences preferences = new JourneyPreferences(true, false, null);
 
             // When
             Journey journey = journeyAssembler.assemble(testUser, origin, destination, plan, preferences);

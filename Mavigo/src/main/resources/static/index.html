@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mavigo</title>
+  <title>Mavigo - Smart City Transit</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -18,6 +18,7 @@
     <nav class="app-nav" id="appNav">
       <button type="button" class="btn btn-ghost btn-sm nav-btn nav-active" id="navJourneyBtn">Journey</button>
       <button type="button" class="btn btn-ghost btn-sm nav-btn" id="navTasksBtn">Tasks</button>
+      <button type="button" class="btn btn-ghost btn-sm nav-btn" id="navEcoScoreBtn">Eco-Score</button>
     </nav>
 
     <div class="header-auth" id="authSection">
@@ -209,7 +210,8 @@
     <div class="modal">
       <div class="auth-form py-8 text-center">
         <h2 id="onboardingModalTitle">Personalize Your Travels</h2>
-        <p class="form-subtitle">Would you like to set up your Comfort Profile preferences now? This helps us find the best
+        <p class="form-subtitle">Would you like to set up your Comfort Profile preferences now? This helps us find the
+          best
           routes for you.</p>
 
         <div class="comfort-modal-actions mt-8">
@@ -230,6 +232,7 @@
       </div>
     </div>
   </div>
+
 
   <main class="app-main">
     <div id="notLoggedInPrompt" class="prompt-card">
@@ -257,7 +260,7 @@
           </div>
         </section>
 
-        <section class="journey-panel">
+        <section class="journey-panel" id="planJourneyPanel">
           <div class="panel-header">
             <h2>Plan a Journey</h2>
           </div>
@@ -283,6 +286,15 @@
                   <select id="journeyComfortSelection" class="form-select">
                     <option value="disabled">No Profile</option>
                   </select>
+                </div>
+              </div>
+              <div class="form-row eco-toggle-row">
+                <div class="form-group flex-row align-center">
+                  <label class="switch">
+                    <input type="checkbox" id="ecoModeToggle">
+                    <span class="slider round"></span>
+                  </label>
+                  <span class="ml-2 font-medium">Activate Green Mode</span>
                 </div>
               </div>
               <button type="submit" class="btn btn-primary">Plan Journey</button>
@@ -367,17 +379,95 @@
           </div>
         </section>
       </div>
+
+      <!-- VIEW: Eco-Score -->
+      <div id="ecoScoreView" class="hidden">
+        <div class="eco-dashboard">
+          <header class="eco-header">
+            <h2>Your Eco-Impact</h2>
+            <div class="eco-total-card">
+              <span class="eco-total-label">Total CO2 Saved</span>
+              <div class="eco-total-value"><span id="totalCo2Saved">0.0</span> <small>kg</small></div>
+            </div>
+          </header>
+
+          <section class="eco-badges-section">
+            <div class="section-header">
+              <h3>Badges Earned (<span id="earnedBadgeCount">0</span>)</h3>
+            </div>
+            <div class="badge-grid" id="badgeGrid">
+              <p class="results-placeholder">Loading badges...</p>
+            </div>
+          </section>
+
+          <section class="eco-history-section">
+            <div class="section-header">
+              <h3>7-Day Journey History</h3>
+            </div>
+            <div class="history-list" id="ecoHistoryList">
+              <p class="results-placeholder">Loading history...</p>
+            </div>
+          </section>
+        </div>
+      </div>
+      <!-- VIEW: Eco-Score -->
+      <div id="ecoScoreView" class="hidden">
+        <div class="eco-dashboard">
+          <header class="eco-header">
+            <h2>Your Eco-Impact</h2>
+            <div class="eco-total-card">
+              <span class="eco-total-label">Total CO2 Saved</span>
+              <div class="eco-total-value"><span id="totalCo2Saved">0.0</span> <small>kg</small></div>
+            </div>
+          </header>
+
+          <section class="eco-badges-section">
+            <div class="section-header">
+              <h3>Badges Earned (<span id="earnedBadgeCount">0</span>)</h3>
+            </div>
+            <div class="badge-grid" id="badgeGrid">
+              <p class="results-placeholder">Loading badges...</p>
+            </div>
+          </section>
+
+          <section class="eco-history-section">
+            <div class="section-header">
+              <h3>7-Day Journey History</h3>
+            </div>
+            <div class="history-list" id="ecoHistoryList">
+              <p class="results-placeholder">Loading history...</p>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   </main>
 
-  <div class="smart-suggestions-flyout hidden" id="smartSuggestionsFlyout" role="region"
-    aria-label="Smart Suggestions">
+  <div class="smart-suggestions-flyout hidden" id="smartSuggestionsFlyout" role="region" aria-label="Smart Suggestions">
     <div class="smart-suggestions-header">
       <h3>Smart Suggestions</h3>
-      <button type="button" class="smart-suggestions-close" id="smartSuggestionsCloseBtn" aria-label="Dismiss">&times;</button>
+      <button type="button" class="smart-suggestions-close" id="smartSuggestionsCloseBtn"
+        aria-label="Dismiss">&times;</button>
     </div>
     <div class="smart-suggestions-body" id="smartSuggestionsContent">
       <p class="results-placeholder">Loading smart suggestions…</p>
+    </div>
+  </div>
+
+  <!-- Badge Unlock Modal -->
+  <div id="badgeUnlockModal" class="badge-unlock-modal hidden">
+    <div class="badge-unlock-overlay"></div>
+    <div class="badge-unlock-content">
+      <div class="badge-unlock-icon-wrapper">
+        <div class="badge-unlock-glow"></div>
+        <div class="badge-unlock-icon" id="badgeUnlockIcon">🏆</div>
+      </div>
+      <h2 class="badge-unlock-title">Badge Unlocked!</h2>
+      <h3 class="badge-unlock-name" id="badgeUnlockName">Achievement Name</h3>
+      <p class="badge-unlock-description" id="badgeUnlockDescription">You've earned a new badge!</p>
+      <button type="button" class="btn btn-primary badge-unlock-close" id="badgeUnlockCloseBtn">
+        Awesome! 🎉
+      </button>
     </div>
   </div>
 

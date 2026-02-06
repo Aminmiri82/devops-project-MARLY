@@ -24,9 +24,32 @@ const cancelJourneyBtn = document.getElementById("cancelJourneyBtn");
 const departureInput = document.getElementById("departure");
 const reportDisruptionBtn = document.getElementById("reportDisruptionBtn");
 const journeyComfortSelection = document.getElementById("journeyComfortSelection");
+const planJourneyPanel = document.getElementById("planJourneyPanel");
 
 export function setupJourneyForm() {
   journeyForm?.addEventListener("submit", handleJourneySubmit);
+
+  const ecoToggle = document.getElementById("ecoModeToggle");
+  if (ecoToggle) {
+    ecoToggle.checked = state.ecoModeEnabled;
+    ecoToggle.addEventListener("change", (e) => {
+      state.ecoModeEnabled = e.target.checked;
+    });
+  }
+
+  // Home Suggestions
+  const fromInput = document.getElementById("from");
+  const toInput = document.getElementById("to");
+
+  [fromInput, toInput].forEach((input) => {
+    if (input) {
+      input.addEventListener("focus", () => showHomeSuggestion(input));
+      // Use setTimeout to allow click events on the suggestion to register before hiding
+      input.addEventListener("blur", () => {
+        setTimeout(hideHomeSuggestion, 200);
+      });
+    }
+  });
 }
 
 export function setupJourneyActions() {
@@ -60,6 +83,11 @@ async function startJourney(journeyId, btnElement) {
   try {
     const journey = await api.post(`/api/journeys/${journeyId}/start`);
     updateCurrentJourney(journey);
+    if (journey.newBadges && journey.newBadges.length > 0) {
+      import("./badge-unlock.js").then((module) => {
+        module.showBadgeUnlocks(journey.newBadges);
+      });
+    }
   } catch (err) {
     showToast(err.message, { variant: "warning" });
     allButtons.forEach((btn) => {
@@ -78,6 +106,13 @@ async function completeJourney() {
     );
     updateCurrentJourney(journey);
     showToast("Journey completed!", { variant: "success" });
+
+    // Show badge unlock celebration if new badges were earned
+    if (journey.newBadges && journey.newBadges.length > 0) {
+      import("./badge-unlock.js").then((module) => {
+        module.showBadgeUnlocks(journey.newBadges);
+      });
+    }
   } catch (err) {
     showToast(err.message, { variant: "warning" });
   }
@@ -107,11 +142,13 @@ export function updateCurrentJourney(journey) {
       journey.status === "REROUTED")
   ) {
     currentJourneyPanel?.classList.remove("hidden");
+    planJourneyPanel?.classList.add("hidden");
     renderCurrentJourney(journey);
 
     document.querySelector(".results-panel")?.classList.add("hidden");
   } else {
     currentJourneyPanel?.classList.add("hidden");
+    planJourneyPanel?.classList.remove("hidden");
     document.querySelector(".results-panel")?.classList.remove("hidden");
     if (resultsDiv) {
       resultsDiv.innerHTML =
@@ -121,94 +158,36 @@ export function updateCurrentJourney(journey) {
   }
 }
 
-function calculateProgress(journey) {
-  if (journey.status !== "IN_PROGRESS" && journey.status !== "REROUTED")
-    return 0;
-
-  const now = new Date();
-  const start = new Date(journey.actualDeparture || journey.plannedDeparture);
-  const end = new Date(journey.plannedArrival);
-
-  if (isNaN(start) || isNaN(end) || end <= start) return 0;
-
-  if (now < start) return 0;
-  if (now > end) return 100;
-
-  const progress = ((now - start) / (end - start)) * 100;
-  return Math.min(Math.max(Math.round(progress), 0), 100);
-}
-
 function renderCurrentJourney(journey) {
   if (!currentJourneyContent) return;
   const statusClass =
     journey.status === "IN_PROGRESS" ? "status-active" : "status-planned";
-  const progress = calculateProgress(journey);
   const hasSegments =
     Array.isArray(journey.segments) && journey.segments.length > 0;
   const hasTasks =
     Array.isArray(journey.includedTasks) && journey.includedTasks.length > 0;
-  const showSteps =
-    (journey.status === "IN_PROGRESS" || journey.status === "REROUTED") &&
-    (hasSegments || hasTasks);
-
-  const segments = Array.isArray(journey?.segments) ? journey.segments : [];
-  const includedTasks = Array.isArray(journey?.includedTasks)
-    ? journey.includedTasks
-    : [];
-  const processedSegments = segments
-    .map((seg) => {
-      const points = Array.isArray(seg.points) ? seg.points : [];
-      const originPoint = points[0];
-      const destPoint = points.length > 1 ? points[points.length - 1] : originPoint;
-      return {
-        ...seg,
-        originLabel: originPoint?.name || seg.lineName || "?",
-        destinationLabel: destPoint?.name || seg.lineName || "?",
-        mode: seg.transitMode || seg.segmentType || "OTHER",
-      };
-    })
-    .filter((seg) => {
-      const duration = seg.durationSeconds || 0;
-      const samePlace = seg.originLabel === seg.destinationLabel;
-      if (seg.segmentType === "WAITING") return false;
-      if (duration < 30 && samePlace) return false;
-      return true;
-    });
 
   currentJourneyContent.innerHTML = `
         <div class="journey-status-card">
             <div class="status-badge ${statusClass}">${journey.status}</div>
-            ${
-              journey.status === "REROUTED" || journey.disruptionCount > 0
-                ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>'
-                : ""
-            }
+            ${journey.status === "REROUTED" || journey.disruptionCount > 0
+      ? '<div class="disruption-warning">⚠️ Disruption : New Journey Started</div>'
+      : ""
+    }
             <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
             
-            ${
-              journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
-                ? `
-                <div class="progress-container">
-                    <div class="progress-bar" style="width: ${progress}%"></div>
-                </div>
-                <span class="progress-text">${progress}% Completed</span>
-            `
-                : ""
-            }
-
             <p><strong>Planned Departure:</strong> ${formatDateTime(
-              journey.plannedDeparture
-            )}</p>
-            ${
-              journey.actualDeparture
-                ? `<p><strong>Started:</strong> ${formatDateTime(
-                    journey.actualDeparture
-                  )}</p>`
-                : ""
-            }
+      journey.plannedDeparture
+    )}</p>
+            ${journey.actualDeparture
+      ? `<p><strong>Started:</strong> ${formatDateTime(
+        journey.actualDeparture
+      )}</p>`
+      : ""
+    }
             <p><strong>Planned Arrival:</strong> ${formatDateTime(
-              journey.plannedArrival
-            )}</p>
+      journey.plannedArrival
+    )}</p>
         </div>
     `;
 
@@ -249,12 +228,16 @@ async function handleJourneySubmit(e) {
     return;
   }
 
+  // Use green mode (eco-mode) from state
+  const ecoModeEnabled = state.ecoModeEnabled;
+
   const payload = {
     journey: {
       userId: state.currentUser.userId,
       originQuery: from,
       destinationQuery: to,
       departureTime: departure,
+      ecoModeEnabled: ecoModeEnabled,
     },
     preferences: {
       comfortMode: comfortSelection !== "disabled",
@@ -299,12 +282,11 @@ export function displayJourneyResults(journeys) {
     ? `
       <div class="tasks-on-route-banner">
         <div>
-          <div class="tasks-on-route-title">${allTasks.length} task${
-        allTasks.length > 1 ? "s" : ""
-      } on your route</div>
+          <div class="tasks-on-route-title">${allTasks.length} task${allTasks.length > 1 ? "s" : ""
+    } on your route</div>
           <div class="tasks-on-route-sub">${escapeHtml(
-        allTasks[0]?.title || "Task"
-      )}</div>
+      allTasks[0]?.title || "Task"
+    )}</div>
         </div>
         <button type="button" class="btn btn-outline btn-sm" id="viewTasksOnRouteBtn">View</button>
       </div>
@@ -313,9 +295,8 @@ export function displayJourneyResults(journeys) {
 
   const modesHtml = `
     <div class="journey-modes">
-      <span>Comfort Profile: ${
-        firstJourney?.comfortModeEnabled ? "Active" : "None"
-      }</span>
+      <span>Comfort Profile: ${firstJourney?.comfortModeEnabled ? "Active" : "None"
+    }</span>
     </div>
   `;
 
@@ -423,43 +404,38 @@ function displayJourneyCard(journey, index, total) {
 
   const legsHtml = processedSegments.length
     ? processedSegments
-        .map(
-          (seg) => `
+      .map(
+        (seg) => `
         <li class="journey-leg-item">
             <div class="leg-marker-container">
                 ${formatLineBadge(seg.mode, seg.lineCode, seg.lineColor)}
             </div>
             <div class="leg-content">
-                <span class="leg-mode">${formatMode(seg.mode)}${
-            seg.lineName
-              ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>`
-              : ""
+                <span class="leg-mode">${formatMode(seg.mode)}${seg.lineName
+            ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>`
+            : ""
           }</span>
-                <span class="leg-route">${seg.originLabel || "?"} → ${
-            seg.destinationLabel || "?"
+                <span class="leg-route">${seg.originLabel || "?"} → ${seg.destinationLabel || "?"
           }</span>
                 <div class="leg-times">
-                    ${
-                      seg.scheduledDeparture
-                        ? formatDateTime(seg.scheduledDeparture)
-                        : "?"
-                    } -
-                    ${
-                      seg.scheduledArrival
-                        ? formatDateTime(seg.scheduledArrival)
-                        : "?"
-                    }
-                    <span class="leg-duration">(${
-                      seg.durationSeconds
-                        ? formatDuration(seg.durationSeconds)
-                        : "?"
-                    })</span>
+                    ${seg.scheduledDeparture
+            ? formatDateTime(seg.scheduledDeparture)
+            : "?"
+          } -
+                    ${seg.scheduledArrival
+            ? formatDateTime(seg.scheduledArrival)
+            : "?"
+          }
+                    <span class="leg-duration">(${seg.durationSeconds
+            ? formatDuration(seg.durationSeconds)
+            : "?"
+          })</span>
                 </div>
             </div>
         </li>
     `
-        )
-        .join("")
+      )
+      .join("")
     : "<li>No route details available</li>";
 
   const optionLabel =
@@ -469,15 +445,33 @@ function displayJourneyCard(journey, index, total) {
     ? ` • Durée: <strong>${totalDuration}</strong>`
     : "";
 
+  let ecoHtml = "";
+  if (state.ecoModeEnabled) {
+    const totalMeters = (journey.segments || []).reduce(
+      (acc, s) => acc + (s.distanceMeters || 0),
+      0
+    );
+    const co2Kg = ((totalMeters / 1000) * 0.2).toFixed(1);
+    ecoHtml = `
+      <div class="eco-savings-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+          <path d="M12 2L4.5 9/5C4.5 12.5 8 16 12 21c4-5 7.5-8.5 7.5-11.5S16 2 12 2z"></path>
+        </svg>
+        Estimated CO2 Savings: ${co2Kg} kg
+      </div>
+    `;
+  }
+
   const html = `
     <div class="journey-result">
       <h3>${optionLabel}${escapeHtml(
     journey?.originLabel || "—"
   )} → ${escapeHtml(journey?.destinationLabel || "—")}</h3>
       <p class="journey-meta">Départ: ${departure} • Arrivée: ${arrival}${totalDurationHtml}</p>
+      ${ecoHtml}
       <button class="btn btn-primary btn-sm start-journey-btn" data-journey-id="${escapeHtml(
-        journey.journeyId
-      )}">Start Journey</button>
+    journey.journeyId
+  )}">Start Journey</button>
       <h4>Itinerary Steps:</h4>
       <ul class="journey-legs">${legsHtml}</ul>
     </div>
@@ -505,4 +499,45 @@ export function setDefaultDepartureTime() {
   const d = new Date(Date.now() + 60 * 60 * 1000);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   departureInput.value = d.toISOString().slice(0, 16);
+}
+
+// --- Home Suggestions ---
+
+let currentHomePopover = null;
+
+function showHomeSuggestion(inputEl) {
+  if (!state.currentUser?.homeAddress) return;
+
+  hideHomeSuggestion();
+
+  const homeAddress = state.currentUser.homeAddress;
+  const popover = document.createElement("div");
+  popover.className = "home-suggestion-popover";
+  popover.innerHTML = `
+      <div class="home-suggestion-item">
+          <span class="home-suggestion-icon">🏠</span>
+          <div class="home-suggestion-details">
+              <span class="home-suggestion-title">Use Home</span>
+              <span class="home-suggestion-address">${escapeHtml(
+    homeAddress
+  )}</span>
+          </div>
+      </div>
+  `;
+
+  popover.querySelector(".home-suggestion-item").addEventListener("click", () => {
+    inputEl.value = homeAddress;
+    hideHomeSuggestion();
+  });
+
+  inputEl.parentNode.style.position = "relative";
+  inputEl.parentNode.appendChild(popover);
+  currentHomePopover = popover;
+}
+
+function hideHomeSuggestion() {
+  if (currentHomePopover) {
+    currentHomePopover.remove();
+    currentHomePopover = null;
+  }
 }

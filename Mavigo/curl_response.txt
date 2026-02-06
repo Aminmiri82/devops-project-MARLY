@@ -1,0 +1,36 @@
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Host localhost:8080 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:8080...
+* Connected to localhost (::1) port 8080
+> POST /api/journeys HTTP/1.1
+> Host: localhost:8080
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Content-Type: application/json
+> Content-Length: 267
+> 
+} [267 bytes data]
+* upload completely sent off: 267 bytes
+100   267    0     0  100   267      0    221  0:00:01  0:00:01 --:--:--   221< HTTP/1.1 400 
+< Vary: Origin
+< Vary: Access-Control-Request-Method
+< Vary: Access-Control-Request-Headers
+< X-Content-Type-Options: nosniff
+< X-XSS-Protection: 0
+< Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+< Pragma: no-cache
+< Expires: 0
+< X-Frame-Options: SAMEORIGIN
+< Content-Type: text/plain;charset=UTF-8
+< Content-Length: 52
+< Date: Fri, 06 Feb 2026 17:52:55 GMT
+< Connection: close
+< 
+{ [52 bytes data]
+100   319  100    52  100   267     27    142  0:00:01  0:00:01 --:--:--   170100   319  100    52  100   267     27    142  0:00:01  0:00:01 --:--:--   170
+* Closing connection
+User not found: a136098b-878c-4a28-b6d7-98fed880c8f9
