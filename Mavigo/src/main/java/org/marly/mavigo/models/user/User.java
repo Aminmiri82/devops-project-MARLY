@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+import lombok.Data;
 import org.marly.mavigo.models.journey.Journey;
 
 import jakarta.persistence.CascadeType;
@@ -21,6 +22,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "app_user")
+@Data
 public class User {
 
     @Id
@@ -65,6 +67,10 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<NamedComfortSetting> namedComfortSettings = new ArrayList<>();
 
+    @Column(name = "password_hash")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String passwordHash;
+
     protected User() {
 
     }
@@ -75,92 +81,8 @@ public class User {
         this.displayName = displayName;
     }
 
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public String getExternalId() {
-        return externalId;
-    }
-
-    public void setExternalId(String externalId) {
-        this.externalId = externalId;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
-    }
-
-    public String getHomeAddress() {
-        return homeAddress;
-    }
-
-    public void setHomeAddress(String homeAddress) {
-        this.homeAddress = homeAddress;
-    }
-
-    public ComfortProfile getComfortProfile() {
-        return comfortProfile;
-    }
-
-    public void setComfortProfile(ComfortProfile comfortProfile) {
-        this.comfortProfile = comfortProfile;
-    }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(OffsetDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public String getGoogleAccountSubject() {
-        return googleAccountSubject;
-    }
-
-    public void setGoogleAccountSubject(String googleAccountSubject) {
-        this.googleAccountSubject = googleAccountSubject;
-    }
-
-    public String getGoogleAccountEmail() {
-        return googleAccountEmail;
-    }
-
-    public void setGoogleAccountEmail(String googleAccountEmail) {
-        this.googleAccountEmail = googleAccountEmail;
-    }
-
-    public OffsetDateTime getGoogleLinkedAt() {
-        return googleLinkedAt;
-    }
-
-    public void setGoogleLinkedAt(OffsetDateTime googleLinkedAt) {
-        this.googleLinkedAt = googleLinkedAt;
-    }
-
     public Boolean getHasSeenComfortPrompt() {
         return hasSeenComfortPrompt != null ? hasSeenComfortPrompt : false;
-    }
-
-    public void setHasSeenComfortPrompt(Boolean hasSeenComfortPrompt) {
-        this.hasSeenComfortPrompt = hasSeenComfortPrompt;
     }
 
     public List<Journey> getJourneys() {
@@ -188,6 +110,5 @@ public class User {
 
     public void removeNamedComfortSetting(NamedComfortSetting setting) {
         namedComfortSettings.remove(setting);
-        // orphanRemoval = true will delete the setting, no need to set user to null
     }
 }

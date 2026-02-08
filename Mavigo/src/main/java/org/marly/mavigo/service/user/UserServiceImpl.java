@@ -10,6 +10,7 @@ import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.NamedComfortSettingRepository;
 import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.service.user.dto.GoogleAccountLink;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -20,10 +21,14 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final NamedComfortSettingRepository namedComfortSettingRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepository, NamedComfortSettingRepository namedComfortSettingRepository) {
+    public UserServiceImpl(UserRepository userRepository,
+                           NamedComfortSettingRepository namedComfortSettingRepository,
+                           PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.namedComfortSettingRepository = namedComfortSettingRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -34,18 +39,52 @@ public class UserServiceImpl implements UserService {
         ensureEmailAvailable(user.getEmail(), null);
 
         User saved = userRepository.save(user);
+        ComfortProfile accessibilityProfile = new ComfortProfile();
+        accessibilityProfile.setWheelchairAccessible(true);
+        NamedComfortSetting accessibilitySetting = new NamedComfortSetting("Accessibility", accessibilityProfile,
+                saved);
+        saved.addNamedComfortSetting(accessibilitySetting);
 
-        return saved;
+        return userRepository.save(saved);
+    }
+
+    @Override
+    public User createUserFromRegistration(String firstName, String lastName, String email, String password, String homeAddress) {
+        if (!StringUtils.hasText(firstName) || !StringUtils.hasText(lastName) || !StringUtils.hasText(email) || !StringUtils.hasText(password)) {
+            throw new IllegalArgumentException("First name, last name, email and password are required");
+        }
+        PasswordValidator.validate(password);
+        ensureEmailAvailable(email.trim(), null);
+        String externalId = UUID.randomUUID().toString();
+        String displayName = (firstName.trim() + " " + lastName.trim()).trim();
+        if (!StringUtils.hasText(displayName)) {
+            displayName = email;
+        }
+        User user = new User(externalId, email.trim(), displayName);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        if (StringUtils.hasText(homeAddress)) {
+            user.setHomeAddress(homeAddress.trim());
+        }
+        User saved = userRepository.save(user);
+        ComfortProfile accessibilityProfile = new ComfortProfile();
+        accessibilityProfile.setWheelchairAccessible(true);
+        NamedComfortSetting accessibilitySetting = new NamedComfortSetting("Accessibility", accessibilityProfile, saved);
+        saved.addNamedComfortSetting(accessibilitySetting);
+        return userRepository.save(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public User loginToUserAccount(String email) {
-        if (!StringUtils.hasText(email)) {
-            throw new IllegalArgumentException("Email is required for login");
+    public User login(String email, String password) {
+        if (!StringUtils.hasText(email) || !StringUtils.hasText(password)) {
+            throw new IllegalArgumentException("Invalid email or password");
         }
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("No user found with email: " + email));
+        User user = userRepository.findByEmail(email.trim())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Invalid email or password");
+        }
+        return user;
     }
 
     @Override
@@ -85,8 +124,6 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = getUser(userId);
-
-        // If this user already has this Google account linked, just return (idempotent)
         if (subject.equals(user.getGoogleAccountSubject())) {
             return user;
         }

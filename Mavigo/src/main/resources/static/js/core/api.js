@@ -16,14 +16,18 @@ export const api = {
   },
   async request(url, method, body) {
     const opts = { method, headers: {} };
+    const token = typeof localStorage !== "undefined" ? localStorage.getItem("mavigo_token") : null;
+    if (token) {
+      opts.headers["Authorization"] = "Bearer " + token;
+    }
     if (body !== undefined) {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
     const resp = await fetch(url, opts);
     if (!resp.ok) {
-      if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
-        const error = new Error("Google Tasks not authorized");
+      if (resp.status === 401 || resp.status === 403) {
+        const error = new Error("Session expired or unauthorized");
         error.authError = true;
         throw error;
       }
