@@ -45,6 +45,7 @@ class EcoScoreControllerTest {
 
         when(gamificationService.getTotalCo2Saved(any(UUID.class))).thenReturn(0.2);
         when(gamificationService.getUserBadges(any(UUID.class))).thenReturn(List.of(userBadge));
+        when(gamificationService.getAllSystemBadges()).thenReturn(List.of(badge));
         when(gamificationService.getJourneyHistory(any(UUID.class))).thenReturn(List.of(activity));
 
         mockMvc.perform(get("/api/eco/dashboard")
@@ -54,7 +55,8 @@ class EcoScoreControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalCo2Saved").value(0.2))
                 .andExpect(jsonPath("$.badgeCount").value(1))
-                .andExpect(jsonPath("$.badges[0].name").value("Eco-Beginner"))
+                .andExpect(jsonPath("$.earnedBadges[0].name").value("Eco-Beginner"))
+                .andExpect(jsonPath("$.allBadges[0].name").value("Eco-Beginner"))
                 .andExpect(jsonPath("$.history[0].distance").value(1000.0));
     }
 }

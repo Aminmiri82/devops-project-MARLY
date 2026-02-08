@@ -3254,6 +3254,7 @@ input:checked+.slider:before {
         font-size: 1.1rem;
     }
 }
+
 /* Home Suggestion Popover */
 .home-suggestion-popover {
     position: absolute;
@@ -3306,4 +3307,164 @@ input:checked+.slider:before {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
+}
+
+/* Travel Modes Premium UI */
+.travel-modes-container {
+    margin: 1.5rem 0;
+    padding: 1.25rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+}
+
+.section-subtitle {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 1rem;
+}
+
+.travel-modes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.travel-mode-card {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.travel-mode-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.travel-mode-icon {
+    font-size: 1.5rem;
+    margin-right: 0.75rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.travel-mode-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.mode-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: white;
+}
+
+.mode-desc {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.travel-mode-toggle {
+    margin-left: 0.5rem;
+}
+
+/* Mode Badges in Results */
+.mode-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.mode-badge.green {
+    background: rgba(34, 197, 94, 0.1);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.mode-badge.accessible {
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+@media (max-width: 640px) {
+    .travel-modes-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Badge Styles */
+.badge-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.badge-item.earned {
+    border-color: var(--color-success);
+    box-shadow: var(--shadow-md);
+}
+
+.badge-item.locked {
+    opacity: 0.6;
+    filter: grayscale(1);
+    background: var(--color-surface-hover);
+    border-style: dashed;
+}
+
+.badge-item:hover {
+    transform: translateY(-5px);
+}
+
+.badge-item.earned:hover {
+    box-shadow: var(--shadow-lg);
+}
+
+.badge-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.badge-name {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.badge-date {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.badge-desc {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    line-height: 1.4;
 }

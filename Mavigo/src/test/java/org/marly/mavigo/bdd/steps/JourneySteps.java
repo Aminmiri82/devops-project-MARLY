@@ -67,6 +67,7 @@ public class JourneySteps {
                     destination,
                     LocalDateTime.now().plusHours(1),
                     JourneyPreferences.disabled(),
+                    false,
                     false);
             plannedJourneys = journeyPlanningService.planAndPersist(params);
         } catch (Exception e) {
@@ -84,6 +85,7 @@ public class JourneySteps {
                     destination,
                     LocalDateTime.now().plusHours(1),
                     preferences,
+                    false,
                     false);
             plannedJourneys = journeyPlanningService.planAndPersist(params);
         } catch (Exception e) {

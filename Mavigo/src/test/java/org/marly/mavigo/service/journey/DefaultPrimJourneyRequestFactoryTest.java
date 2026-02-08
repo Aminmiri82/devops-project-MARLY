@@ -64,6 +64,7 @@ class DefaultPrimJourneyRequestFactoryTest {
                 "dest-query",
                 LocalDateTime.now(),
                 preferences,
+                false,
                 false);
 
         User user = new User("ext", "user@example.com", "Example User");

@@ -10,7 +10,8 @@ public record JourneyPlanningParameters(
         String destinationQuery,
         LocalDateTime departureDateTime,
         JourneyPreferences preferences,
-        boolean ecoModeEnabled) {
+        boolean ecoModeEnabled,
+        boolean wheelchairAccessible) {
 
     public JourneyPlanningParameters {
         Objects.requireNonNull(userId, "userId must be provided when planning a journey");

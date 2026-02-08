@@ -184,7 +184,8 @@ public class JourneyOptimizationService {
             JourneyPlanningParameters segment2Params = new JourneyPlanningParameters(
                     parameters.userId(), taskQuery, parameters.destinationQuery(), taskArrival,
                     parameters.preferences(),
-                    parameters.ecoModeEnabled());
+                    parameters.ecoModeEnabled(),
+                    parameters.wheelchairAccessible());
             List<Journey> segment2Journeys = journeyPlanningService.planAndPersist(segment2Params);
             if (segment2Journeys.isEmpty())
                 continue;
@@ -216,7 +217,8 @@ public class JourneyOptimizationService {
         LocalDateTime taskArrival = bestSegment1.getPlannedArrival().toLocalDateTime();
         JourneyPlanningParameters segment2Params = new JourneyPlanningParameters(
                 parameters.userId(), taskQuery, parameters.destinationQuery(), taskArrival, parameters.preferences(),
-                parameters.ecoModeEnabled());
+                parameters.ecoModeEnabled(),
+                parameters.wheelchairAccessible());
         List<Journey> segment2Journeys = journeyPlanningService.planAndPersist(segment2Params);
         if (segment2Journeys.isEmpty())
             return null;
@@ -229,7 +231,8 @@ public class JourneyOptimizationService {
         JourneyPlanningParameters baseParams = new JourneyPlanningParameters(
                 parameters.userId(), parameters.originQuery(), parameters.destinationQuery(),
                 initialDeparture, parameters.preferences(),
-                parameters.ecoModeEnabled());
+                parameters.ecoModeEnabled(),
+                parameters.wheelchairAccessible());
         List<Journey> baseJourneys = journeyPlanningService.planAndPersist(baseParams);
         long baseDuration = baseJourneys.isEmpty() ? totalDuration : getDurationSeconds(baseJourneys.get(0));
 
@@ -250,7 +253,8 @@ public class JourneyOptimizationService {
             LocalDateTime initialDeparture) {
         JourneyPlanningParameters segment1Params = new JourneyPlanningParameters(
                 parameters.userId(), parameters.originQuery(), taskQuery, initialDeparture, parameters.preferences(),
-                parameters.ecoModeEnabled());
+                parameters.ecoModeEnabled(),
+                parameters.wheelchairAccessible());
         return journeyPlanningService.planAndPersist(segment1Params);
     }
 

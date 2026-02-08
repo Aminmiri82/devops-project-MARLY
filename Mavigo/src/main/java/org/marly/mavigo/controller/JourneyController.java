@@ -84,7 +84,8 @@ public class JourneyController {
                 request.destinationQuery(),
                 departure,
                 preferences,
-                ecoModeEnabled);
+                ecoModeEnabled,
+                Boolean.TRUE.equals(request.wheelchairAccessible()));
 
         java.util.List<JourneyResponse> responses;
         boolean useTaskOptimization = (request.taskDetails() != null && !request.taskDetails().isEmpty())

@@ -155,12 +155,6 @@
             </label>
           </div>
           <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="wheelchairAccessible">
-              <span>Wheelchair Accessible Routes</span>
-            </label>
-          </div>
-          <div class="form-group">
             <label for="maxNbTransfers">Max Number of Transfers</label>
             <input type="number" id="maxNbTransfers" min="0" max="10" placeholder="e.g. 2">
           </div>
@@ -288,13 +282,36 @@
                   </select>
                 </div>
               </div>
-              <div class="form-row eco-toggle-row">
-                <div class="form-group flex-row align-center">
-                  <label class="switch">
-                    <input type="checkbox" id="ecoModeToggle">
-                    <span class="slider round"></span>
-                  </label>
-                  <span class="ml-2 font-medium">Activate Green Mode</span>
+              <div class="travel-modes-container">
+                <p class="section-subtitle">Travel Options</p>
+                <div class="travel-modes-grid">
+                  <div class="travel-mode-card" id="ecoModeCard">
+                    <div class="travel-mode-icon">🌱</div>
+                    <div class="travel-mode-info">
+                      <span class="mode-name">Green Mode</span>
+                      <span class="mode-desc">Reduce CO2 & earn badges</span>
+                    </div>
+                    <div class="travel-mode-toggle">
+                      <label class="switch">
+                        <input type="checkbox" id="ecoModeToggle">
+                        <span class="slider round"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="travel-mode-card" id="wheelchairCard">
+                    <div class="travel-mode-icon">♿</div>
+                    <div class="travel-mode-info">
+                      <span class="mode-name">Accessibility</span>
+                      <span class="mode-desc">Wheelchair-friendly routes</span>
+                    </div>
+                    <div class="travel-mode-toggle">
+                      <label class="switch">
+                        <input type="checkbox" id="wheelchairToggle">
+                        <span class="slider round"></span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
               <button type="submit" class="btn btn-primary">Plan Journey</button>

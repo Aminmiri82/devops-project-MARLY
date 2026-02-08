@@ -10,4 +10,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface BadgeRepository extends JpaRepository<Badge, UUID> {
     Optional<Badge> findByName(String name);
+
+    boolean existsByName(String name);
 }

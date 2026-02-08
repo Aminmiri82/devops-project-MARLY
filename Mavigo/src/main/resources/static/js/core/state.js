@@ -8,4 +8,5 @@ export const state = {
   pendingSuggestionTask: null,
   smartSuggestionsDismissedFor: null,
   ecoModeEnabled: false,
+  wheelchairAccessible: false,
 };

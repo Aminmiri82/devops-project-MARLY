@@ -37,6 +37,14 @@ export function setupJourneyForm() {
     });
   }
 
+  const wheelchairToggle = document.getElementById("wheelchairToggle");
+  if (wheelchairToggle) {
+    wheelchairToggle.checked = state.wheelchairAccessible;
+    wheelchairToggle.addEventListener("change", (e) => {
+      state.wheelchairAccessible = e.target.checked;
+    });
+  }
+
   // Home Suggestions
   const fromInput = document.getElementById("from");
   const toInput = document.getElementById("to");
@@ -237,7 +245,8 @@ async function handleJourneySubmit(e) {
       originQuery: from,
       destinationQuery: to,
       departureTime: departure,
-      ecoModeEnabled: ecoModeEnabled,
+      ecoModeEnabled: state.ecoModeEnabled,
+      wheelchairAccessible: state.wheelchairAccessible,
     },
     preferences: {
       comfortMode: comfortSelection !== "disabled",
@@ -295,8 +304,9 @@ export function displayJourneyResults(journeys) {
 
   const modesHtml = `
     <div class="journey-modes">
-      <span>Comfort Profile: ${firstJourney?.comfortModeEnabled ? "Active" : "None"
-    }</span>
+      <span>Comfort Profile: ${firstJourney?.comfortModeEnabled ? "Active" : "None"}</span>
+      ${state.ecoModeEnabled ? '<span class="mode-badge green">🌱 Green</span>' : ""}
+      ${state.wheelchairAccessible ? '<span class="mode-badge accessible">♿ Accessibility</span>' : ""}
     </div>
   `;
 

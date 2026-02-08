@@ -32,16 +32,27 @@ function renderDashboard(data) {
     if (earnedBadgeCountEl) earnedBadgeCountEl.textContent = data.badgeCount;
 
     if (badgeGrid) {
-        if (data.badges.length === 0) {
-            badgeGrid.innerHTML = '<p class="results-placeholder">No badges earned yet. Keep traveling sustainably!</p>';
+        const { earnedBadges, allBadges } = data;
+
+        if (!allBadges || allBadges.length === 0) {
+            badgeGrid.innerHTML = '<p class="results-placeholder">No badges available.</p>';
         } else {
-            badgeGrid.innerHTML = data.badges.map(badge => `
-                <div class="badge-item earned">
-                    <div class="badge-icon">${badge.icon || "🏅"}</div>
-                    <div class="badge-name">${badge.name}</div>
-                    <div class="badge-date">Earned ${new Date(badge.earnedAt).toLocaleDateString()}</div>
-                </div>
-            `).join("");
+            badgeGrid.innerHTML = allBadges.map(badge => {
+                const earned = earnedBadges.find(eb => eb.name === badge.name);
+                const statusClass = earned ? 'earned' : 'locked';
+                const earnedDateHtml = earned
+                    ? `<div class="badge-date">Earned ${new Date(earned.earnedAt).toLocaleDateString()}</div>`
+                    : '<div class="badge-date">Not earned yet</div>';
+
+                return `
+                    <div class="badge-item ${statusClass}">
+                        <div class="badge-icon">${badge.icon || "🏅"}</div>
+                        <div class="badge-name">${badge.name}</div>
+                        ${earnedDateHtml}
+                        <div class="badge-desc">${badge.description}</div>
+                    </div>
+                `;
+            }).join("");
         }
     }
 

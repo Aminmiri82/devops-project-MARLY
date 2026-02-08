@@ -99,28 +99,6 @@ class ComfortModeJourneyStrategyTest {
     }
 
     @Test
-    void apply_setsWheelchairWhenAccessibilityRequired() {
-        User user = createUserWithProfile(profile -> profile.setWheelchairAccessible(true));
-        JourneyPlanningContext context = buildContext(user);
-        PrimJourneyRequest request = new PrimJourneyRequest("origin", "dest", LocalDateTime.now());
-
-        strategy.apply(context, request);
-
-        assertThat(request.getWheelchair()).isPresent().hasValue(true);
-    }
-
-    @Test
-    void apply_doesNotSetWheelchairWhenNotRequired() {
-        User user = createUserWithProfile(profile -> profile.setWheelchairAccessible(false));
-        JourneyPlanningContext context = buildContext(user);
-        PrimJourneyRequest request = new PrimJourneyRequest("origin", "dest", LocalDateTime.now());
-
-        strategy.apply(context, request);
-
-        assertThat(request.getWheelchair()).isEmpty();
-    }
-
-    @Test
     void apply_doesNotModifyRequestWhenNoProfile() {
         User user = new User("ext", "test@example.com", "Test User");
         JourneyPlanningContext context = buildContext(user);
@@ -133,7 +111,6 @@ class ComfortModeJourneyStrategyTest {
         assertThat(request.getMaxWaitingDuration()).isEmpty();
         assertThat(request.getMaxWalkingDurationToPt()).isEmpty();
         assertThat(request.getEquipmentDetails()).isEmpty();
-        assertThat(request.getWheelchair()).isEmpty();
     }
 
     @Test
@@ -154,7 +131,6 @@ class ComfortModeJourneyStrategyTest {
             profile.setMaxWaitingDuration(900);
             profile.setMaxWalkingDuration(600);
             profile.setRequireAirConditioning(true);
-            profile.setWheelchairAccessible(true);
         });
         JourneyPlanningContext context = buildContext(user);
         PrimJourneyRequest request = new PrimJourneyRequest("origin", "dest", LocalDateTime.now());
@@ -166,7 +142,6 @@ class ComfortModeJourneyStrategyTest {
         assertThat(request.getMaxWaitingDuration()).hasValue(900);
         assertThat(request.getMaxWalkingDurationToPt()).hasValue(600);
         assertThat(request.getEquipmentDetails()).hasValue(true);
-        assertThat(request.getWheelchair()).hasValue(true);
     }
 
     @Test
@@ -234,6 +209,7 @@ class ComfortModeJourneyStrategyTest {
                 "dest-query",
                 LocalDateTime.now(),
                 new JourneyPreferences(comfortEnabled, false, namedId),
+                false,
                 false);
         StopArea origin = new StopArea("origin-ext", "Origin", new GeoPoint(48.8566, 2.3522));
         StopArea destination = new StopArea("dest-ext", "Destination", new GeoPoint(48.8606, 2.3376));

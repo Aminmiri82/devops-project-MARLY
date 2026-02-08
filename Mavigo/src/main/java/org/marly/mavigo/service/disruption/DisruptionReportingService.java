@@ -192,7 +192,8 @@ public class DisruptionReportingService {
                     original.getDestinationLabel(),
                     LocalDateTime.now(),
                     prefs,
-                    false); // ecoModeEnabled
+                    false,
+                    false); // ecoModeEnabled, wheelchairAccessible
             var context = new org.marly.mavigo.service.journey.dto.JourneyPlanningContext(original.getUser(), origin,
                     destination, params);
 

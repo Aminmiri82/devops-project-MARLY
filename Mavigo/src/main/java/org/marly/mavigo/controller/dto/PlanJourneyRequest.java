@@ -7,14 +7,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public record PlanJourneyRequest(
-                @NotNull UUID userId,
-                @NotBlank String originQuery,
-                @NotBlank String destinationQuery,
-                @NotBlank String departureTime, // ISO string, ex: 2025-12-14T18:00, 2025-12-14T18:00:00, ou
-                                                // 2025-12-14T18:00:00+01:00
-                Boolean ecoModeEnabled, // Whether eco-mode is enabled for this journey
-                List<UUID> taskIds, // IDs des tâches (base locale) — optionnel, utilisé si taskDetails vide
-                List<TaskDetailDto> taskDetails // Tâches depuis Google, sans stockage — optionnel, prioritaire si non
-                                                // vide
+        @NotNull UUID userId,
+        @NotBlank String originQuery,
+        @NotBlank String destinationQuery,
+        @NotBlank String departureTime, // ISO string, ex: 2025-12-14T18:00, 2025-12-14T18:00:00, ou
+                                        // 2025-12-14T18:00:00+01:00
+        Boolean ecoModeEnabled, // Whether eco-mode is enabled for this journey
+        Boolean wheelchairAccessible, // Whether wheelchair access is required
+        List<UUID> taskIds, // IDs des tâches (base locale) — optionnel, utilisé si taskDetails vide
+        List<TaskDetailDto> taskDetails // Tâches depuis Google, sans stockage — optionnel, prioritaire si non
+                                        // vide
 ) {
 }

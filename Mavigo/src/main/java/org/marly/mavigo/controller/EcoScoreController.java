@@ -25,13 +25,21 @@ public class EcoScoreController {
                 double totalCo2 = gamificationService.getTotalCo2Saved(userId);
                 List<UserBadge> userBadges = gamificationService.getUserBadges(userId);
 
-                List<EcoScoreResponse.BadgeResponse> badgeResponses = userBadges.stream()
+                List<EcoScoreResponse.BadgeResponse> earnedBadges = userBadges.stream()
                                 .filter(ub -> ub.getBadge() != null)
                                 .map(ub -> new EcoScoreResponse.BadgeResponse(
                                                 ub.getBadge().getName(),
                                                 ub.getBadge().getDescription(),
                                                 ub.getBadge().getIcon(),
                                                 ub.getEarnedAt()))
+                                .collect(Collectors.toList());
+
+                List<EcoScoreResponse.AllBadgeInfo> allBadges = gamificationService.getAllSystemBadges()
+                                .stream()
+                                .map(b -> new EcoScoreResponse.AllBadgeInfo(
+                                                b.getName(),
+                                                b.getDescription(),
+                                                b.getIcon()))
                                 .collect(Collectors.toList());
 
                 List<EcoScoreResponse.JourneyActivityResponse> history = gamificationService.getJourneyHistory(userId)
@@ -46,6 +54,7 @@ public class EcoScoreController {
                                                 ja.getRecordedAt()))
                                 .collect(Collectors.toList());
 
-                return ResponseEntity.ok(new EcoScoreResponse(totalCo2, userBadges.size(), badgeResponses, history));
+                return ResponseEntity.ok(
+                                new EcoScoreResponse(totalCo2, userBadges.size(), earnedBadges, allBadges, history));
         }
 }

@@ -123,6 +123,7 @@ public class JourneyOptimizationSteps {
                     destination,
                     LocalDateTime.now().plusHours(1),
                     preferences,
+                    false,
                     false);
 
             userTasks = userTaskRepository.findByUser_Id(currentUser.getId());

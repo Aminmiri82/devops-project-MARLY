@@ -24,9 +24,6 @@ public class ComfortProfile {
     @Column(name = "wheelchair_accessible")
     private Boolean wheelchairAccessible;
 
-    public ComfortProfile() {
-    }
-
     public String getDirectPath() {
         return directPath;
     }
@@ -71,10 +68,6 @@ public class ComfortProfile {
         return wheelchairAccessible;
     }
 
-    public boolean isWheelchairAccessible() {
-        return Boolean.TRUE.equals(wheelchairAccessible);
-    }
-
     public void setWheelchairAccessible(Boolean wheelchairAccessible) {
         this.wheelchairAccessible = wheelchairAccessible;
     }
@@ -85,6 +78,6 @@ public class ComfortProfile {
                 || maxNbTransfers != null
                 || maxWaitingDuration != null
                 || maxWalkingDuration != null
-                || Boolean.TRUE.equals(wheelchairAccessible);
+                || wheelchairAccessible != null;
     }
 }

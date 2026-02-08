@@ -28,16 +28,14 @@ public class DefaultPrimJourneyRequestFactory implements PrimJourneyRequestFacto
         request.withFirstSectionModes(List.of("walking"));
         request.withLastSectionModes(List.of("walking"));
 
-        // Autoriser plus de marche pour rejoindre un arrêt quand on part d'une adresse précise
+        // Autoriser plus de marche pour rejoindre un arrêt quand on part d'une adresse
+        // précise
         request.withMaxWalkingDurationToPt(3600);
 
-        JourneyPreferences preferences = context.parameters().preferences();
-        for (JourneyPreferenceStrategy strategy : strategies) {
-            if (strategy.supports(preferences)) {
-                strategy.apply(context, request);
-            }
+        if (context.parameters().wheelchairAccessible()) {
+            request.withWheelchair(true);
         }
+
         return request;
     }
 }
-

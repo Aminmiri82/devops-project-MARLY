@@ -85,8 +85,19 @@ public class GamificationService {
         checkBadge(userId, "Carbon Cutter", totalCo2 >= 1.0, newlyAwarded);
         checkBadge(userId, "Eco-Warrior", totalCo2 >= 5.0, newlyAwarded);
         checkBadge(userId, "Green Legend", totalCo2 >= 20.0, newlyAwarded);
+        checkBadge(userId, "CO2 Guardian", totalCo2 >= 50.0, newlyAwarded);
+        checkBadge(userId, "Atmosphere Savior", totalCo2 >= 150.0, newlyAwarded);
+        checkBadge(userId, "Carbon Neutral Hero", totalCo2 >= 500.0, newlyAwarded);
+
         checkBadge(userId, "Public Transport Pro", journeyCount >= 10, newlyAwarded);
-        checkBadge(userId, "Distance Hero", totalDistance >= 100000, newlyAwarded);
+        checkBadge(userId, "Transit Enthusiast", journeyCount >= 50, newlyAwarded);
+        checkBadge(userId, "Mobility Master", journeyCount >= 200, newlyAwarded);
+        checkBadge(userId, "Transit Veteran", journeyCount >= 500, newlyAwarded);
+
+        checkBadge(userId, "Distance Hero", totalDistance >= 100000, newlyAwarded); // 100km
+        checkBadge(userId, "Road Warrior", totalDistance >= 250000, newlyAwarded); // 250km
+        checkBadge(userId, "Regional Explorer", totalDistance >= 1000000, newlyAwarded); // 1000km
+        checkBadge(userId, "Global Eco-Citizen", totalDistance >= 2500000, newlyAwarded); // 2500km
 
         return newlyAwarded;
     }
@@ -111,6 +122,10 @@ public class GamificationService {
 
     public List<UserBadge> getUserBadges(UUID userId) {
         return userBadgeRepository.findAllByUserId(userId);
+    }
+
+    public List<Badge> getAllSystemBadges() {
+        return badgeRepository.findAll();
     }
 
     public List<JourneyActivity> getJourneyHistory(UUID userId) {

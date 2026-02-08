@@ -48,6 +48,7 @@ class JourneyOptimizationServiceTest {
                 params = new JourneyPlanningParameters(
                                 UUID.randomUUID(), "Origin", "Destination", LocalDateTime.now(),
                                 JourneyPreferences.disabled(),
+                                false,
                                 false);
         }
 

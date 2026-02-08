@@ -57,11 +57,11 @@ public class UserSteps {
         }
     }
 
-    @When("je mets à jour mon profil de confort avec accès fauteuil roulant")
-    public void je_mets_a_jour_mon_profil_avec_acces_fauteuil_roulant() {
+    @When("je mets à jour mon profil avec un maximum de {int} correspondances")
+    public void je_mets_a_jour_mon_profil_avec_max_correspondances(int maxTransfers) {
         try {
             ComfortProfile profile = currentUser.getComfortProfile();
-            profile.setWheelchairAccessible(true);
+            profile.setMaxNbTransfers(maxTransfers);
             currentUser.setComfortProfile(profile);
             currentUser = userRepository.save(currentUser);
             updatedProfile = currentUser.getComfortProfile();
@@ -70,11 +70,11 @@ public class UserSteps {
         }
     }
 
-    @When("je mets à jour mon profil avec un maximum de {int} correspondances")
-    public void je_mets_a_jour_mon_profil_avec_max_correspondances(int maxTransfers) {
+    @When("je mets à jour mon profil de confort avec accès fauteuil roulant")
+    public void je_mets_a_jour_mon_profil_de_confort_avec_acces_fauteuil_roulant() {
         try {
             ComfortProfile profile = currentUser.getComfortProfile();
-            profile.setMaxNbTransfers(maxTransfers);
+            profile.setWheelchairAccessible(true);
             currentUser.setComfortProfile(profile);
             currentUser = userRepository.save(currentUser);
             updatedProfile = currentUser.getComfortProfile();
@@ -96,16 +96,16 @@ public class UserSteps {
         assertNotNull(currentUser.getComfortProfile());
     }
 
-    @Then("mon profil devrait indiquer l'accès fauteuil roulant")
-    public void mon_profil_devrait_indiquer_acces_fauteuil_roulant() {
-        assertNotNull(updatedProfile);
-        assertTrue(updatedProfile.isWheelchairAccessible());
-    }
-
     @Then("mon profil devrait avoir {int} correspondances maximum")
     public void mon_profil_devrait_avoir_n_correspondances_maximum(int expectedMax) {
         assertNotNull(updatedProfile);
         assertEquals(expectedMax, updatedProfile.getMaxNbTransfers());
+    }
+
+    @Then("mon profil devrait indiquer l'accès fauteuil roulant")
+    public void mon_profil_devrait_indiquer_l_acces_fauteuil_roulant() {
+        assertNotNull(updatedProfile);
+        assertTrue(updatedProfile.getWheelchairAccessible());
     }
 
     @Then("mes préférences devraient être sauvegardées")

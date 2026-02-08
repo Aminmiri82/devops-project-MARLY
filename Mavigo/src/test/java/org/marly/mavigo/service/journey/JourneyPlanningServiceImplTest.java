@@ -87,6 +87,7 @@ class JourneyPlanningServiceImplTest {
                                 "Châtelet",
                                 LocalDateTime.now(),
                                 preferences,
+                                false,
                                 false);
 
                 PrimJourneyPlanDto journeyPlan = createMockJourneyPlan("journey-1");
@@ -128,6 +129,7 @@ class JourneyPlanningServiceImplTest {
                                 "Châtelet",
                                 LocalDateTime.now(),
                                 JourneyPreferences.disabled(),
+                                false,
                                 false);
 
                 when(stopAreaService.findOrCreateByQuery(anyString())).thenReturn(originStopArea);
@@ -147,6 +149,7 @@ class JourneyPlanningServiceImplTest {
                                 "Châtelet",
                                 LocalDateTime.now(),
                                 JourneyPreferences.disabled(),
+                                false,
                                 false);
 
                 when(stopAreaService.findOrCreateByQuery("Gare de Lyon")).thenReturn(originStopArea);
@@ -175,6 +178,7 @@ class JourneyPlanningServiceImplTest {
                                 "Châtelet",
                                 LocalDateTime.now(),
                                 JourneyPreferences.disabled(),
+                                false,
                                 false);
 
                 List<PrimJourneyPlanDto> manyJourneyPlans = List.of(

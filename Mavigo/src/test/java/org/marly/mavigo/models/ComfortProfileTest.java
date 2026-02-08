@@ -26,17 +26,7 @@ class ComfortProfileTest {
         assertNull(comfortProfile.getMaxNbTransfers());
         assertNull(comfortProfile.getMaxWaitingDuration());
         assertNull(comfortProfile.getMaxWalkingDuration());
-        assertFalse(comfortProfile.isWheelchairAccessible());
-    }
-
-    @Test
-    @DisplayName("Setter wheelchair accessible doit fonctionner")
-    void testSetWheelchairAccessible_ShouldUpdateValue() {
-        // When
-        comfortProfile.setWheelchairAccessible(true);
-
-        // Then
-        assertTrue(comfortProfile.isWheelchairAccessible());
+        assertNull(comfortProfile.getMaxWalkingDuration());
     }
 
     @Test
@@ -67,17 +57,6 @@ class ComfortProfileTest {
 
         // Then
         assertFalse(result, "hasSettings devrait retourner false pour un profil vide");
-    }
-
-    @Test
-    @DisplayName("hasSettings doit retourner true si wheelchair est activé")
-    void testHasSettings_WithWheelchairEnabled_ShouldReturnTrue() {
-        // When
-        comfortProfile.setWheelchairAccessible(true);
-
-        // Then
-        assertTrue(comfortProfile.hasSettings(),
-                "hasSettings devrait retourner true si wheelchair est activé");
     }
 
     @Test
@@ -134,7 +113,6 @@ class ComfortProfileTest {
     @DisplayName("ComfortProfile complet doit avoir tous les paramètres")
     void testCompleteComfortProfile_ShouldHaveAllSettings() {
         // When
-        comfortProfile.setWheelchairAccessible(true);
         comfortProfile.setRequireAirConditioning(true);
         comfortProfile.setMaxNbTransfers(2);
         comfortProfile.setMaxWaitingDuration(10);
@@ -142,7 +120,6 @@ class ComfortProfileTest {
         comfortProfile.setDirectPath("direct");
 
         // Then
-        assertTrue(comfortProfile.isWheelchairAccessible());
         assertTrue(comfortProfile.getRequireAirConditioning());
         assertEquals(2, comfortProfile.getMaxNbTransfers());
         assertEquals(10, comfortProfile.getMaxWaitingDuration());

@@ -169,7 +169,8 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
                 journey.getDestinationLabel(),
                 LocalDateTime.now(),
                 preferences,
-                journey.isEcoModeEnabled());
+                journey.isEcoModeEnabled(),
+                false);
 
         JourneyPlanningContext context = new JourneyPlanningContext(
                 journey.getUser(),
@@ -237,7 +238,8 @@ public class JourneyPlanningServiceImpl implements JourneyPlanningService {
                 destinationStopAreaId,
                 LocalDateTime.now(),
                 prefs,
-                preferences != null && preferences.ecoModeEnabled());
+                preferences != null && preferences.ecoModeEnabled(),
+                false);
         JourneyPlanningContext context = new JourneyPlanningContext(user, origin, destination, params);
 
         PrimJourneyRequest request = new PrimJourneyRequest(

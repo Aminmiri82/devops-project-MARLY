@@ -116,14 +116,12 @@ function loadSettingIntoForm(setting) {
 
   const directPath = document.getElementById("directPath");
   const requireAC = document.getElementById("requireAirConditioning");
-  const wheelchair = document.getElementById("wheelchairAccessible");
   const maxTransfers = document.getElementById("maxNbTransfers");
   const maxWaiting = document.getElementById("maxWaitingDuration");
   const maxWalking = document.getElementById("maxWalkingDuration");
 
   if (directPath) directPath.value = p.directPath || "";
   if (requireAC) requireAC.checked = !!p.requireAirConditioning;
-  if (wheelchair) wheelchair.checked = !!p.wheelchairAccessible;
   if (maxTransfers) maxTransfers.value = p.maxNbTransfers ?? "";
   if (maxWaiting)
     maxWaiting.value = p.maxWaitingDuration
@@ -229,7 +227,6 @@ function renderNamedSettings(settings) {
       if (p.directPath && p.directPath !== "indifferent")
         details.push(p.directPath);
       if (p.requireAirConditioning) details.push("AC");
-      if (p.wheelchairAccessible) details.push("Wheelchair");
       if (p.maxNbTransfers !== null) details.push(`${p.maxNbTransfers} transfers`);
 
       return `
@@ -237,8 +234,8 @@ function renderNamedSettings(settings) {
         <div class="named-setting-info">
           <span class="named-setting-name">${escapeHtml(s.name)}</span>
           <span class="named-setting-details">${escapeHtml(
-            details.join(", ") || "No specific constraints"
-          )}</span>
+        details.join(", ") || "No specific constraints"
+      )}</span>
         </div>
         <div class="named-setting-actions">
           <button type="button" class="btn btn-ghost btn-sm apply-setting-btn" data-id="${s.id}" title="Preview/Apply">
@@ -322,18 +319,16 @@ async function saveComfortSetting(e) {
       requireAirConditioning: !!document.getElementById(
         "requireAirConditioning"
       )?.checked,
-      wheelchairAccessible: !!document.getElementById("wheelchairAccessible")
-        ?.checked,
       maxNbTransfers: document.getElementById("maxNbTransfers")?.value
         ? parseInt(document.getElementById("maxNbTransfers").value, 10)
         : null,
       maxWaitingDuration: document.getElementById("maxWaitingDuration")?.value
         ? parseInt(document.getElementById("maxWaitingDuration").value, 10) *
-          60
+        60
         : null,
       maxWalkingDuration: document.getElementById("maxWalkingDuration")?.value
         ? parseInt(document.getElementById("maxWalkingDuration").value, 10) *
-          60
+        60
         : null,
     },
   };
