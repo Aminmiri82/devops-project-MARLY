@@ -71,11 +71,20 @@
 
       <div id="loginForm" class="auth-form">
         <h2 id="authModalTitle">Welcome Back</h2>
-        <p class="form-subtitle">Log in with your email</p>
+        <p class="form-subtitle">Log in with your Mavigo account (email + password)</p>
         <form id="loginFormEl">
           <div class="form-group">
             <label for="loginEmail">Email</label>
-            <input type="email" id="loginEmail" placeholder="you@example.com" required>
+            <input type="email" id="loginEmail" placeholder="you@example.com" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+              <button type="button" class="password-toggle" id="loginPasswordToggle" aria-label="Show password" tabindex="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary btn-block">Log In</button>
         </form>
@@ -88,12 +97,38 @@
         <p class="form-subtitle">Join Mavigo to plan your journeys</p>
         <form id="registerFormEl">
           <div class="form-group">
-            <label for="registerName">Display Name</label>
-            <input type="text" id="registerName" placeholder="Your name" required>
+            <label for="registerFirstName">First name</label>
+            <input type="text" id="registerFirstName" placeholder="Jean" required autocomplete="given-name">
+          </div>
+          <div class="form-group">
+            <label for="registerLastName">Last name</label>
+            <input type="text" id="registerLastName" placeholder="Dupont" required autocomplete="family-name">
           </div>
           <div class="form-group">
             <label for="registerEmail">Email</label>
-            <input type="email" id="registerEmail" placeholder="you@example.com" required>
+            <input type="email" id="registerEmail" placeholder="you@example.com" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="registerPassword">Password</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="registerPassword" placeholder="At least 8 chars, 1 upper, 1 lower, 1 digit" required autocomplete="new-password" minlength="8">
+              <button type="button" class="password-toggle" id="registerPasswordToggle" aria-label="Show password" tabindex="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="registerPasswordConfirm">Confirm password</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="registerPasswordConfirm" placeholder="••••••••" required autocomplete="new-password" minlength="8">
+              <button type="button" class="password-toggle" id="registerPasswordConfirmToggle" aria-label="Show password" tabindex="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="registerHomeAddress">Home address (optional)</label>
+            <input type="text" id="registerHomeAddress" placeholder="e.g. 12 Rue de Rivoli, Paris" autocomplete="street-address">
           </div>
           <button type="submit" class="btn btn-primary btn-block">Create Account</button>
         </form>
