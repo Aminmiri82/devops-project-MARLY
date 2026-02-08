@@ -677,6 +677,7 @@ body {
 
 .form-group input[type="text"],
 .form-group input[type="email"],
+.form-group input[type="password"],
 .form-group input[type="datetime-local"],
 .form-group input[type="date"],
 .form-group input[type="tel"],
@@ -704,6 +705,43 @@ body {
 
 .form-group input::placeholder {
     color: var(--color-text-muted);
+}
+
+.password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-input-wrapper input {
+    padding-right: 48px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: var(--spacing-sm);
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: var(--spacing-xs);
+    cursor: pointer;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.password-toggle:hover {
+    color: var(--color-text-secondary);
+    background: var(--color-surface-hover);
+}
+
+.password-toggle svg {
+    width: 20px;
+    height: 20px;
 }
 
 .form-row {

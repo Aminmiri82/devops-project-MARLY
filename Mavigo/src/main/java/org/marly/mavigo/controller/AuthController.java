@@ -3,6 +3,7 @@ package org.marly.mavigo.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -23,11 +24,12 @@ import java.util.Map;
 import java.util.Set;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final WebClient googleOAuthClient;
+
 
     @Value("${app.frontend.base-url:http://localhost:5173}")
     private String frontendBaseUrl;

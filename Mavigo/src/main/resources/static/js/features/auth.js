@@ -1,6 +1,5 @@
 import { api } from "../core/api.js";
 import { state } from "../core/state.js";
-import { generateId } from "../core/utils.js";
 import { setView } from "./nav.js";
 import {
   clearGoogleLinkStatus,
@@ -28,7 +27,9 @@ const mainContent = document.getElementById("mainContent");
 const dropdownUserName = document.getElementById("dropdownUserName");
 const dropdownUserEmail = document.getElementById("dropdownUserEmail");
 
-const smartSuggestionsFlyout = document.getElementById("smartSuggestionsFlyout");
+const smartSuggestionsFlyout = document.getElementById(
+  "smartSuggestionsFlyout",
+);
 
 export function setupAuthListeners() {
   document
@@ -64,6 +65,28 @@ export function setupAuthListeners() {
 
   loginFormEl?.addEventListener("submit", handleLogin);
   registerFormEl?.addEventListener("submit", handleRegister);
+
+  setupPasswordToggle("loginPassword", "loginPasswordToggle");
+  setupPasswordToggle("registerPassword", "registerPasswordToggle");
+  setupPasswordToggle("registerPasswordConfirm", "registerPasswordConfirmToggle");
+}
+
+function setupPasswordToggle(inputId, toggleId) {
+  const input = document.getElementById(inputId);
+  const toggle = document.getElementById(toggleId);
+  if (!input || !toggle) return;
+
+  const eyeSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const eyeOffSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+  toggle.addEventListener("click", () => {
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    toggle.innerHTML = isPassword ? eyeOffSvg : eyeSvg;
+    toggle.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
+  });
 }
 
 function openAuthModal(formType) {
@@ -96,16 +119,29 @@ function clearAuthErrors() {
   document.getElementById("registerError")?.classList.add("hidden");
 }
 
+function validatePasswordStrength(password) {
+  if (password.length < 8) return "Password must be at least 8 characters.";
+  if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter.";
+  if (!/[a-z]/.test(password)) return "Password must contain at least one lowercase letter.";
+  if (!/[0-9]/.test(password)) return "Password must contain at least one digit.";
+  return null;
+}
+
 async function handleLogin(e) {
   e.preventDefault();
 
   const email = (document.getElementById("loginEmail")?.value || "").trim();
+  const password = document.getElementById("loginPassword")?.value ?? "";
   const errorEl = document.getElementById("loginError");
 
   if (!email) return showError(errorEl, "Please enter your email.");
+  if (!password) return showError(errorEl, "Please enter your password.");
 
   try {
-    const user = await api.post("/api/users/login", { email });
+    const data = await api.post("/api/users/login", { email, password });
+    const user = data.user;
+    const token = data.token;
+    if (token) localStorage.setItem("mavigo_token", token);
     setCurrentUser(user, { preferredView: "tasks" });
     closeAuthModal();
     loginFormEl?.reset();
@@ -117,16 +153,32 @@ async function handleLogin(e) {
 async function handleRegister(e) {
   e.preventDefault();
 
-  const name = (document.getElementById("registerName")?.value || "").trim();
+  const firstName = (document.getElementById("registerFirstName")?.value || "").trim();
+  const lastName = (document.getElementById("registerLastName")?.value || "").trim();
   const email = (document.getElementById("registerEmail")?.value || "").trim();
+  const password = document.getElementById("registerPassword")?.value ?? "";
+  const passwordConfirm = document.getElementById("registerPasswordConfirm")?.value ?? "";
+  const homeAddress = (document.getElementById("registerHomeAddress")?.value || "").trim();
   const errorEl = document.getElementById("registerError");
 
-  if (!name || !email) return showError(errorEl, "Please fill in all fields.");
-
-  const payload = { displayName: name, email, externalId: generateId() };
+  if (!firstName || !lastName || !email) return showError(errorEl, "Please fill in first name, last name and email.");
+  if (!password) return showError(errorEl, "Please enter a password.");
+  const strengthError = validatePasswordStrength(password);
+  if (strengthError) return showError(errorEl, strengthError);
+  if (password !== passwordConfirm) return showError(errorEl, "Password and confirmation do not match.");
 
   try {
-    const user = await api.post("/api/users", payload);
+    const data = await api.post("/api/users", {
+      firstName,
+      lastName,
+      email,
+      password,
+      passwordConfirm,
+      homeAddress: homeAddress || undefined,
+    });
+    const user = data.user;
+    const token = data.token;
+    if (token) localStorage.setItem("mavigo_token", token);
     setCurrentUser(user, { preferredView: "tasks" });
     closeAuthModal();
     registerFormEl?.reset();
@@ -139,6 +191,7 @@ function logout() {
   state.currentUser = null;
   state.defaultTaskList = null;
   localStorage.removeItem("mavigo_user_id");
+  localStorage.removeItem("mavigo_token");
   clearGoogleLinkStatus();
   renderHomeAddressStatus(null);
   resetTasksUI();
@@ -153,14 +206,15 @@ function logout() {
 function setCurrentUser(user, opts = {}) {
   state.currentUser = user;
   state.defaultTaskList = null;
-  if (user?.userId) localStorage.setItem("mavigo_user_id", user.userId);
+  if (user?.userId != null) localStorage.setItem("mavigo_user_id", user.userId);
   if (opts.preferredView) setView(opts.preferredView);
   updateUI();
 }
 
 export async function restoreSession() {
   const savedUserId = localStorage.getItem("mavigo_user_id");
-  if (!savedUserId) return updateUI();
+  const token = localStorage.getItem("mavigo_token");
+  if (!savedUserId || !token) return updateUI();
 
   try {
     const user = await api.get(`/api/users/${savedUserId}`);
@@ -168,7 +222,10 @@ export async function restoreSession() {
     updateUI();
     if (state.currentView === "tasks")
       ensureDefaultTaskListLoaded({ force: false });
-  } catch {
+  } catch (err) {
+    if (err?.authError) {
+      localStorage.removeItem("mavigo_token");
+    }
     localStorage.removeItem("mavigo_user_id");
     state.currentUser = null;
     state.defaultTaskList = null;
