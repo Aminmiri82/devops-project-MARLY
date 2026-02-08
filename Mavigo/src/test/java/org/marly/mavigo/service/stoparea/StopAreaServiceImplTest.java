@@ -34,6 +34,8 @@ class StopAreaServiceImplTest {
     @InjectMocks
     private StopAreaServiceImpl service;
 
+    // ========== findOrCreateByQuery tests ==========
+
     @Test
     void findOrCreateByQuery_ShouldReturnExisting() {
         StopArea existing = new StopArea("id", "name", null);
@@ -72,20 +74,83 @@ class StopAreaServiceImplTest {
         when(primApiClient.searchPlaces("query")).thenReturn(List.of(place));
         
         when(stopAreaRepository.findByExternalId("stop-1"))
-                .thenReturn(Optional.empty()) // 1. check in findOrCreateByQuery
-                .thenReturn(Optional.empty()) // 2. check in saveStopAreaIfNotExists
-                .thenReturn(Optional.of(new StopArea("stop-1", "name", null))); // 3. recovery in catch block
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new StopArea("stop-1", "name", null)));
         
-        // Throw exception on first save attempt
         when(stopAreaRepository.save(any())).thenThrow(new DataIntegrityViolationException("Duplicate"));
 
         StopArea result = service.findOrCreateByQuery("query");
 
         assertNotNull(result);
         assertEquals("stop-1", result.getExternalId());
-        // Should have called findByExternalId 3 times (check, check before save, recovery)
         verify(stopAreaRepository, times(3)).findByExternalId("stop-1");
     }
+
+    @Test
+    void findOrCreateByQuery_ShouldThrowWhenQueryIsNull() {
+        assertThrows(IllegalArgumentException.class, () -> service.findOrCreateByQuery(null));
+    }
+
+    @Test
+    void findOrCreateByQuery_ShouldThrowWhenQueryIsBlank() {
+        assertThrows(IllegalArgumentException.class, () -> service.findOrCreateByQuery("   "));
+    }
+
+    @Test
+    void findOrCreateByQuery_ShouldThrowWhenNoPlacesFound() {
+        when(stopAreaRepository.findByNameIgnoreCase("unknown")).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces("unknown")).thenReturn(List.of());
+
+        assertThrows(IllegalArgumentException.class, () -> service.findOrCreateByQuery("unknown"));
+    }
+
+    @Test
+    void findOrCreateByQuery_ShouldThrowWhenPlaceHasNoStopArea() {
+        when(stopAreaRepository.findByNameIgnoreCase("query")).thenReturn(Optional.empty());
+        PrimPlace place = new PrimPlace("id", "name", "stop_area", null);
+        when(primApiClient.searchPlaces("query")).thenReturn(List.of(place));
+
+        assertThrows(IllegalArgumentException.class, () -> service.findOrCreateByQuery("query"));
+    }
+
+    @Test
+    void findOrCreateByQuery_ShouldReturnExistingById_WhenFoundByExternalId() {
+        when(stopAreaRepository.findByNameIgnoreCase("query")).thenReturn(Optional.empty());
+        
+        PrimStopArea primStopArea = new PrimStopArea("stop-1", "name", null);
+        PrimPlace place = new PrimPlace("id", "name", "stop_area", primStopArea);
+        when(primApiClient.searchPlaces("query")).thenReturn(List.of(place));
+        
+        StopArea existing = new StopArea("stop-1", "name", null);
+        when(stopAreaRepository.findByExternalId("stop-1")).thenReturn(Optional.of(existing));
+
+        StopArea result = service.findOrCreateByQuery("query");
+
+        assertEquals(existing, result);
+        verify(stopAreaRepository, never()).save(any());
+    }
+
+    @Test
+    void findOrCreateByQuery_ShouldSaveMultiplePlaces() {
+        when(stopAreaRepository.findByNameIgnoreCase("query")).thenReturn(Optional.empty());
+        
+        PrimStopArea primStopArea1 = new PrimStopArea("stop-1", "name1", new PrimCoordinates(10.0, 10.0));
+        PrimPlace place1 = new PrimPlace("id1", "name1", "stop_area", primStopArea1);
+        PrimStopArea primStopArea2 = new PrimStopArea("stop-2", "name2", new PrimCoordinates(20.0, 20.0));
+        PrimPlace place2 = new PrimPlace("id2", "name2", "stop_area", primStopArea2);
+        
+        when(primApiClient.searchPlaces("query")).thenReturn(List.of(place1, place2));
+        when(stopAreaRepository.findByExternalId(anyString())).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        StopArea result = service.findOrCreateByQuery("query");
+
+        assertNotNull(result);
+        verify(stopAreaRepository, times(2)).save(any());
+    }
+
+    // ========== findByExternalId tests ==========
 
     @Test
     void findByExternalId_ShouldReturnExisting() {
@@ -96,4 +161,67 @@ class StopAreaServiceImplTest {
 
         assertEquals(existing, result);
     }
+
+    @Test
+    void findByExternalId_ShouldSearchApiWhenNotExists() {
+        when(stopAreaRepository.findByExternalId("stop-1")).thenReturn(Optional.empty(), Optional.empty());
+        
+        PrimStopArea primStopArea = new PrimStopArea("stop-1", "name", new PrimCoordinates(10.0, 10.0));
+        PrimPlace place = new PrimPlace("id", "name", "stop_area", primStopArea);
+        when(primApiClient.searchPlaces("stop-1")).thenReturn(List.of(place));
+        when(stopAreaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        StopArea result = service.findByExternalId("stop-1");
+
+        assertNotNull(result);
+        assertEquals("stop-1", result.getExternalId());
+    }
+
+    @Test
+    void findByExternalId_ShouldThrowWhenNotFoundInApi() {
+        when(stopAreaRepository.findByExternalId("unknown")).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces("unknown")).thenReturn(List.of());
+
+        assertThrows(IllegalArgumentException.class, () -> service.findByExternalId("unknown"));
+    }
+
+    @Test
+    void findByExternalId_ShouldThrowWhenNoMatchingStop() {
+        when(stopAreaRepository.findByExternalId("target")).thenReturn(Optional.empty());
+        
+        PrimStopArea primStopArea = new PrimStopArea("different-id", "name", null);
+        PrimPlace place = new PrimPlace("id", "name", "stop_area", primStopArea);
+        when(primApiClient.searchPlaces("target")).thenReturn(List.of(place));
+
+        assertThrows(IllegalArgumentException.class, () -> service.findByExternalId("target"));
+    }
+
+    // ========== saveStopAreas tests ==========
+
+    @Test
+    void saveStopAreas_ShouldSavePlacesWithValidStopArea() {
+        PrimStopArea primStopArea1 = new PrimStopArea("stop-1", "name1", new PrimCoordinates(10.0, 10.0));
+        PrimPlace place1 = new PrimPlace("id1", "name1", "stop_area", primStopArea1);
+        PrimPlace placeNoStop = new PrimPlace("id2", "name2", "stop_area", null);
+        
+        when(stopAreaRepository.findByExternalId("stop-1")).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.saveStopAreas(List.of(place1, placeNoStop));
+
+        verify(stopAreaRepository, times(1)).save(any());
+    }
+
+    @Test
+    void saveStopAreas_ShouldSkipExistingStops() {
+        PrimStopArea primStopArea = new PrimStopArea("stop-1", "name", null);
+        PrimPlace place = new PrimPlace("id", "name", "stop_area", primStopArea);
+        
+        when(stopAreaRepository.findByExternalId("stop-1")).thenReturn(Optional.of(new StopArea("stop-1", "name", null)));
+
+        service.saveStopAreas(List.of(place));
+
+        verify(stopAreaRepository, never()).save(any());
+    }
 }
+

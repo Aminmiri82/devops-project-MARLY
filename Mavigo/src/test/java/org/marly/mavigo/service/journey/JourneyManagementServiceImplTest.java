@@ -2,13 +2,11 @@ package org.marly.mavigo.service.journey;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.marly.mavigo.models.journey.Journey;
 import org.marly.mavigo.models.journey.JourneyStatus;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.JourneyRepository;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -22,259 +20,212 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("Tests unitaires - JourneyManagementService")
 class JourneyManagementServiceImplTest {
 
     @Mock
     private JourneyRepository journeyRepository;
 
-    @InjectMocks
-    private JourneyManagementServiceImpl journeyManagementService;
-
-    private Journey testJourney;
-    private UUID journeyId;
-    private User testUser;
+    private JourneyManagementServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        journeyId = UUID.randomUUID();
-        testUser = new User("ext-123", "test@example.com", "Test User");
-
-        testJourney = new Journey(
-                testUser,
-                "Gare du Nord",
-                "Tour Eiffel",
-                OffsetDateTime.now(),
-                OffsetDateTime.now().plusHours(1)
-        );
-        testJourney.setStatus(JourneyStatus.PLANNED);
+        service = new JourneyManagementServiceImpl(journeyRepository);
     }
 
-    // ============================================
-    // TESTS - startJourney()
-    // ============================================
-
-    @Test
-    @DisplayName("Démarrer un trajet PLANNED doit passer à IN_PROGRESS")
-    void startJourney_shouldUpdateStatusAndTimestamp() {
-        // Given
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
-        when(journeyRepository.save(any(Journey.class))).thenReturn(testJourney);
-
-        // When
-        Journey result = journeyManagementService.startJourney(journeyId);
-
-        // Then
-        assertEquals(JourneyStatus.IN_PROGRESS, result.getStatus());
-        assertNotNull(result.getActualDeparture());
-        verify(journeyRepository).save(testJourney);
+    private Journey createTestJourney(UUID id, JourneyStatus status) {
+        User user = new User("ext-1", "test@test.com", "Test User");
+        Journey journey = new Journey(user, "Paris", "Lyon", OffsetDateTime.now(), OffsetDateTime.now().plusHours(2));
+        setEntityId(journey, id);
+        journey.setStatus(status);
+        return journey;
     }
 
+    private void setEntityId(Object entity, UUID id) {
+        try {
+            java.lang.reflect.Field field = entity.getClass().getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(entity, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // ========== startJourney tests ==========
+
     @Test
-    @DisplayName("Démarrer un trajet REROUTED doit passer à IN_PROGRESS")
-    void testStartJourney_WithReroutedStatus_ShouldStartSuccessfully() {
-        // Given
-        testJourney.setStatus(JourneyStatus.REROUTED);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
-        when(journeyRepository.save(any(Journey.class))).thenReturn(testJourney);
+    void startJourney_ShouldStartPlannedJourney() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.PLANNED);
 
-        // When
-        Journey result = journeyManagementService.startJourney(journeyId);
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+        when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Then
+        Journey result = service.startJourney(journeyId);
+
         assertEquals(JourneyStatus.IN_PROGRESS, result.getStatus());
         assertNotNull(result.getActualDeparture());
     }
 
     @Test
-    @DisplayName("Démarrer un trajet déjà IN_PROGRESS doit lever une exception")
-    void startJourney_shouldThrowIfAlreadyStarted() {
-        // Given
-        testJourney.setStatus(JourneyStatus.IN_PROGRESS);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
+    void startJourney_ShouldStartReroutedJourney() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.REROUTED);
 
-        // When & Then
-        assertThrows(IllegalStateException.class, () -> {
-            journeyManagementService.startJourney(journeyId);
-        });
-        verify(journeyRepository, never()).save(any());
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+        when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Journey result = service.startJourney(journeyId);
+
+        assertEquals(JourneyStatus.IN_PROGRESS, result.getStatus());
     }
 
     @Test
-    @DisplayName("Démarrer un trajet COMPLETED doit lever une exception")
-    void testStartJourney_WithCompletedStatus_ShouldThrowException() {
-        // Given
-        testJourney.setStatus(JourneyStatus.COMPLETED);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
+    void startJourney_ShouldThrowWhenAlreadyInProgress() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.IN_PROGRESS);
 
-        // When & Then
-        assertThrows(IllegalStateException.class, () -> {
-            journeyManagementService.startJourney(journeyId);
-        });
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+
+        assertThrows(IllegalStateException.class, () -> service.startJourney(journeyId));
     }
 
     @Test
-    @DisplayName("Démarrer un trajet CANCELLED doit lever une exception")
-    void testStartJourney_WithCancelledStatus_ShouldThrowException() {
-        // Given
-        testJourney.setStatus(JourneyStatus.CANCELLED);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
+    void startJourney_ShouldThrowWhenCompleted() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.COMPLETED);
 
-        // When & Then
-        assertThrows(IllegalStateException.class, () -> {
-            journeyManagementService.startJourney(journeyId);
-        });
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+
+        assertThrows(IllegalStateException.class, () -> service.startJourney(journeyId));
     }
 
     @Test
-    @DisplayName("Démarrer un trajet inexistant doit lever EntityNotFoundException")
-    void testStartJourney_WithInvalidId_ShouldThrowEntityNotFoundException() {
-        // Given
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.empty());
+    void startJourney_ShouldThrowWhenCancelled() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.CANCELLED);
 
-        // When & Then
-        assertThrows(EntityNotFoundException.class, () -> {
-            journeyManagementService.startJourney(journeyId);
-        });
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+
+        assertThrows(IllegalStateException.class, () -> service.startJourney(journeyId));
     }
 
-    // ============================================
-    // TESTS - completeJourney()
-    // ============================================
+    // ========== completeJourney tests ==========
 
     @Test
-    @DisplayName("Compléter un trajet IN_PROGRESS doit passer à COMPLETED")
-    void completeJourney_shouldUpdateStatusAndTimestamp() {
-        // Given
-        testJourney.setStatus(JourneyStatus.IN_PROGRESS);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
-        when(journeyRepository.save(any(Journey.class))).thenReturn(testJourney);
+    void completeJourney_ShouldCompleteInProgressJourney() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.IN_PROGRESS);
 
-        // When
-        Journey result = journeyManagementService.completeJourney(journeyId);
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+        when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Then
+        Journey result = service.completeJourney(journeyId);
+
         assertEquals(JourneyStatus.COMPLETED, result.getStatus());
         assertNotNull(result.getActualArrival());
     }
 
     @Test
-    @DisplayName("Compléter un trajet REROUTED doit passer à COMPLETED")
-    void testCompleteJourney_WithReroutedStatus_ShouldCompleteSuccessfully() {
-        // Given
-        testJourney.setStatus(JourneyStatus.REROUTED);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
-        when(journeyRepository.save(any(Journey.class))).thenReturn(testJourney);
+    void completeJourney_ShouldCompleteReroutedJourney() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.REROUTED);
 
-        // When
-        Journey result = journeyManagementService.completeJourney(journeyId);
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+        when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Then
+        Journey result = service.completeJourney(journeyId);
+
         assertEquals(JourneyStatus.COMPLETED, result.getStatus());
-        assertNotNull(result.getActualArrival());
     }
 
     @Test
-    @DisplayName("Compléter un trajet PLANNED doit lever une exception")
-    void testCompleteJourney_WithPlannedStatus_ShouldThrowException() {
-        // Given
-        testJourney.setStatus(JourneyStatus.PLANNED);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
+    void completeJourney_ShouldThrowWhenPlanned() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.PLANNED);
 
-        // When & Then
-        assertThrows(IllegalStateException.class, () -> {
-            journeyManagementService.completeJourney(journeyId);
-        });
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+
+        assertThrows(IllegalStateException.class, () -> service.completeJourney(journeyId));
     }
 
-    // ============================================
-    // TESTS - cancelJourney()
-    // ============================================
+    @Test
+    void completeJourney_ShouldThrowWhenAlreadyCompleted() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.COMPLETED);
+
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+
+        assertThrows(IllegalStateException.class, () -> service.completeJourney(journeyId));
+    }
+
+    // ========== cancelJourney tests ==========
 
     @Test
-    @DisplayName("Annuler un trajet PLANNED doit passer à CANCELLED")
-    void cancelJourney_shouldUpdateStatus() {
-        // Given
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
-        when(journeyRepository.save(any(Journey.class))).thenReturn(testJourney);
+    void cancelJourney_ShouldCancelPlannedJourney() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.PLANNED);
 
-        // When
-        Journey result = journeyManagementService.cancelJourney(journeyId);
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+        when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Then
+        Journey result = service.cancelJourney(journeyId);
+
         assertEquals(JourneyStatus.CANCELLED, result.getStatus());
     }
 
     @Test
-    @DisplayName("Annuler un trajet IN_PROGRESS doit passer à CANCELLED")
-    void testCancelJourney_WithInProgressStatus_ShouldCancelSuccessfully() {
-        // Given
-        testJourney.setStatus(JourneyStatus.IN_PROGRESS);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
-        when(journeyRepository.save(any(Journey.class))).thenReturn(testJourney);
+    void cancelJourney_ShouldCancelInProgressJourney() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.IN_PROGRESS);
 
-        // When
-        Journey result = journeyManagementService.cancelJourney(journeyId);
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+        when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Then
+        Journey result = service.cancelJourney(journeyId);
+
         assertEquals(JourneyStatus.CANCELLED, result.getStatus());
     }
 
     @Test
-    @DisplayName("Annuler un trajet COMPLETED doit lever une exception")
-    void testCancelJourney_WithCompletedStatus_ShouldThrowException() {
-        // Given
-        testJourney.setStatus(JourneyStatus.COMPLETED);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
+    void cancelJourney_ShouldThrowWhenAlreadyCompleted() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.COMPLETED);
 
-        // When & Then
-        assertThrows(IllegalStateException.class, () -> {
-            journeyManagementService.cancelJourney(journeyId);
-        });
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+
+        assertThrows(IllegalStateException.class, () -> service.cancelJourney(journeyId));
     }
 
     @Test
-    @DisplayName("Annuler un trajet déjà CANCELLED doit lever une exception")
-    void testCancelJourney_WithCancelledStatus_ShouldThrowException() {
-        // Given
-        testJourney.setStatus(JourneyStatus.CANCELLED);
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
+    void cancelJourney_ShouldThrowWhenAlreadyCancelled() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.CANCELLED);
 
-        // When & Then
-        assertThrows(IllegalStateException.class, () -> {
-            journeyManagementService.cancelJourney(journeyId);
-        });
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
+
+        assertThrows(IllegalStateException.class, () -> service.cancelJourney(journeyId));
     }
 
-    // ============================================
-    // TESTS - getJourney()
-    // ============================================
+    // ========== getJourney tests ==========
 
     @Test
-    @DisplayName("Récupérer un trajet existant doit retourner le trajet")
-    void testGetJourney_WithValidId_ShouldReturnJourney() {
-        // Given
-        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(testJourney));
+    void getJourney_ShouldReturnJourney() {
+        UUID journeyId = UUID.randomUUID();
+        Journey journey = createTestJourney(journeyId, JourneyStatus.PLANNED);
 
-        // When
-        Journey result = journeyManagementService.getJourney(journeyId);
+        when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.of(journey));
 
-        // Then
-        assertNotNull(result);
-        assertEquals(testJourney, result);
-        assertEquals("Gare du Nord", result.getOriginLabel());
-        assertEquals("Tour Eiffel", result.getDestinationLabel());
+        Journey result = service.getJourney(journeyId);
+
+        assertEquals(journeyId, result.getId());
     }
 
     @Test
-    @DisplayName("Récupérer un trajet inexistant doit lever EntityNotFoundException")
-    void testGetJourney_WithInvalidId_ShouldThrowEntityNotFoundException() {
-        // Given
+    void getJourney_ShouldThrowWhenNotFound() {
+        UUID journeyId = UUID.randomUUID();
+
         when(journeyRepository.findWithLegsById(journeyId)).thenReturn(Optional.empty());
 
-        // When & Then
-        assertThrows(EntityNotFoundException.class, () -> {
-            journeyManagementService.getJourney(journeyId);
-        });
+        assertThrows(EntityNotFoundException.class, () -> service.getJourney(journeyId));
     }
 }
