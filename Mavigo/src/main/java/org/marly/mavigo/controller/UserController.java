@@ -2,6 +2,7 @@ package org.marly.mavigo.controller;
 
 import java.util.UUID;
 
+import org.marly.mavigo.config.JwtUtils;
 import org.marly.mavigo.controller.dto.ComfortProfileRequest;
 import org.marly.mavigo.controller.dto.ComfortProfileResponse;
 import org.marly.mavigo.controller.dto.CreateUserRequest;
@@ -32,24 +33,42 @@ import jakarta.validation.Valid;
 public class UserController {
 
     private final UserService userService;
+    private final JwtUtils jwtUtils;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, JwtUtils jwtUtils) {
         this.userService = userService;
+        this.jwtUtils = jwtUtils;
     }
 
     @PostMapping
-    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
-        User created = userService.createUser(request.toUser());
-        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(created));
+    public ResponseEntity<LoginResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
+        if (!request.password().equals(request.passwordConfirm())) {
+            throw new IllegalArgumentException("Password and confirmation do not match");
+        }
+        String home = StringUtils.hasText(request.homeAddress()) ? request.homeAddress().trim() : null;
+        User created = userService.createUserFromRegistration(
+                request.firstName().trim(),
+                request.lastName().trim(),
+                request.email().trim(),
+                request.password(),
+                home);
+        String token = jwtUtils.generateToken(created.getEmail());
+        return ResponseEntity.status(HttpStatus.CREATED).body(new LoginResponse(UserResponse.from(created), token));
     }
 
     @PostMapping("/login")
-    public UserResponse login(@RequestBody LoginRequest request) {
-        User user = userService.loginToUserAccount(request.email());
-        return UserResponse.from(user);
+    public LoginResponse login(@RequestBody LoginRequest request) {
+        String email = request != null && request.email() != null ? request.email().trim() : "";
+        String password = request != null ? request.password() : "";
+        User user = userService.login(email, password);
+        String token = jwtUtils.generateToken(user.getEmail());
+        return new LoginResponse(UserResponse.from(user), token);
     }
 
-    public record LoginRequest(String email) {
+    public record LoginRequest(String email, String password) {
+    }
+
+    public record LoginResponse(UserResponse user, String token) {
     }
 
     @GetMapping("/{userId}")
@@ -145,10 +164,6 @@ public class UserController {
         profile.setWheelchairAccessible(request.comfortProfile().wheelchairAccessible());
 
         User updated = userService.addNamedComfortSetting(userId, request.name(), profile);
-
-        // Find the newly created setting in the list (most recent one or matching by
-        // name/profile)
-        // For simplicity, we just find by name in the updated user
         return updated.getNamedComfortSettings().stream()
                 .filter(s -> s.getName().equals(request.name()))
                 .findFirst()

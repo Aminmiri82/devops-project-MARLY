@@ -1,21 +1,18 @@
 package org.marly.mavigo.controller.dto;
 
-import org.marly.mavigo.models.user.User;
-
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record CreateUserRequest(
-        @NotBlank String externalId,
+        @NotBlank String firstName,
+        @NotBlank String lastName,
         @NotBlank
         @Email
         String email,
-        @NotBlank String displayName,
+        @NotBlank
+        @Size(min = 8, message = "Password must be at least 8 characters")
+        String password,
+        @NotBlank String passwordConfirm,
         String homeAddress) {
-
-    public User toUser() {
-        User user = new User(externalId, email, displayName);
-        user.setHomeAddress(homeAddress);
-        return user;
-    }
 }

@@ -9,7 +9,9 @@ public interface UserService {
 
     User createUser(User user);
 
-    User loginToUserAccount(String email);
+    User createUserFromRegistration(String firstName, String lastName, String email, String password, String homeAddress);
+
+    User login(String email, String password);
 
     User getUser(UUID userId);
 

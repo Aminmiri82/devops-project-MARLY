@@ -6,7 +6,7 @@ import java.util.UUID;
 import org.marly.mavigo.models.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UserRepository extends JpaRepository<User, UUID> {
+public interface  UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByExternalId(String externalId);
 
