@@ -30,8 +30,7 @@ class UserRepositoryTest {
     void testSaveAndFindUser() {
         // Given
         User user = new User("ext-123", "user@test.com", "Test User");
-        ComfortProfile profile = new ComfortProfile();
-        profile.setWheelchairAccessible(true);
+        ComfortProfile profile = user.getComfortProfile();
         profile.setMaxNbTransfers(2);
         user.setComfortProfile(profile);
 
@@ -44,8 +43,6 @@ class UserRepositoryTest {
         Optional<User> found = userRepository.findById(savedUser.getId());
         assertTrue(found.isPresent(), "L'utilisateur devrait être trouvé");
         assertEquals("user@test.com", found.get().getEmail());
-        assertTrue(found.get().getComfortProfile().isWheelchairAccessible(),
-                "Le profil wheelchair devrait être persisté");
         assertEquals(2, found.get().getComfortProfile().getMaxNbTransfers());
     }
 
@@ -55,8 +52,6 @@ class UserRepositoryTest {
         // Given
         User user = new User("ext-456", "complete@test.com", "Complete User");
         ComfortProfile profile = new ComfortProfile();
-        profile.setWheelchairAccessible(true);
-        profile.setRequireAirConditioning(true);
         profile.setMaxNbTransfers(3);
         profile.setMaxWaitingDuration(10);
         profile.setMaxWalkingDuration(15);
@@ -72,8 +67,6 @@ class UserRepositoryTest {
         Optional<User> found = userRepository.findById(savedUser.getId());
         assertTrue(found.isPresent());
         ComfortProfile foundProfile = found.get().getComfortProfile();
-        assertTrue(foundProfile.isWheelchairAccessible());
-        assertTrue(foundProfile.getRequireAirConditioning());
         assertEquals(3, foundProfile.getMaxNbTransfers());
         assertEquals(10, foundProfile.getMaxWaitingDuration());
         assertEquals(15, foundProfile.getMaxWalkingDuration());
@@ -90,7 +83,7 @@ class UserRepositoryTest {
 
         // When
         ComfortProfile profile = user.getComfortProfile();
-        profile.setWheelchairAccessible(true);
+        profile.setMaxNbTransfers(5);
         user.setComfortProfile(profile);
         userRepository.save(user);
         entityManager.flush();
@@ -99,7 +92,7 @@ class UserRepositoryTest {
         // Then
         Optional<User> found = userRepository.findById(user.getId());
         assertTrue(found.isPresent());
-        assertTrue(found.get().getComfortProfile().isWheelchairAccessible());
+        assertEquals(5, found.get().getComfortProfile().getMaxNbTransfers());
     }
 
     @Test

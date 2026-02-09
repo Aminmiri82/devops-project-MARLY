@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.marly.mavigo.service.journey.JourneyActionResult;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -146,7 +147,8 @@ class JourneyControllerTest {
         Journey mockJourney = createMockJourney(user);
         mockJourney.setStatus(JourneyStatus.IN_PROGRESS);
 
-        when(journeyManagementService.startJourney(journeyId)).thenReturn(mockJourney);
+        when(journeyManagementService.startJourney(journeyId))
+                .thenReturn(new JourneyActionResult(mockJourney, java.util.Collections.emptyList()));
 
         // When/Then
         mockMvc.perform(post("/api/journeys/{id}/start", journeyId)
@@ -164,7 +166,8 @@ class JourneyControllerTest {
         Journey mockJourney = createMockJourney(user);
         mockJourney.setStatus(JourneyStatus.COMPLETED);
 
-        when(journeyManagementService.completeJourney(journeyId)).thenReturn(mockJourney);
+        when(journeyManagementService.completeJourney(journeyId))
+                .thenReturn(new JourneyActionResult(mockJourney, java.util.Collections.emptyList()));
 
         // When/Then
         mockMvc.perform(post("/api/journeys/{id}/complete", journeyId)

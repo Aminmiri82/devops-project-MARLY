@@ -116,13 +116,15 @@ public class JourneyOptimizationSteps {
     @Quand("je planifie un trajet de {string} à {string} avec optimisation")
     public void je_planifie_un_trajet_avec_optimisation(String origin, String destination) {
         try {
-            JourneyPreferences preferences = new JourneyPreferences(false, null);
+            JourneyPreferences preferences = new JourneyPreferences(false, false, null);
             JourneyPlanningParameters params = new JourneyPlanningParameters(
                     currentUser.getId(),
                     origin,
                     destination,
                     LocalDateTime.now().plusHours(1),
-                    preferences);
+                    preferences,
+                    false,
+                    false);
 
             userTasks = userTaskRepository.findByUser_Id(currentUser.getId());
             List<UUID> taskIds = userTasks.stream()

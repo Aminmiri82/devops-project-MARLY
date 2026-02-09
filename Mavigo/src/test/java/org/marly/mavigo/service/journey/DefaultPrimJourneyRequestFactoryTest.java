@@ -27,7 +27,7 @@ class DefaultPrimJourneyRequestFactoryTest {
         JourneyPreferenceStrategy strategy = Mockito.mock(JourneyPreferenceStrategy.class);
         DefaultPrimJourneyRequestFactory factory = new DefaultPrimJourneyRequestFactory(List.of(strategy));
 
-        JourneyPreferences preferences = new JourneyPreferences(true, null);
+        JourneyPreferences preferences = new JourneyPreferences(true, false, null);
         JourneyPlanningContext context = buildContext(preferences);
 
         when(strategy.supports(preferences)).thenReturn(true);
@@ -63,7 +63,9 @@ class DefaultPrimJourneyRequestFactoryTest {
                 "origin-query",
                 "dest-query",
                 LocalDateTime.now(),
-                preferences);
+                preferences,
+                false,
+                false);
 
         User user = new User("ext", "user@example.com", "Example User");
         StopArea origin = new StopArea("origin-ext", "Origin", new GeoPoint(0d, 0d));

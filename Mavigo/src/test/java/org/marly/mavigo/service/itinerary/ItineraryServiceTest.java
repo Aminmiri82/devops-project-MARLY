@@ -187,14 +187,16 @@ class ItineraryServiceImpl implements ItineraryService {
     public Journey planJourney(PlanJourneyCommand command) {
         JourneyPreferences preferences = new JourneyPreferences(
                 command.enableComfortMode(),
+                false,
                 null);
-
         JourneyPlanningParameters parameters = new JourneyPlanningParameters(
                 command.userId(),
                 command.originLabel(),
                 command.destinationLabel(),
                 command.departureTime().toLocalDateTime(),
-                preferences);
+                preferences,
+                false,
+                false);
 
         var journeys = journeyPlanningService.planAndPersist(parameters);
         return journeys.isEmpty() ? null : journeys.get(0);
@@ -207,14 +209,17 @@ class ItineraryServiceImpl implements ItineraryService {
 
         JourneyPreferences preferences = new JourneyPreferences(
                 existingJourney.isComfortModeEnabled(),
+                existingJourney.isEcoModeEnabled(),
                 existingJourney.getNamedComfortSettingId());
 
         JourneyPlanningParameters parameters = new JourneyPlanningParameters(
                 existingJourney.getUser().getId(),
                 existingJourney.getOriginLabel(),
                 existingJourney.getDestinationLabel(),
-                LocalDateTime.now(),
-                preferences);
+                java.time.LocalDateTime.now(),
+                preferences,
+                existingJourney.isEcoModeEnabled(),
+                false);
 
         var journeys = journeyPlanningService.planAndPersist(parameters);
         return journeys.isEmpty() ? null : journeys.get(0);

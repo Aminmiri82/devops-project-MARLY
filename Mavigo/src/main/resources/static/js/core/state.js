@@ -7,4 +7,6 @@ export const state = {
   lastTasksSignature: null,
   pendingSuggestionTask: null,
   smartSuggestionsDismissedFor: null,
+  ecoModeEnabled: false,
+  wheelchairAccessible: false,
 };

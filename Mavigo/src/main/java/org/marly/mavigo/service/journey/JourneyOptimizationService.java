@@ -183,7 +183,9 @@ public class JourneyOptimizationService {
             LocalDateTime taskArrival = seg1.getPlannedArrival().toLocalDateTime();
             JourneyPlanningParameters segment2Params = new JourneyPlanningParameters(
                     parameters.userId(), taskQuery, parameters.destinationQuery(), taskArrival,
-                    parameters.preferences());
+                    parameters.preferences(),
+                    parameters.ecoModeEnabled(),
+                    parameters.wheelchairAccessible());
             List<Journey> segment2Journeys = journeyPlanningService.planAndPersist(segment2Params);
             if (segment2Journeys.isEmpty())
                 continue;
@@ -214,7 +216,9 @@ public class JourneyOptimizationService {
         Journey bestSegment1 = segment1Journeys.get(0);
         LocalDateTime taskArrival = bestSegment1.getPlannedArrival().toLocalDateTime();
         JourneyPlanningParameters segment2Params = new JourneyPlanningParameters(
-                parameters.userId(), taskQuery, parameters.destinationQuery(), taskArrival, parameters.preferences());
+                parameters.userId(), taskQuery, parameters.destinationQuery(), taskArrival, parameters.preferences(),
+                parameters.ecoModeEnabled(),
+                parameters.wheelchairAccessible());
         List<Journey> segment2Journeys = journeyPlanningService.planAndPersist(segment2Params);
         if (segment2Journeys.isEmpty())
             return null;
@@ -226,7 +230,9 @@ public class JourneyOptimizationService {
         long totalDuration = getDurationSeconds(bestSegment1) + getDurationSeconds(bestSegment2);
         JourneyPlanningParameters baseParams = new JourneyPlanningParameters(
                 parameters.userId(), parameters.originQuery(), parameters.destinationQuery(),
-                initialDeparture, parameters.preferences());
+                initialDeparture, parameters.preferences(),
+                parameters.ecoModeEnabled(),
+                parameters.wheelchairAccessible());
         List<Journey> baseJourneys = journeyPlanningService.planAndPersist(baseParams);
         long baseDuration = baseJourneys.isEmpty() ? totalDuration : getDurationSeconds(baseJourneys.get(0));
 
@@ -246,7 +252,9 @@ public class JourneyOptimizationService {
     private List<Journey> planSegment1(JourneyPlanningParameters parameters, String taskQuery,
             LocalDateTime initialDeparture) {
         JourneyPlanningParameters segment1Params = new JourneyPlanningParameters(
-                parameters.userId(), parameters.originQuery(), taskQuery, initialDeparture, parameters.preferences());
+                parameters.userId(), parameters.originQuery(), taskQuery, initialDeparture, parameters.preferences(),
+                parameters.ecoModeEnabled(),
+                parameters.wheelchairAccessible());
         return journeyPlanningService.planAndPersist(segment1Params);
     }
 

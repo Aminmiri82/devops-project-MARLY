@@ -73,7 +73,8 @@ public class JourneyController {
     @PostMapping
     public ResponseEntity<java.util.List<JourneyResponse>> planJourney(@Valid @RequestBody PlanJourneyCommand command) {
         PlanJourneyRequest request = command.journey();
-        JourneyPreferences preferences = mapPreferences(command.preferences());
+        boolean ecoModeEnabled = Boolean.TRUE.equals(request.ecoModeEnabled());
+        JourneyPreferences preferences = mapPreferences(command.preferences(), ecoModeEnabled);
 
         LocalDateTime departure = parseDepartureTime(request.departureTime());
 
@@ -82,7 +83,9 @@ public class JourneyController {
                 request.originQuery(),
                 request.destinationQuery(),
                 departure,
-                preferences);
+                preferences,
+                ecoModeEnabled,
+                Boolean.TRUE.equals(request.wheelchairAccessible()));
 
         java.util.List<JourneyResponse> responses;
         boolean useTaskOptimization = (request.taskDetails() != null && !request.taskDetails().isEmpty())
@@ -91,7 +94,8 @@ public class JourneyController {
         if (useTaskOptimization) {
             var optimizedResults = (request.taskDetails() != null && !request.taskDetails().isEmpty())
                     ? journeyOptimizationService.planOptimizedJourneyWithTaskDetails(parameters, request.taskDetails())
-                    : journeyOptimizationService.planOptimizedJourneyWithTasks(parameters, request.taskIds() != null ? request.taskIds() : List.of());
+                    : journeyOptimizationService.planOptimizedJourneyWithTasks(parameters,
+                            request.taskIds() != null ? request.taskIds() : List.of());
 
             if (optimizedResults.isEmpty()) {
                 LOGGER.warn("Optimization failed, falling back to normal journey");
@@ -102,14 +106,16 @@ public class JourneyController {
             } else {
                 responses = optimizedResults.stream()
                         .map(result -> {
-                            List<JourneyResponse.TaskOnRouteResponse> tasksOnRoute = calculateTasksOnRoute(result.journey());
+                            List<JourneyResponse.TaskOnRouteResponse> tasksOnRoute = calculateTasksOnRoute(
+                                    result.journey());
                             long baseAdd = result.totalDurationSeconds() - result.baseDurationSeconds();
                             List<JourneyResponse.IncludedTaskResponse> includedTasks = result.includedTasks().stream()
                                     .map(t -> new JourneyResponse.IncludedTaskResponse(
                                             toUuid(t.id()),
                                             t.title(),
                                             t.locationQuery(),
-                                            result.includedTasks().size() > 1 ? baseAdd / result.includedTasks().size() : baseAdd,
+                                            result.includedTasks().size() > 1 ? baseAdd / result.includedTasks().size()
+                                                    : baseAdd,
                                             t.id()))
                                     .toList();
                             return JourneyResponse.fromOptimized(
@@ -145,7 +151,8 @@ public class JourneyController {
             // Densification: on ajoute des points intermédiaires tous les ~200m
             var polyline = taskOnRouteService.densify(baseRoutePoints, 200);
 
-            // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux négatifs
+            // Si on n'a quasi pas de points, on élargit le rayon pour éviter les faux
+            // négatifs
             double radius = (polyline == null || polyline.size() <= 3) ? 900.0 : BASE_RADIUS_METERS;
 
             tasksOnRoute = tasks.stream()
@@ -163,14 +170,14 @@ public class JourneyController {
 
     @PostMapping("/{id}/start")
     public ResponseEntity<JourneyResponse> startJourney(@PathVariable java.util.UUID id) {
-        Journey journey = journeyManagementService.startJourney(id);
-        return ResponseEntity.ok(JourneyResponse.from(journey));
+        org.marly.mavigo.service.journey.JourneyActionResult result = journeyManagementService.startJourney(id);
+        return ResponseEntity.ok(JourneyResponse.from(result.journey(), null, result.newBadges()));
     }
 
     @PostMapping("/{id}/complete")
     public ResponseEntity<JourneyResponse> completeJourney(@PathVariable java.util.UUID id) {
-        Journey journey = journeyManagementService.completeJourney(id);
-        return ResponseEntity.ok(JourneyResponse.from(journey));
+        org.marly.mavigo.service.journey.JourneyActionResult result = journeyManagementService.completeJourney(id);
+        return ResponseEntity.ok(JourneyResponse.from(result.journey(), null, result.newBadges()));
     }
 
     @PostMapping("/{id}/cancel")
@@ -183,6 +190,13 @@ public class JourneyController {
     public ResponseEntity<JourneyResponse> getJourney(@PathVariable java.util.UUID id) {
         Journey journey = journeyManagementService.getJourney(id);
         return ResponseEntity.ok(JourneyResponse.from(journey));
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/all")
+    public ResponseEntity<Void> deleteAllJourneys() {
+        LOGGER.info("Request to delete all journeys and activity data");
+        journeyManagementService.clearAllData();
+        return ResponseEntity.noContent().build();
     }
 
     private static LocalDateTime parseDepartureTime(String raw) {
@@ -275,7 +289,8 @@ public class JourneyController {
     }
 
     private static UUID toUuid(String id) {
-        if (id == null || id.isBlank()) return null;
+        if (id == null || id.isBlank())
+            return null;
         try {
             return UUID.fromString(id);
         } catch (IllegalArgumentException e) {
@@ -283,12 +298,13 @@ public class JourneyController {
         }
     }
 
-    private JourneyPreferences mapPreferences(JourneyPreferencesRequest preferencesRequest) {
+    private JourneyPreferences mapPreferences(JourneyPreferencesRequest preferencesRequest, boolean ecoModeEnabled) {
         if (preferencesRequest == null) {
-            return JourneyPreferences.disabled();
+            return new JourneyPreferences(false, ecoModeEnabled, null);
         }
         return new JourneyPreferences(
                 preferencesRequest.comfortMode(),
+                ecoModeEnabled,
                 preferencesRequest.namedComfortSettingId());
     }
 }

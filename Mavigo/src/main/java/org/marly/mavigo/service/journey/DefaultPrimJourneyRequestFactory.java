@@ -28,8 +28,13 @@ public class DefaultPrimJourneyRequestFactory implements PrimJourneyRequestFacto
         request.withFirstSectionModes(List.of("walking"));
         request.withLastSectionModes(List.of("walking"));
 
-        // Autoriser plus de marche pour rejoindre un arrêt quand on part d'une adresse précise
+        // Autoriser plus de marche pour rejoindre un arrêt quand on part d'une adresse
+        // précise
         request.withMaxWalkingDurationToPt(3600);
+
+        if (context.parameters().wheelchairAccessible()) {
+            request.withWheelchair(true);
+        }
 
         JourneyPreferences preferences = context.parameters().preferences();
         for (JourneyPreferenceStrategy strategy : strategies) {
@@ -37,7 +42,7 @@ public class DefaultPrimJourneyRequestFactory implements PrimJourneyRequestFacto
                 strategy.apply(context, request);
             }
         }
+
         return request;
     }
 }
-

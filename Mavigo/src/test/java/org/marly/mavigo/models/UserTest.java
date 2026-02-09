@@ -40,7 +40,6 @@ class UserTest {
     @DisplayName("Un nouveau User devrait avoir un ComfortProfile par défaut")
     void newUser_shouldHaveDefaultComfortProfile() {
         assertNotNull(user.getComfortProfile());
-        assertFalse(user.getComfortProfile().isWheelchairAccessible());
     }
 
     @Test
@@ -48,7 +47,6 @@ class UserTest {
     void setComfortProfile_shouldReplaceComfortProfile() {
         // Given
         ComfortProfile newProfile = new ComfortProfile();
-        newProfile.setWheelchairAccessible(true);
         newProfile.setMaxNbTransfers(2);
 
         // When
@@ -56,7 +54,6 @@ class UserTest {
 
         // Then
         assertEquals(newProfile, user.getComfortProfile());
-        assertTrue(user.getComfortProfile().isWheelchairAccessible());
         assertEquals(2, user.getComfortProfile().getMaxNbTransfers());
     }
 

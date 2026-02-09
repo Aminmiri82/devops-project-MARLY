@@ -182,13 +182,18 @@ public class DisruptionReportingService {
                     LocalDateTime.now());
             List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
 
-            var prefs = new JourneyPreferences(original.isComfortModeEnabled(), original.getNamedComfortSettingId());
+            var prefs = new JourneyPreferences(
+                    original.isComfortModeEnabled(),
+                    false, // ecoModeEnabled defaults to false for disruption recalculation
+                    original.getNamedComfortSettingId());
             var params = new org.marly.mavigo.service.journey.dto.JourneyPlanningParameters(
                     original.getUser().getId(),
                     original.getOriginLabel(),
                     original.getDestinationLabel(),
                     LocalDateTime.now(),
-                    prefs);
+                    prefs,
+                    false,
+                    false); // ecoModeEnabled, wheelchairAccessible
             var context = new org.marly.mavigo.service.journey.dto.JourneyPlanningContext(original.getUser(), origin,
                     destination, params);
 

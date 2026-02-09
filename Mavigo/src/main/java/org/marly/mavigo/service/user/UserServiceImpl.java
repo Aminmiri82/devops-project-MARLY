@@ -35,13 +35,7 @@ public class UserServiceImpl implements UserService {
 
         User saved = userRepository.save(user);
 
-        // Create default "Accessibility" profile with wheelchair enabled
-        ComfortProfile accessibilityProfile = new ComfortProfile();
-        accessibilityProfile.setWheelchairAccessible(true);
-        NamedComfortSetting accessibilitySetting = new NamedComfortSetting("Accessibility", accessibilityProfile, saved);
-        saved.addNamedComfortSetting(accessibilitySetting);
-
-        return userRepository.save(saved);
+        return saved;
     }
 
     @Override

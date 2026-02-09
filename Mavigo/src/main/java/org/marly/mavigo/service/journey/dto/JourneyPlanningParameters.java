@@ -9,7 +9,9 @@ public record JourneyPlanningParameters(
         String originQuery,
         String destinationQuery,
         LocalDateTime departureDateTime,
-        JourneyPreferences preferences) {
+        JourneyPreferences preferences,
+        boolean ecoModeEnabled,
+        boolean wheelchairAccessible) {
 
     public JourneyPlanningParameters {
         Objects.requireNonNull(userId, "userId must be provided when planning a journey");
@@ -26,4 +28,3 @@ public record JourneyPlanningParameters(
         return value.trim();
     }
 }
-
