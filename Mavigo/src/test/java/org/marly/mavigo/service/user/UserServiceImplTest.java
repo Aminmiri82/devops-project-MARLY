@@ -4,25 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+import org.marly.mavigo.MavigoApplication;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.UserRepository;
-import org.marly.mavigo.service.user.GoogleAccountAlreadyLinkedException;
 import org.marly.mavigo.service.user.dto.GoogleAccountLink;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
-@Import({UserServiceImpl.class, UserServiceImplTest.PasswordEncoderConfig.class})
+@SpringBootTest(classes = MavigoApplication.class)
+@ActiveProfiles("test")
 class UserServiceImplTest {
-
-    @org.springframework.context.annotation.Configuration
-    static class PasswordEncoderConfig {
-        @org.springframework.context.annotation.Bean
-        org.springframework.security.crypto.password.PasswordEncoder passwordEncoder() {
-            return new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
-        }
-    }
 
     @Autowired
     private UserService userService;
