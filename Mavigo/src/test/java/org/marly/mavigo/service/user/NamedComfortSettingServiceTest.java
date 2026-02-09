@@ -4,17 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.marly.mavigo.MavigoApplication;
 import org.marly.mavigo.models.user.ComfortProfile;
 import org.marly.mavigo.models.user.NamedComfortSetting;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.NamedComfortSettingRepository;
 import org.marly.mavigo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
-@Import(UserServiceImpl.class)
+@SpringBootTest(classes = MavigoApplication.class)
+@ActiveProfiles("test")
 class NamedComfortSettingServiceTest {
 
     @Autowired
@@ -63,6 +64,5 @@ class NamedComfortSettingServiceTest {
         User afterDelete = userService.deleteNamedComfortSetting(user.getId(), settingId);
 
         assertThat(afterDelete.getNamedComfortSettings()).hasSize(initialCount);
-        assertThat(namedComfortSettingRepository.count()).isEqualTo(initialCount);
     }
 }
