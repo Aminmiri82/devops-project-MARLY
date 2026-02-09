@@ -36,6 +36,13 @@ public class DefaultPrimJourneyRequestFactory implements PrimJourneyRequestFacto
             request.withWheelchair(true);
         }
 
+        JourneyPreferences preferences = context.parameters().preferences();
+        for (JourneyPreferenceStrategy strategy : strategies) {
+            if (strategy.supports(preferences)) {
+                strategy.apply(context, request);
+            }
+        }
+
         return request;
     }
 }
