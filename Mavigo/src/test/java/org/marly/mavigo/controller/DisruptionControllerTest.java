@@ -11,15 +11,21 @@ import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.marly.mavigo.config.CustomUserDetailsService;
+import org.marly.mavigo.config.JwtUtils;
+import org.marly.mavigo.security.JwtAuthenticationFilter;
+import org.marly.mavigo.security.JwtTokenService;
+import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.service.disruption.DisruptionReportingService;
 import org.marly.mavigo.service.disruption.dto.RerouteResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(DisruptionController.class)
 class DisruptionControllerTest {
@@ -29,6 +35,24 @@ class DisruptionControllerTest {
 
     @MockitoBean
     private DisruptionReportingService disruptionService;
+
+    @MockitoBean
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private ClientRegistrationRepository clientRegistrationRepository;
+
+    @MockitoBean
+    private CustomUserDetailsService customUserDetailsService;
+
+    @MockitoBean
+    private JwtUtils jwtUtils;
+
+    @MockitoBean
+    private JwtTokenService jwtTokenService;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
     @WithMockUser

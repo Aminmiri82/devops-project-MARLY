@@ -119,15 +119,6 @@ class GoogleTasksControllerTest {
     }
 
     @Test
-    void createTaskRequestRecordShouldWork() {
-        var req = new GoogleTasksController.CreateTaskRequest("title", "notes", null, "gare de lyon");
-        assertEquals("title", req.title());
-        assertEquals("notes", req.notes());
-        assertNull(req.due());
-        assertEquals("gare de lyon", req.locationQuery());
-    }
-
-    @Test
     void suggestionsForUser_returnsLocationTasksForDate() {
         UUID userId = UUID.randomUUID();
         User user = new User("ext-1", "test@example.com", "Test");

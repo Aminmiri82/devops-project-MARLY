@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.marly.mavigo.config.CustomUserDetailsService;
 import org.marly.mavigo.config.JwtUtils;
@@ -30,15 +31,21 @@ public class JwtFilter extends OncePerRequestFilter {
         String username = null;
         String jwt = null;
 
-        if( authHeader != null && authHeader.startsWith("Bearer ")){
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwt = authHeader.substring(7);
-            username = jwtUtils.extractUsername(jwt);
+            try {
+                username = jwtUtils.extractUsername(jwt);
+            } catch (JwtException | IllegalArgumentException ex) {
+                // Token invalide ou expiré : on ignore et on laisse la requête continuer sans authentification JWT
+                username = null;
+                jwt = null;
+            }
         }
 
-        if( username != null && SecurityContextHolder.getContext().getAuthentication() == null){
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
-            if(jwtUtils.validateToken(jwt, userDetails)){
+            if (jwt != null && jwtUtils.validateToken(jwt, userDetails)) {
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
