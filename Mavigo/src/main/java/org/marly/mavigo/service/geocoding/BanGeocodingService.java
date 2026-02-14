@@ -108,42 +108,42 @@ public class BanGeocodingService implements GeocodingService {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class BanResponse {
+    static class BanResponse {
         @JsonProperty("features")
-        private List<BanFeature> features;
+        List<BanFeature> features;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class BanFeature {
+    static class BanFeature {
         @JsonProperty("geometry")
-        private BanGeometry geometry;
+        BanGeometry geometry;
 
         @JsonProperty("properties")
-        private BanProperties properties;
+        BanProperties properties;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class BanGeometry {
+    static class BanGeometry {
         @JsonProperty("coordinates")
-        private List<Double> coordinates;
+        List<Double> coordinates;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class BanProperties {
+    static class BanProperties {
         @JsonProperty("label")
-        private String label;
+        String label;
 
         @JsonProperty("city")
-        private String city;
+        String city;
 
         @JsonProperty("postcode")
-        private String postcode;
+        String postcode;
 
         @JsonProperty("score")
-        private Double score;
+        Double score;
 
         @JsonProperty("type")
-        private String type;
+        String type;
     }
 
     private String extractCityHint(String address) {
