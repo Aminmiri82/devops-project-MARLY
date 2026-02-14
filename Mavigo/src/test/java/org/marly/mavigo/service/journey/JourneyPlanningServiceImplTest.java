@@ -336,6 +336,133 @@ class JourneyPlanningServiceImplTest {
                 assertTrue(result.stream().noneMatch(j -> j.isLineUsed("M1")));
         }
 
+        @Test
+        @DisplayName("updateJourneyWithDisruption devrait gérer l'origine GPS")
+        @SuppressWarnings("unchecked")
+        void updateJourneyWithDisruption_shouldHandleGpsOrigin() {
+                // Given
+                UUID journeyId = UUID.randomUUID();
+                Journey existingJourney = createMockJourneyWithSegments();
+                existingJourney.setUser(testUser);
+                
+                Disruption disruption = Disruption.lineDisruption(existingJourney, "M1", testUser);
+                
+                when(journeyRepository.findWithSegmentsById(journeyId)).thenReturn(Optional.of(existingJourney));
+                when(stopAreaService.findOrCreateByQuery(anyString())).thenReturn(destinationStopArea);
+                when(primJourneyRequestFactory.create(any(JourneyPlanningContext.class)))
+                                .thenReturn(new PrimJourneyRequest("coord:2.3522;48.8566", "stop:destination", LocalDateTime.now()));
+                when(primApiClient.calculateJourneyPlans(any(PrimJourneyRequest.class)))
+                                .thenReturn(List.of(createMockJourneyPlan("journey-gps")));
+                when(journeyResultFilter.filterByComfortProfile(anyList(), any(JourneyPlanningContext.class), anyBoolean()))
+                                .thenReturn(List.of(createMockJourneyPlan("journey-gps")));
+                when(journeyAssembler.assemble(any(), any(), any(), any(), any())).thenReturn(createMockJourney());
+                when(journeyRepository.save(any(Journey.class))).thenAnswer(i -> i.getArguments()[0]);
+
+                // When
+                List<Journey> result = service.updateJourneyWithDisruption(journeyId, disruption, 48.8566, 2.3522, null);
+
+                // Then
+                assertNotNull(result);
+                assertFalse(result.isEmpty());
+                // Verify that the origin in the context was "Current Location" (this would be deeper verification, but status OK)
+        }
+
+        @Test
+        @DisplayName("updateJourneyWithDisruption devrait gérer l'origine manuelle")
+        void updateJourneyWithDisruption_shouldHandleManualOrigin() {
+                // Given
+                UUID journeyId = UUID.randomUUID();
+                Journey existingJourney = createMockJourneyWithSegments();
+                existingJourney.setUser(testUser);
+                
+                Disruption disruption = Disruption.lineDisruption(existingJourney, "M1", testUser);
+                
+                when(journeyRepository.findWithSegmentsById(journeyId)).thenReturn(Optional.of(existingJourney));
+                when(stopAreaService.findOrCreateByQuery("Manual Station")).thenReturn(new StopArea("stop:manual", "Manual Station", null));
+                when(stopAreaService.findOrCreateByQuery(anyString())).thenReturn(destinationStopArea);
+                when(primJourneyRequestFactory.create(any(JourneyPlanningContext.class)))
+                                .thenReturn(new PrimJourneyRequest("stop:manual", "stop:destination", LocalDateTime.now()));
+                when(primApiClient.calculateJourneyPlans(any(PrimJourneyRequest.class)))
+                                .thenReturn(List.of(createMockJourneyPlan("journey-manual")));
+                when(journeyResultFilter.filterByComfortProfile(anyList(), any(JourneyPlanningContext.class), anyBoolean()))
+                                .thenReturn(List.of(createMockJourneyPlan("journey-manual")));
+                when(journeyAssembler.assemble(any(), any(), any(), any(), any())).thenReturn(createMockJourney());
+                when(journeyRepository.save(any(Journey.class))).thenAnswer(i -> i.getArguments()[0]);
+
+                // When
+                List<Journey> result = service.updateJourneyWithDisruption(journeyId, disruption, null, null, "Manual Station");
+
+                // Then
+                assertNotNull(result);
+                verify(stopAreaService).findOrCreateByQuery("Manual Station");
+        }
+
+        @Test
+        @DisplayName("updateJourneyWithDisruption ne devrait pas recalculer si la ligne n'est pas impactée")
+        void updateJourneyWithDisruption_shouldNotRecalculateIfNotImpacted() {
+                // Given
+                UUID journeyId = UUID.randomUUID();
+                Journey existingJourney = createMockJourneyWithSegments(); // uses M1
+                
+                Disruption disruption = new Disruption();
+                disruption.setEffectedLine("M4"); // Different line
+
+                when(journeyRepository.findWithSegmentsById(journeyId)).thenReturn(Optional.of(existingJourney));
+
+                // When
+                List<Journey> result = service.updateJourneyWithDisruption(journeyId, disruption, null, null, null);
+
+                // Then
+                assertEquals(1, result.size());
+                assertEquals(existingJourney, result.get(0));
+                verify(primApiClient, never()).calculateJourneyPlans(any());
+        }
+
+        @Test
+        @DisplayName("updateJourneyWithDisruption devrait gérer une disruption générale")
+        void updateJourneyWithDisruption_shouldHandleGeneralDisruption() {
+                // Given
+                UUID journeyId = UUID.randomUUID();
+                Journey existingJourney = createMockJourneyWithSegments();
+                
+                Disruption disruption = new Disruption();
+                disruption.setEffectedLine("General Disruption");
+
+                when(journeyRepository.findWithSegmentsById(journeyId)).thenReturn(Optional.of(existingJourney));
+                when(stopAreaService.findOrCreateByQuery(anyString())).thenReturn(originStopArea);
+                when(primJourneyRequestFactory.create(any(JourneyPlanningContext.class))).thenReturn(new PrimJourneyRequest("o", "d", LocalDateTime.now()));
+                when(primApiClient.calculateJourneyPlans(any())).thenReturn(List.of(createMockJourneyPlan("j")));
+                when(journeyResultFilter.filterByComfortProfile(anyList(), any(), anyBoolean())).thenReturn(List.of(createMockJourneyPlan("j")));
+                when(journeyAssembler.assemble(any(), any(), any(), any(), any())).thenReturn(createMockJourney());
+                when(journeyRepository.save(any(Journey.class))).thenAnswer(i -> i.getArguments()[0]);
+
+                // When
+                List<Journey> result = service.updateJourneyWithDisruption(journeyId, disruption, null, null, null);
+
+                // Then
+                assertNotNull(result);
+                assertNotEquals(java.util.Collections.singletonList(existingJourney), result);
+        }
+
+        @Test
+        @DisplayName("recalculateFromNewOrigin devrait utiliser les préférences par défaut si nulles")
+        void recalculateFromNewOrigin_shouldUseDefaultPreferencesIfNull() {
+                // Given
+                UUID userId = testUser.getId();
+                when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+                when(stopAreaService.findOrCreateByQuery(anyString())).thenReturn(originStopArea);
+                when(primApiClient.calculateJourneyPlans(any())).thenReturn(List.of(createMockJourneyPlan("j")));
+                when(journeyResultFilter.filterByComfortProfile(anyList(), any(), anyBoolean())).thenReturn(List.of(createMockJourneyPlan("j")));
+                when(journeyAssembler.assemble(any(), any(), any(), any(), any())).thenReturn(createMockJourney());
+                when(journeyRepository.save(any(Journey.class))).thenAnswer(i -> i.getArguments()[0]);
+
+                // When
+                List<Journey> result = service.recalculateFromNewOrigin(userId, "o", "d", null);
+
+                // Then
+                assertNotNull(result);
+        }
+
         // Helper methods
 
         private PrimJourneyPlanDto createMockJourneyPlan(String journeyId) {

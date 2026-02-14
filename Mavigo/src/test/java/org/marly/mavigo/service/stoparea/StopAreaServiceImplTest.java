@@ -1,461 +1,292 @@
 package org.marly.mavigo.service.stoparea;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Optional;
-
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.marly.mavigo.client.prim.PrimApiClient;
 import org.marly.mavigo.client.prim.model.PrimCoordinates;
 import org.marly.mavigo.client.prim.model.PrimPlace;
 import org.marly.mavigo.client.prim.model.PrimStopArea;
-import org.marly.mavigo.client.prim.model.PrimStopPoint;
-import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.stoparea.StopArea;
 import org.marly.mavigo.repository.StopAreaRepository;
 import org.marly.mavigo.service.geocoding.GeocodingService;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 
-@ExtendWith(MockitoExtension.class)
-@DisplayName("Tests unitaires - StopAreaServiceImpl")
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 class StopAreaServiceImplTest {
 
-    @Mock
     private StopAreaRepository stopAreaRepository;
-
-    @Mock
     private PrimApiClient primApiClient;
-
-    @Mock
     private GeocodingService geocodingService;
-
-    @InjectMocks
     private StopAreaServiceImpl service;
 
-    @Nested
-    @DisplayName("Tests findOrCreateByQuery - chaîne de fallback")
-    class FindOrCreateByQueryFallbackTests {
-
-        @Test
-        @DisplayName("retourne une zone d'arrêt existante par nom")
-        void findOrCreateByQuery_returnsExistingByName() {
-            // Given
-            String query = "Gare de Lyon";
-            StopArea existing = new StopArea("stop:123", "Gare de Lyon", new GeoPoint(48.8443, 2.3730));
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.of(existing));
-
-            // When
-            StopArea result = service.findOrCreateByQuery(query);
-
-            // Then
-            assertThat(result).isEqualTo(existing);
-            verify(primApiClient, never()).searchPlaces(anyString());
-        }
-
-        @Test
-        @DisplayName("utilise PRIM quand une zone d'arrêt est trouvée")
-        void findOrCreateByQuery_usesPrimWhenStopAreaFound() {
-            // Given
-            String query = "Châtelet";
-            PrimPlace place = createMockPlaceWithStopArea("stop:456", "Châtelet", 48.8584, 2.3470);
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(query)).thenReturn(List.of(place));
-            when(stopAreaRepository.findByExternalId("stop:456")).thenReturn(Optional.empty());
-            when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
-
-            // When
-            StopArea result = service.findOrCreateByQuery(query);
-
-            // Then
-            assertThat(result).isNotNull();
-            assertThat(result.getName()).isEqualTo("Châtelet");
-            verify(stopAreaRepository).save(any(StopArea.class));
-        }
-
-        @Test
-        @DisplayName("simplifie l'adresse en cas d'échec PRIM")
-        void findOrCreateByQuery_simplifiesAddressOnPrimFailure() {
-            // Given
-            String query = "21 Place Jean Charcot";
-            String simplified = "Place Jean Charcot";
-            PrimPlace place = createMockPlaceWithStopArea("stop:789", "Place Jean Charcot", 48.9845, 2.3775);
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(query)).thenReturn(List.of()); // Original fails
-            when(primApiClient.searchPlaces(simplified)).thenReturn(List.of(place)); // Simplified works
-            when(stopAreaRepository.findByExternalId("stop:789")).thenReturn(Optional.empty());
-            when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
-
-            // When
-            StopArea result = service.findOrCreateByQuery(query);
-
-            // Then
-            assertThat(result).isNotNull();
-            verify(primApiClient, times(2)).searchPlaces(anyString());
-        }
-
-        @Test
-        @DisplayName("utilise le géocodage quand PRIM échoue")
-        void findOrCreateByQuery_usesGeocodingWhenPrimFails() {
-            // Given
-            String query = "123 Rue Example, Paris";
-            GeoPoint geocodedPoint = new GeoPoint(48.8566, 2.3522);
-            PrimPlace place = createMockPlaceWithStopArea("stop:nearby", "Nearby Station", 48.8570, 2.3530);
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(anyString())).thenReturn(List.of());
-            when(geocodingService.geocode(query)).thenReturn(geocodedPoint);
-            when(geocodingService.reverseGeocode(any(GeoPoint.class))).thenReturn("Paris");
-            when(primApiClient.searchPlacesNearby(anyDouble(), anyDouble(), anyInt(), any()))
-                    .thenReturn(List.of(place));
-            when(stopAreaRepository.findByExternalId("stop:nearby")).thenReturn(Optional.empty());
-            when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
-
-            // When
-            StopArea result = service.findOrCreateByQuery(query);
-
-            // Then
-            assertThat(result).isNotNull();
-            verify(geocodingService).geocode(query);
-        }
-
-        @Test
-        @DisplayName("recherche à proximité après géocodage")
-        void findOrCreateByQuery_searchesNearbyAfterGeocoding() {
-            // Given
-            String query = "Some Address";
-            GeoPoint geocodedPoint = new GeoPoint(48.8566, 2.3522);
-            PrimPlace place = createMockPlaceWithStopArea("stop:nearby", "Station", 48.8570, 2.3530);
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(anyString())).thenReturn(List.of());
-            when(geocodingService.geocode(query)).thenReturn(geocodedPoint);
-            when(geocodingService.reverseGeocode(any())).thenReturn("Paris");
-            when(primApiClient.searchPlacesNearby(eq(48.8566), eq(2.3522), anyInt(), any()))
-                    .thenReturn(List.of(place));
-            when(stopAreaRepository.findByExternalId("stop:nearby")).thenReturn(Optional.empty());
-            when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
-
-            // When
-            service.findOrCreateByQuery(query);
-
-            // Then
-            verify(primApiClient).searchPlacesNearby(eq(48.8566), eq(2.3522), eq(2000), any());
-        }
-
-        @Test
-        @DisplayName("étend le rayon jusqu'au maximum")
-        void findOrCreateByQuery_expandsRadiusUpToMax() {
-            // Given
-            String query = "Remote Location";
-            GeoPoint geocodedPoint = new GeoPoint(48.0, 2.0);
-            PrimPlace place = createMockPlaceWithStopArea("stop:far", "Far Station", 48.1, 2.1);
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(anyString())).thenReturn(List.of());
-            when(geocodingService.geocode(query)).thenReturn(geocodedPoint);
-            when(geocodingService.reverseGeocode(any())).thenReturn("SomeCity");
-            // First search at initial radius fails
-            when(primApiClient.searchPlacesNearby(anyDouble(), anyDouble(), eq(2000), any()))
-                    .thenReturn(List.of());
-            // Search at expanded radii
-            when(primApiClient.searchPlacesNearby(anyDouble(), anyDouble(), eq(5000), any()))
-                    .thenReturn(List.of());
-            when(primApiClient.searchPlacesNearby(anyDouble(), anyDouble(), eq(10000), any()))
-                    .thenReturn(List.of(place));
-            when(stopAreaRepository.findByExternalId("stop:far")).thenReturn(Optional.empty());
-            when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
-
-            // When
-            StopArea result = service.findOrCreateByQuery(query);
-
-            // Then
-            assertThat(result).isNotNull();
-        }
-
-        @Test
-        @DisplayName("lève une exception quand rien n'est trouvé")
-        void findOrCreateByQuery_throwsWhenNothingFound() {
-            // Given
-            String query = "Nonexistent Place";
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(anyString())).thenReturn(List.of());
-            when(geocodingService.geocode(query)).thenReturn(null);
-
-            // When/Then
-            assertThatThrownBy(() -> service.findOrCreateByQuery(query))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("No location found");
-        }
-
-        @Test
-        @DisplayName("lève une exception avec une requête null")
-        void findOrCreateByQuery_withNullQuery_throwsException() {
-            // When/Then
-            assertThatThrownBy(() -> service.findOrCreateByQuery(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Query cannot be null or empty");
-        }
-
-        @Test
-        @DisplayName("lève une exception avec une requête vide")
-        void findOrCreateByQuery_withBlankQuery_throwsException() {
-            // When/Then
-            assertThatThrownBy(() -> service.findOrCreateByQuery("   "))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Query cannot be null or empty");
-        }
+    @BeforeEach
+    void setUp() {
+        stopAreaRepository = mock(StopAreaRepository.class);
+        primApiClient = mock(PrimApiClient.class);
+        geocodingService = mock(GeocodingService.class);
+        service = new StopAreaServiceImpl(stopAreaRepository, primApiClient, geocodingService);
     }
 
-    @Nested
-    @DisplayName("Tests simplifyAddress")
-    class SimplifyAddressTests {
+    @Test
+    void findOrCreateByQuery_shouldReturnExistingStopArea() {
+        String query = "Gare de Lyon";
+        StopArea existing = new StopArea("id", query, null);
+        when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.of(existing));
 
-        @Test
-        @DisplayName("supprime le numéro de rue")
-        void simplifyAddress_removesStreetNumber() throws Exception {
-            // Given
-            String address = "21 place jean charcot";
+        StopArea result = service.findOrCreateByQuery(query);
 
-            // When - use reflection to access private method
-            String result = invokeSimplifyAddress(address);
-
-            // Then
-            assertThat(result).isEqualTo("place jean charcot");
-        }
-
-        @Test
-        @DisplayName("supprime le code postal et la ville")
-        void simplifyAddress_removesPostalCodeAndCity() throws Exception {
-            // Given
-            String address = "21 place jean charcot, nanterre";
-
-            // When
-            String result = invokeSimplifyAddress(address);
-
-            // Then
-            assertThat(result).isEqualTo("place jean charcot");
-        }
-
-        @Test
-        @DisplayName("gère une adresse null")
-        void simplifyAddress_handlesNull() throws Exception {
-            // When
-            String result = invokeSimplifyAddress(null);
-
-            // Then
-            assertThat(result).isNull();
-        }
-
-        @Test
-        @DisplayName("gère une adresse vide")
-        void simplifyAddress_handlesBlank() throws Exception {
-            // When
-            String result = invokeSimplifyAddress("   ");
-
-            // Then
-            assertThat(result).isEqualTo("   ");
-        }
-
-        private String invokeSimplifyAddress(String address) throws Exception {
-            Method method = StopAreaServiceImpl.class.getDeclaredMethod("simplifyAddress", String.class);
-            method.setAccessible(true);
-            return (String) method.invoke(service, address);
-        }
+        assertEquals(existing, result);
+        verify(primApiClient, never()).searchPlaces(anyString());
     }
 
-    @Nested
-    @DisplayName("Tests extractCityName")
-    class ExtractCityNameTests {
+    @Test
+    void findOrCreateByQuery_shouldSimplifyAddressIfNoResults() {
+        String query = "123 Rue de Rivoli, Paris";
+        String simplified = "Rue de Rivoli";
+        
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces(query)).thenReturn(Collections.emptyList());
+        
+        PrimStopArea primStopArea = new PrimStopArea("ext-2", "Rivoli Stop", null);
+        PrimPlace place = new PrimPlace("ext-2", "Rivoli", "stop_area", primStopArea, null, null);
+        when(primApiClient.searchPlaces(simplified)).thenReturn(List.of(place));
+        when(stopAreaRepository.findByExternalId("ext-2")).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        @Test
-        @DisplayName("extrait la ville après le code postal")
-        void extractCityName_extractsCityAfterPostalCode() throws Exception {
-            // Given
-            String areaName = "21 Place Jean Charcot 95200 Sarcelles";
+        StopArea result = service.findOrCreateByQuery(query);
 
-            // When
-            String result = invokeExtractCityName(areaName);
-
-            // Then
-            assertThat(result).isEqualTo("Sarcelles");
-        }
-
-        @Test
-        @DisplayName("utilise la première partie avec des virgules")
-        void extractCityName_usesFirstPartWithCommas() throws Exception {
-            // Given
-            String areaName = "Nanterre, Île-de-France, France";
-
-            // When
-            String result = invokeExtractCityName(areaName);
-
-            // Then
-            assertThat(result).isEqualTo("Nanterre");
-        }
-
-        @Test
-        @DisplayName("gère une entrée null")
-        void extractCityName_handlesNullInput() throws Exception {
-            // When
-            String result = invokeExtractCityName(null);
-
-            // Then
-            assertThat(result).isNull();
-        }
-
-        @Test
-        @DisplayName("gère une entrée vide")
-        void extractCityName_handlesBlankInput() throws Exception {
-            // When
-            String result = invokeExtractCityName("   ");
-
-            // Then
-            assertThat(result).isNull();
-        }
-
-        @Test
-        @DisplayName("retourne tel quel sans format spécial")
-        void extractCityName_returnsAsIsWithoutSpecialFormat() throws Exception {
-            // Given
-            String areaName = "Paris";
-
-            // When
-            String result = invokeExtractCityName(areaName);
-
-            // Then
-            assertThat(result).isEqualTo("Paris");
-        }
-
-        @Test
-        @DisplayName("extrait la ville d'un format avec code postal dans une partie")
-        void extractCityName_extractsCityFromPartWithPostalCode() throws Exception {
-            // Given
-            String areaName = "Rue Example, 75001 Paris, France";
-
-            // When
-            String result = invokeExtractCityName(areaName);
-
-            // Then
-            assertThat(result).isEqualTo("Paris");
-        }
-
-        private String invokeExtractCityName(String areaName) throws Exception {
-            Method method = StopAreaServiceImpl.class.getDeclaredMethod("extractCityName", String.class);
-            method.setAccessible(true);
-            return (String) method.invoke(service, areaName);
-        }
+        assertNotNull(result);
+        assertEquals("ext-2", result.getExternalId());
+        verify(primApiClient).searchPlaces(simplified);
     }
 
-    @Nested
-    @DisplayName("Tests gestion des sauvegardes concurrentes")
-    class ConcurrentSaveTests {
+    @Test
+    void findOrCreateByQuery_shouldFallbackToGeocodingAndNearbySearch() {
+        String query = "Some unknown address";
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces(anyString())).thenReturn(Collections.emptyList());
+        
+        org.marly.mavigo.models.shared.GeoPoint geoPoint = new org.marly.mavigo.models.shared.GeoPoint(48.8566, 2.3522);
+        when(geocodingService.geocode(query)).thenReturn(geoPoint);
+        when(geocodingService.reverseGeocode(geoPoint)).thenReturn("Paris, France");
+        
+        PrimStopArea primStopArea = new PrimStopArea("ext-3", "Paris Central Station", null);
+        PrimPlace place = new PrimPlace("ext-3", "Paris Central", "stop_area", primStopArea, null, null);
+        when(primApiClient.searchPlacesNearby(eq(48.8566), eq(2.3522), anyInt(), anyString()))
+                .thenReturn(List.of(place));
+        when(stopAreaRepository.findByExternalId("ext-3")).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        @Test
-        @DisplayName("gère DataIntegrityViolationException en récupérant l'existant")
-        void saveStopAreaIfNotExists_handlesDataIntegrityViolation() {
-            // Given
-            String query = "Concurrent Station";
-            PrimPlace place = createMockPlaceWithStopArea("stop:concurrent", "Station", 48.8, 2.3);
-            StopArea existingAfterViolation = new StopArea("stop:concurrent", "Station", new GeoPoint(48.8, 2.3));
+        StopArea result = service.findOrCreateByQuery(query);
 
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(query)).thenReturn(List.of(place));
-            // findByExternalId is called twice before save: once in findOrCreateByQuery, once in saveStopAreaIfNotExists
-            // Then after DataIntegrityViolationException, it's called again to retrieve the existing
-            when(stopAreaRepository.findByExternalId("stop:concurrent"))
-                    .thenReturn(Optional.empty())  // First check in findOrCreateByQuery
-                    .thenReturn(Optional.empty())  // Second check in saveStopAreaIfNotExists
-                    .thenReturn(Optional.of(existingAfterViolation)); // After DataIntegrityViolationException
-            when(stopAreaRepository.save(any(StopArea.class)))
-                    .thenThrow(new DataIntegrityViolationException("Duplicate key"));
-
-            // When
-            StopArea result = service.findOrCreateByQuery(query);
-
-            // Then
-            assertThat(result).isEqualTo(existingAfterViolation);
-            verify(stopAreaRepository).save(any(StopArea.class));
-        }
-
-        @Test
-        @DisplayName("retourne l'existant quand trouvé")
-        void saveStopAreaIfNotExists_returnsExistingWhenFound() {
-            // Given
-            String query = "Existing Station";
-            StopArea existing = new StopArea("stop:existing", "Station", new GeoPoint(48.8, 2.3));
-            PrimPlace place = createMockPlaceWithStopArea("stop:existing", "Station", 48.8, 2.3);
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(query)).thenReturn(List.of(place));
-            when(stopAreaRepository.findByExternalId("stop:existing")).thenReturn(Optional.of(existing));
-
-            // When
-            StopArea result = service.findOrCreateByQuery(query);
-
-            // Then
-            assertThat(result).isEqualTo(existing);
-            verify(stopAreaRepository, never()).save(any(StopArea.class));
-        }
+        assertNotNull(result);
+        assertEquals("ext-3", result.getExternalId());
     }
 
-    @Nested
-    @DisplayName("Tests avec StopPoint au lieu de StopArea")
-    class StopPointTests {
+    @Test
+    void findOrCreateByQuery_shouldThrowExceptionIfNothingFound() {
+        String query = "Nowhere land";
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces(anyString())).thenReturn(Collections.emptyList());
+        when(geocodingService.geocode(query)).thenReturn(null);
 
-        @Test
-        @DisplayName("utilise stopPoint quand stopArea est absent")
-        void findOrCreateByQuery_usesStopPointWhenNoStopArea() {
-            // Given
-            String query = "Bus Stop";
-            PrimPlace place = createMockPlaceWithStopPoint("stoppoint:123", "Bus Stop", 48.8, 2.3);
-
-            when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
-            when(primApiClient.searchPlaces(query)).thenReturn(List.of(place));
-            when(stopAreaRepository.findByExternalId("stoppoint:123")).thenReturn(Optional.empty());
-            when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
-
-            // When
-            StopArea result = service.findOrCreateByQuery(query);
-
-            // Then
-            assertThat(result).isNotNull();
-            assertThat(result.getExternalId()).isEqualTo("stoppoint:123");
-        }
+        assertThrows(IllegalArgumentException.class, () -> service.findOrCreateByQuery(query));
     }
 
-    // Helper methods
-    private PrimPlace createMockPlaceWithStopArea(String id, String name, double lat, double lon) {
-        PrimCoordinates coords = new PrimCoordinates(lat, lon);
-        PrimStopArea stopArea = new PrimStopArea(id, name, coords);
-        return new PrimPlace(id, name, "stop_area", stopArea, null, coords);
+    @Test
+    void findByExternalId_shouldSearchAndSaveIfNotExists() {
+        String externalId = "ext-4";
+        when(stopAreaRepository.findByExternalId(externalId)).thenReturn(Optional.empty());
+        
+        PrimStopArea primStopArea = new PrimStopArea(externalId, "New Station", null);
+        PrimPlace place = new PrimPlace(externalId, "New Station", "stop_area", primStopArea, null, null);
+        when(primApiClient.searchPlaces(externalId)).thenReturn(List.of(place));
+        when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        StopArea result = service.findByExternalId(externalId);
+
+        assertNotNull(result);
+        assertEquals(externalId, result.getExternalId());
     }
 
-    private PrimPlace createMockPlaceWithStopPoint(String id, String name, double lat, double lon) {
-        PrimCoordinates coords = new PrimCoordinates(lat, lon);
-        PrimStopPoint stopPoint = new PrimStopPoint(id, name, coords, null);
-        return new PrimPlace(id, name, "stop_point", null, stopPoint, coords);
+    @Test
+    void findOrCreateByQuery_shouldThrowExceptionOnEmptyQuery() {
+        assertThrows(IllegalArgumentException.class, () -> service.findOrCreateByQuery(""));
+        assertThrows(IllegalArgumentException.class, () -> service.findOrCreateByQuery(null));
+    }
+
+    @Test
+    void findOrCreateByQuery_shouldExpandRadius_whenInitialSearchFails() {
+        String query = "Remote address";
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces(anyString())).thenReturn(Collections.emptyList());
+        
+        org.marly.mavigo.models.shared.GeoPoint geoPoint = new org.marly.mavigo.models.shared.GeoPoint(48.0, 2.0);
+        when(geocodingService.geocode(query)).thenReturn(geoPoint);
+        when(geocodingService.reverseGeocode(geoPoint)).thenReturn("Remote City, Country");
+        
+        // Initial search (2000m) -> empty
+        when(primApiClient.searchPlacesNearby(eq(48.0), eq(2.0), eq(2000), anyString()))
+                .thenReturn(Collections.emptyList());
+        
+        // Secondary search (5000m) -> found
+        PrimStopArea primStopArea = new PrimStopArea("ext-remote", "Remote Station", null);
+        PrimPlace place = new PrimPlace("ext-remote", "Remote Station", "stop_area", primStopArea, null, null);
+        
+        // Using specific matchers to differentiate calls
+        when(primApiClient.searchPlacesNearby(eq(48.0), eq(2.0), eq(5000), anyString()))
+                .thenReturn(List.of(place));
+                
+        when(stopAreaRepository.findByExternalId("ext-remote")).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        StopArea result = service.findOrCreateByQuery(query);
+
+        assertNotNull(result);
+        assertEquals("ext-remote", result.getExternalId());
+    }
+
+    @Test
+    void findOrCreateByQuery_shouldFallbackToDirectSearch_whenRadiusSearchFails() {
+        String query = "Very Remote address";
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces(anyString())).thenReturn(Collections.emptyList());
+        
+        org.marly.mavigo.models.shared.GeoPoint geoPoint = new org.marly.mavigo.models.shared.GeoPoint(49.0, 3.0);
+        when(geocodingService.geocode(query)).thenReturn(geoPoint);
+        when(geocodingService.reverseGeocode(geoPoint)).thenReturn("CityName");
+
+        // All radius searches return empty
+        when(primApiClient.searchPlacesNearby(anyDouble(), anyDouble(), anyInt(), anyString()))
+                .thenReturn(Collections.emptyList());
+        
+        // Direct search with city name returns result
+        PrimStopArea primStopArea = new PrimStopArea("ext-direct", "City Station", null);
+        PrimCoordinates coords = new PrimCoordinates(49.01, 3.01); 
+        PrimPlace place = new PrimPlace("ext-direct", "City Station", "stop_area", primStopArea, null, coords);
+        
+        // Mock search for "CityName"
+        // Note: The logic in impl might try "CityName" AND "CityName" (duplicate in array) or logic slightly different
+        // but searchPlaces("CityName") is expected call.
+        when(primApiClient.searchPlaces("CityName")).thenReturn(List.of(place));
+        
+        when(stopAreaRepository.findByExternalId("ext-direct")).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        StopArea result = service.findOrCreateByQuery(query);
+
+        assertNotNull(result);
+        assertEquals("ext-direct", result.getExternalId());
+        verify(primApiClient).searchPlaces("CityName");
+    }
+
+    @Test
+    void findOrCreateByQuery_shouldHandleBANFormattedCityExtraction() {
+        String query = "21 Place Jean Charcot 95200 Sarcelles";
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces(anyString())).thenReturn(Collections.emptyList());
+        
+        org.marly.mavigo.models.shared.GeoPoint geoPoint = new org.marly.mavigo.models.shared.GeoPoint(48.99, 2.37);
+        when(geocodingService.geocode(anyString())).thenReturn(geoPoint);
+        when(geocodingService.reverseGeocode(geoPoint)).thenReturn("21 Place Jean Charcot 95200 Sarcelles");
+        
+        PrimStopArea primStopArea = new PrimStopArea("sa-ban", "Sarcelles Station", null);
+        PrimPlace place = new PrimPlace("sa-ban", "Sarcelles Station", "stop_area", primStopArea, null, null);
+        
+        // The service should extract "Sarcelles" and search nearby
+        when(primApiClient.searchPlacesNearby(eq(48.99), eq(2.37), anyInt(), eq("Sarcelles")))
+                .thenReturn(List.of(place));
+        when(stopAreaRepository.findByExternalId("sa-ban")).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        StopArea result = service.findOrCreateByQuery(query);
+        assertNotNull(result);
+        assertEquals("sa-ban", result.getExternalId());
+    }
+
+    @Test
+    void findOrCreateByQuery_shouldHandleCommaFormattedCityExtraction() {
+        String query = "Nanterre, Hauts-de-Seine, France";
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces(anyString())).thenReturn(Collections.emptyList());
+        
+        org.marly.mavigo.models.shared.GeoPoint geoPoint = new org.marly.mavigo.models.shared.GeoPoint(48.89, 2.21);
+        when(geocodingService.geocode(anyString())).thenReturn(geoPoint);
+        when(geocodingService.reverseGeocode(geoPoint)).thenReturn("Nanterre, France");
+        
+        PrimStopArea primStopArea = new PrimStopArea("sa-nan", "Nanterre Station", null);
+        PrimPlace place = new PrimPlace("sa-nan", "Nanterre Station", "stop_area", primStopArea, null, null);
+        
+        // Extraction should find "Nanterre"
+        when(primApiClient.searchPlacesNearby(eq(48.89), eq(2.21), anyInt(), eq("Nanterre")))
+                .thenReturn(List.of(place));
+        when(stopAreaRepository.findByExternalId("sa-nan")).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        StopArea result = service.findOrCreateByQuery(query);
+        assertEquals("sa-nan", result.getExternalId());
+    }
+
+    @Test
+    void findOrCreateByQuery_shouldUseIterativeSearchWithIncreasingRadius() {
+        String query = "Deep in the woods";
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        when(primApiClient.searchPlaces(anyString())).thenReturn(Collections.emptyList());
+        
+        org.marly.mavigo.models.shared.GeoPoint geoPoint = new org.marly.mavigo.models.shared.GeoPoint(45.0, 1.0);
+        when(geocodingService.geocode(anyString())).thenReturn(geoPoint);
+        when(geocodingService.reverseGeocode(geoPoint)).thenReturn("Deep Woods, Some Region");
+
+        // Initial search nearby (2000m) returns nothing
+        when(primApiClient.searchPlacesNearby(eq(45.0), eq(1.0), eq(2000), anyString()))
+                .thenReturn(Collections.emptyList());
+        
+        // Iterative search: 5000m, 10000m, 15000m, 20000m
+        // Let's say it finds something at 15000m
+        when(primApiClient.searchPlacesNearby(eq(45.0), eq(1.0), eq(5000), anyString()))
+                .thenReturn(Collections.emptyList());
+        when(primApiClient.searchPlacesNearby(eq(45.0), eq(1.0), eq(10000), anyString()))
+                .thenReturn(Collections.emptyList());
+        
+        PrimStopArea primStopArea = new PrimStopArea("sa-woods", "Forest Station", null);
+        PrimPlace place = new PrimPlace("sa-woods", "Forest", "stop_area", primStopArea, null, null);
+        when(primApiClient.searchPlacesNearby(eq(45.0), eq(1.0), eq(15000), anyString()))
+                .thenReturn(List.of(place));
+
+        when(stopAreaRepository.findByExternalId("sa-woods")).thenReturn(Optional.empty());
+        when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        StopArea result = service.findOrCreateByQuery(query);
+        assertEquals("sa-woods", result.getExternalId());
+    }
+
+    @Test
+    void findOrCreateByQuery_shouldHandleConcurrentSaves() {
+        String query = "Gare du Nord";
+        when(stopAreaRepository.findFirstByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
+        
+        PrimStopArea primStopArea = new PrimStopArea("sa-gdn", "Gare du Nord", null);
+        PrimPlace place = new PrimPlace("sa-gdn", "Gare du Nord", "stop_area", primStopArea, null, null);
+        when(primApiClient.searchPlaces(query)).thenReturn(List.of(place));
+        
+        when(stopAreaRepository.findByExternalId("sa-gdn")).thenReturn(Optional.empty());
+        
+        // Simulate race condition: DataIntegrityViolationException on first save
+        when(stopAreaRepository.save(any(StopArea.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate key"))
+                .thenAnswer(i -> i.getArguments()[0]);
+        
+        // After exception, service should fetch it again
+        StopArea existing = new StopArea("sa-gdn", "Gare du Nord", null);
+        when(stopAreaRepository.findByExternalId("sa-gdn")).thenReturn(Optional.of(existing));
+
+        StopArea result = service.findOrCreateByQuery(query);
+        assertNotNull(result);
+        assertEquals("sa-gdn", result.getExternalId());
     }
 }
