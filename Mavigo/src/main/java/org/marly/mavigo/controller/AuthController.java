@@ -3,6 +3,7 @@ package org.marly.mavigo.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.util.Collections;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -91,11 +92,11 @@ public class AuthController {
         Set<String> scopes = (client != null && client.getAccessToken() != null)
                 ? client.getAccessToken().getScopes()
                 : Set.of();
-        return ResponseEntity.ok(Map.of(
-                "authenticated", true,
-                "email", user != null ? user.getEmail() : null,
-                "scopes", scopes
-        ));
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("authenticated", true);
+        response.put("email", user != null ? user.getEmail() : null);
+        response.put("scopes", scopes != null ? scopes : Collections.emptySet());
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/logout")

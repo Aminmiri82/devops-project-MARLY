@@ -1,10 +1,9 @@
 package org.marly.mavigo.controller;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -15,6 +14,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.marly.mavigo.config.CustomUserDetailsService;
 import org.marly.mavigo.config.JwtUtils;
+import org.marly.mavigo.config.SecurityConfig;
+import org.marly.mavigo.filter.JwtFilter;
 import org.marly.mavigo.models.journey.Journey;
 import org.marly.mavigo.security.JwtAuthenticationFilter;
 import org.marly.mavigo.security.JwtTokenService;
@@ -30,6 +31,7 @@ import org.marly.mavigo.service.journey.TaskOnRouteService;
 import org.marly.mavigo.service.journey.dto.JourneyPlanningParameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -37,9 +39,17 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import org.junit.jupiter.api.BeforeEach;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @WebMvcTest(JourneyController.class)
+@Import(SecurityConfig.class)
 @DisplayName("Tests avancés - JourneyController")
 class JourneyControllerAdvancedTest {
 
@@ -81,6 +91,28 @@ class JourneyControllerAdvancedTest {
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private JwtFilter jwtFilter;
+
+    @BeforeEach
+    void setupFilter() throws ServletException, IOException {
+        doAnswer(invocation -> {
+            HttpServletRequest request = invocation.getArgument(0);
+            HttpServletResponse response = invocation.getArgument(1);
+            FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(request, response);
+            return null;
+        }).when(jwtFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class), any(FilterChain.class));
+
+        doAnswer(invocation -> {
+            HttpServletRequest request = invocation.getArgument(0);
+            HttpServletResponse response = invocation.getArgument(1);
+            FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(request, response);
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class), any(FilterChain.class));
+    }
 
     @Nested
     @DisplayName("Tests d'optimisation avec tâches")
