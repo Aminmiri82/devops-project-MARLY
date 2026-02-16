@@ -23,6 +23,7 @@ const loggedInView = document.getElementById("loggedInView");
 const userGreeting = document.getElementById("userGreeting");
 const notLoggedInPrompt = document.getElementById("notLoggedInPrompt");
 const mainContent = document.getElementById("mainContent");
+const appNav = document.getElementById("appNav");
 
 const dropdownUserName = document.getElementById("dropdownUserName");
 const dropdownUserEmail = document.getElementById("dropdownUserEmail");
@@ -142,7 +143,7 @@ async function handleLogin(e) {
     const user = data.user;
     const token = data.token;
     if (token) localStorage.setItem("mavigo_token", token);
-    setCurrentUser(user, { preferredView: "tasks" });
+    setCurrentUser(user, { preferredView: "journey" });
     closeAuthModal();
     loginFormEl?.reset();
   } catch (err) {
@@ -179,7 +180,7 @@ async function handleRegister(e) {
     const user = data.user;
     const token = data.token;
     if (token) localStorage.setItem("mavigo_token", token);
-    setCurrentUser(user, { preferredView: "tasks" });
+    setCurrentUser(user, { preferredView: "journey" });
     closeAuthModal();
     registerFormEl?.reset();
   } catch (err) {
@@ -241,6 +242,7 @@ export function updateUI() {
       userGreeting.textContent = `Hi, ${state.currentUser.displayName || "User"}`;
     notLoggedInPrompt?.classList.add("hidden");
     mainContent?.classList.remove("hidden");
+    appNav?.classList.remove("hidden");
     renderUserInfo();
     renderGoogleLinkStatus(state.currentUser);
     renderHomeAddressStatus(state.currentUser);
@@ -252,7 +254,8 @@ export function updateUI() {
     loggedOutView?.classList.remove("hidden");
     loggedInView?.classList.add("hidden");
     notLoggedInPrompt?.classList.remove("hidden");
-    mainContent?.classList.remove("hidden");
+    mainContent?.classList.add("hidden");
+    appNav?.classList.add("hidden");
     clearGoogleLinkStatus();
     renderHomeAddressStatus(null);
     resetTasksUI();

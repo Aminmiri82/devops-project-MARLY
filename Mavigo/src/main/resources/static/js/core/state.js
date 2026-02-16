@@ -1,6 +1,6 @@
 export const state = {
   currentUser: null,
-  currentView: localStorage.getItem("mavigo_view") || "journey",
+  currentView: "journey",
   defaultTaskList: null,
   currentJourney: null,
   /** Derniers itinéraires affichés (avec includedTasks), pour les conserver au start. */
