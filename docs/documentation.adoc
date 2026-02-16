@@ -5,14 +5,14 @@
 :icons: font
 :source-highlighter: highlight.js
 :imagesdir: images
-:version: 0.2
-:last-updated: 2026-02-01
+:version: 0.3
+:last-updated: 2026-02-16
 
 [NOTE]
 ====
 *Documentation Version:* {version} +
 *Last Updated:* {last-updated} +
-*Git Branch:* docs-for-v0.2
+*Git Branch:* main
 ====
 
 <<<
@@ -33,7 +33,7 @@
 
 === Context
 
-Mavigo is a personal public transportation assistant for the Paris metropolitan area (Île-de-France). The application helps users navigate the Parisian transit network with intelligent journey planning and quality-of-life features including accessibility support, Google Tasks integration, and disruption management.
+Mavigo is a personal public transportation assistant for the Paris metropolitan area (Île-de-France). The application helps users navigate the Parisian transit network with intelligent journey planning and quality-of-life features including accessibility support, Google Tasks integration, disruption management, carbon footprint tracking, and smart task-based suggestions.
 
 === Objectives
 
@@ -42,6 +42,8 @@ Mavigo is a personal public transportation assistant for the Paris metropolitan 
 * **Integrate task management** with Google Tasks for location-aware productivity
 * **Offer personalized suggestions** adapted to user accessibility and comfort preferences
 * **Enable multi-stop optimization** to complete errands efficiently along transit routes
+* **Track carbon footprint savings** when users choose public transit over driving (Green Mode)
+* **Secure user authentication** with password-based accounts and JWT token management
 
 === Main Features
 
@@ -75,9 +77,35 @@ Mavigo is a personal public transportation assistant for the Paris metropolitan 
 * **Segment-level details**: Monitor progress through individual journey segments
 * **Disruption awareness**: Real-time integration of user-reported issues
 
+==== Smart Suggestions
+* **Google Tasks integration**: Fetches user's Google Tasks due tomorrow
+* **Location filtering**: Filters for tasks with location tags (`#mavigo:`)
+* **Journey pre-filling**: Suggests pre-filling journey from user's home to task location
+* **Home address requirement**: Requires home address to be set; prompts user if missing
+* **Dismissible**: Suggestions are dismissible per-day to avoid repetition
+
+==== Green Mode / EcoScore
+* **Carbon footprint tracking**: Tracks CO2 savings when users take public transit vs driving (200g CO2/km saved)
+* **Eco dashboard**: Shows total CO2 saved and journey activity history
+* **Per-journey toggle**: `ecoModeEnabled` field allows users to opt-in per journey
+* **Journey activity recording**: Each eco journey recorded in `JourneyActivity` entity with distance, CO2 saved, origin/destination
+* **Gamification badge system**: 16 badges across 3 categories:
+  - *CO2 milestones*: Eco-Beginner, Carbon Cutter, Eco-Warrior, Green Legend, CO2 Guardian, Atmosphere Savior, Carbon Neutral Hero
+  - *Journey count milestones*: Public Transport Pro, Transit Enthusiast, Mobility Master, Transit Veteran
+  - *Distance milestones*: Distance Hero, Road Warrior, Regional Explorer, Global Eco-Citizen
+* **Badge seeding**: Badges seeded at startup via `BadgeSeeder` (implements `ApplicationRunner`)
+
+==== User Authentication with JWT
+* **Full registration**: Account creation with email, display name, password, and optional home address
+* **Password validation**: Minimum 8 characters, at least one uppercase, one lowercase, and one digit
+* **Password hashing**: Passwords hashed with BCrypt via Spring Security
+* **JWT tokens**: Issued on login and registration (HMAC-SHA256, 24h expiry)
+* **API authentication**: JWT filter authenticates API requests via `Authorization: Bearer <token>` header
+* **Session restoration**: Frontend restores session from `localStorage` using stored JWT token
+
 === Competitive Analysis
 
-The Paris metropolitan transit app market is mature, with several established players offering journey planning and real-time information. Mavigo distinguishes itself through unique productivity features, advanced accessibility profiles, and community-driven intelligence that complement the core transit navigation experience.
+The Paris metropolitan transit app market is mature, with several established players offering journey planning and real-time information. Mavigo distinguishes itself through unique productivity features, advanced accessibility profiles, community-driven intelligence, carbon footprint tracking, and smart task-based suggestions that complement the core transit navigation experience.
 
 <<<
 
@@ -178,6 +206,27 @@ The following comparison evaluates Mavigo against four major competitors across 
 |No
 |*Yes*
 
+|Carbon Footprint Tracking
+|No
+|No
+|No
+|No
+|*Yes*
+
+|Gamification/Badges
+|No
+|No
+|No
+|No
+|*Yes*
+
+|Smart Task Suggestions
+|No
+|No
+|No
+|No
+|*Yes*
+
 |===
 
 *Table Legend:*
@@ -201,6 +250,14 @@ Mavigo is the only transit application offering native Google Tasks integration 
 
 The disruption reporting landscape in Paris transit apps is fragmented. Official apps from RATP and Île-de-France Mobilités rely exclusively on operator-provided disruption data, which can lag behind ground truth during developing incidents. Citymapper offers crowdsourced reporting in select markets, though its disruption model treats disruptions at the journey level rather than tracking specific affected infrastructure. Mavigo implements a two-tier disruption system supporting both station-specific and line-wide disruptions. When a user reports a station disruption, the system marks the specific JourneyPoint as DISRUPTED, creates a Disruption entity with timestamp and reporter metadata, and automatically requests a reroute from the next valid point to the destination. This point-level granularity provides precise context for rerouting algorithms and maintains a detailed disruption history. The automatic rerouting response ensures users receive alternative routes immediately upon reporting issues, minimizing journey delays.
 
+**Green Mode and Gamification**
+
+Mavigo is the only Paris transit app to offer integrated carbon footprint tracking with gamification. When users enable eco mode for a journey, the system calculates CO2 savings based on the distance traveled by public transit compared to driving (200g CO2/km). These savings accumulate in a personal eco dashboard showing total CO2 saved and journey activity history. The gamification badge system awards 16 badges across three categories (CO2 milestones, journey count milestones, and distance milestones), encouraging sustained green transit choices. This feature creates an engaging feedback loop that no competitor offers.
+
+**Smart Task-Based Suggestions**
+
+Mavigo's smart suggestions feature proactively analyzes upcoming Google Tasks due tomorrow and filters for those with location tags. It then suggests pre-filling a journey from the user's home address to the task location, reducing planning friction. This proactive approach to journey planning based on real task data is unique among transit applications.
+
 **Technical Architecture for Future Innovation**
 
 Mavigo's three-tier journey architecture differentiates it from competitors at a structural level. Where most transit apps model journeys as flat sequences of steps or legs, Mavigo implements a Journey entity containing JourneySegments, each containing multiple JourneyPoints. This hierarchy enables segment-level metadata such as air conditioning availability and line information, while point-level status tracking distinguishes between normal and disrupted points. The granularity provides richer data for machine learning applications, such as predicting disruption patterns or personalizing route recommendations based on historical preferences. The architecture also supports more sophisticated journey lifecycle management, with clear status transitions from PLANNED through IN_PROGRESS to COMPLETED, REROUTED, or CANCELLED states. This design represents an investment in long-term platform capabilities rather than minimum viable routing functionality.
@@ -215,10 +272,14 @@ Mavigo offers distinct value propositions across multiple user segments:
 * **Productivity-focused journey planning**: Task-on-route detection and optimization help users complete errands efficiently during transit trips
 * **Advanced technical foundation**: Three-tier architecture enables future AI-driven features, predictive routing, and personalized recommendations
 * **Personalization-first design philosophy**: Named comfort settings and flexible preference system recognize that user needs vary by context
+* **Green Mode with gamification**: Carbon footprint tracking and badge system incentivize eco-friendly transit choices — a feature no competitor offers
+* **Smart task-based suggestions**: Proactive journey suggestions based on upcoming tasks reduce planning friction and increase productivity
+
+<<<
 
 ==== Market Positioning
 
-Mavigo positions itself as the accessibility-first, productivity-integrated transit assistant for the Paris metropolitan area. While established competitors provide reliable basic routing and real-time transit information, Mavigo addresses underserved user segments with specific needs. For users with mobility challenges or accessibility requirements, the named profile system offers flexibility unavailable in single-toggle wheelchair filters. For productivity-conscious users who integrate tasks and errands into their daily commutes, the Google Tasks integration provides unique value. For community-minded users willing to contribute disruption intelligence in exchange for improved routing, the user reporting system creates a collaborative advantage. The technical architecture positions Mavigo for future differentiation through AI-powered features built on granular journey data.
+Mavigo positions itself as the accessibility-first, productivity-integrated transit assistant for the Paris metropolitan area. While established competitors provide reliable basic routing and real-time transit information, Mavigo addresses underserved user segments with specific needs. For users with mobility challenges or accessibility requirements, the named profile system offers flexibility unavailable in single-toggle wheelchair filters. For productivity-conscious users who integrate tasks and errands into their daily commutes, the Google Tasks integration provides unique value. For community-minded users willing to contribute disruption intelligence in exchange for improved routing, the user reporting system creates a collaborative advantage. For environmentally conscious users, Green Mode provides tangible CO2 savings metrics and gamification rewards. The technical architecture positions Mavigo for future differentiation through AI-powered features built on granular journey data.
 
 
 <<<
@@ -243,7 +304,19 @@ Mavigo positions itself as the accessibility-first, productivity-integrated tran
 |Data persistence and ORM
 
 |Spring Security
-|OAuth2 with Google
+|OAuth2 with Google + JWT authentication
+
+|Spring Boot OAuth2 Resource Server
+|JWT token validation support
+
+|Lombok
+|Boilerplate reduction (@Data, @Builder, etc.)
+
+|JJWT
+|0.12.6 (JWT token generation and validation)
+
+|BCrypt
+|Password hashing via Spring Security
 
 |H2 Database
 |Development database (in-memory)
@@ -256,7 +329,7 @@ Mavigo positions itself as the accessibility-first, productivity-integrated tran
 
 * HTML5
 * CSS3
-* JavaScript (Vanilla, no framework)
+* JavaScript (Vanilla ES modules, no framework)
 
 ==== External APIs
 
@@ -270,7 +343,7 @@ Mavigo positions itself as the accessibility-first, productivity-integrated tran
 * **Git Flow**: Feature branches, dev branch, main branch workflow
 * **CI/CD**: GitHub Actions for continuous integration and testing
 * **Code Review**: Mandatory pull requests with peer review
-* **Testing**: Unit tests and integration tests with JUnit 5 and Spring Test
+* **Testing**: Unit tests and integration tests with JUnit 5 and Spring Test (~85%+ coverage)
 * **API Documentation**: OpenAPI/Swagger annotations (available at `/swagger-ui.html`)
 
 <<<
@@ -278,72 +351,89 @@ Mavigo positions itself as the accessibility-first, productivity-integrated tran
 == Architecture
 
 === Global Architecture
-
-[.landscape]
 <<<
 
 [plantuml, architecture-globale, svg]
 ----
 @startuml
+skinparam componentStyle rectangle
+skinparam defaultFontSize 11
+skinparam padding 2
 
-rectangle "Frontend\n(HTML/CSS/JS)" as Frontend
-rectangle "Controllers" {
-  component JourneyController
-  component UserController
-  component GoogleTasksController
-  component DisruptionController
+together {
+  rectangle "**Frontend** (HTML/CSS/JS ES Modules)" as Frontend #lightyellow
 }
 
-rectangle "Services" {
-  package "journey" {
-    component JourneyPlanningService
-    component JourneyOptimizationService
-    component JourneyManagementService
-    component TaskOnRouteService
-  }
-  package "user" {
-    component UserService
-  }
-  package "disruption" {
-    component DisruptionReportingService
-  }
-  package "preferences" {
-    component JourneyPreferenceStrategy
-    component ComfortModeJourneyStrategy
+together {
+  rectangle "**Controllers**" as Controllers #lightblue {
+    [JourneyController] as JC
+    [UserController] as UC
+    [GoogleTasksController] as GTC
+    [DisruptionController] as DC
+    [EcoScoreController] as EC
+    [AuthController] as AC
+    [FrontendController] as FC
   }
 }
 
-rectangle "API Clients" as Clients {
-  component PrimApiClient
-  component GoogleApiClient
+together {
+  rectangle "**Security**" as Sec #mistyrose {
+    [JwtFilter] as JF
+    [JwtTokenService] as JTS
+    [JwtUtils] as JU
+    [CustomUserDetailsService] as CUDS
+  }
 }
 
-rectangle "Repositories" as Repos {
-  component JourneyRepository
-  component UserRepository
-  component UserTaskRepository
-  component DisruptionRepository
+together {
+  rectangle "**Services**" as Services #lightgreen {
+    [JourneyPlanningService] as JPS
+    [JourneyOptimizationService] as JOS
+    [JourneyManagementService] as JMS
+    [TaskOnRouteService] as TORS
+    [UserService] as US
+    [PasswordValidator] as PV
+    [DisruptionReportingService] as DRS
+    [GamificationService] as GS
+    [TaskSuggestionService] as TSS
+    [ComfortModeJourneyStrategy] as CMJS
+  }
 }
 
-rectangle "External Services" {
-  component "PRIM API" as PRIM
-  component "Google Tasks API" as GoogleTasks
-  component "BAN Geocoding API" as BAN
+together {
+  rectangle "**API Clients**" as Clients #lightyellow {
+    [PrimApiClient] as PAC
+    [GoogleApiClient] as GAC
+  }
+
+  rectangle "**Repositories**" as Repos #wheat {
+    [JourneyRepository] as JR
+    [UserRepository] as UR
+    [UserTaskRepository] as UTR
+    [DisruptionRepository] as DR
+    [BadgeRepository] as BR
+    [JourneyActivityRepository] as JAR
+    [UserBadgeRepository] as UBR
+  }
 }
 
-component OAuth2AuthorizedClientService
+together {
+  rectangle "**External APIs**" as ExtAPIs #lightsalmon {
+    [PRIM API] as PRIM
+    [Google Tasks API] as GoogleTasks
+    [BAN Geocoding API] as BAN
+  }
 
-database "H2 Database" as DB
+  database "**H2 Database**" as DB
+}
 
-Frontend --> Controllers : REST API
-Controllers --> Services
-Services --> Repos
-Services --> Clients
-Services --> OAuth2AuthorizedClientService
-Repos --> DB
-Clients --> PRIM
-Clients --> GoogleTasks
-Clients --> BAN
+Frontend -down-> Controllers : REST API
+Controllers -down-> Sec : JWT validation
+Controllers -down-> Services
+Services -down-> Repos
+Services -down-> Clients
+Repos -down-> DB
+Clients -down-> ExtAPIs
 
 @enduml
 ----
@@ -370,6 +460,7 @@ class Journey {
     -OffsetDateTime actualArrival
     -JourneyStatus status
     -boolean comfortModeEnabled
+    -boolean ecoModeEnabled
     -UUID namedComfortSettingId
     -String primItineraryId
     -int disruptionCount
@@ -458,14 +549,18 @@ JourneyPoint --> JourneyPointStatus
 ----
 @startuml
 
-class User {
+class User <<@Data>> {
     -UUID id
+    -String externalId
     -String email
     -String displayName
+    -String homeAddress
+    -String passwordHash <<@JsonIgnore>>
     -String googleAccountSubject
     -String googleAccountEmail
-    -boolean comfortPromptSeen
+    -boolean hasSeenComfortPrompt
     -ComfortProfile comfortProfile
+    -LocalDateTime createdAt
     +linkGoogleAccount(subject, email)
     +addNamedComfortSetting(name, profile)
 }
@@ -539,6 +634,59 @@ end note
 
 <<<
 
+==== Tracking and Gamification
+
+[plantuml, class-diagram-tracking, svg]
+----
+@startuml
+
+class Badge {
+    -UUID id
+    -String name
+    -String description
+    -String icon
+}
+
+class JourneyActivity {
+    -Long id
+    -UUID userId
+    -UUID journeyId
+    -String origin
+    -String destination
+    -Double distanceMeters
+    -Double co2SavedKg
+    -LocalDateTime recordedAt
+}
+
+class UserBadge {
+    -Long id
+    -UUID userId
+    -UUID badgeId
+    -LocalDateTime earnedAt
+    -Badge badge
+}
+
+UserBadge "*" --> "1" Badge : badge
+
+note right of JourneyActivity
+  CO2 savings calculated as:
+  distanceMeters * 0.0002 kg/m
+  (200g CO2/km saved vs driving)
+end note
+
+note right of Badge
+  16 badges seeded at startup via BadgeSeeder:
+  - CO2 milestones (7 badges)
+  - Journey count milestones (4 badges)
+  - Distance milestones (4 badges)
+  + 1 starter badge
+end note
+
+@enduml
+----
+
+<<<
+
 ==== Disruptions and Points of Interest
 
 [plantuml, class-diagram-disruption, svg]
@@ -589,6 +737,124 @@ Disruption --> Journey
 <<<
 
 === Sequence Diagrams
+
+==== User Registration and Login
+
+[plantuml, sequence-registration-login, svg]
+----
+@startuml
+
+actor User
+participant Frontend
+participant UserController
+participant UserService
+participant PasswordValidator
+participant JwtUtils
+database "H2 DB" as DB
+
+== Registration ==
+
+User -> Frontend : Fill registration form\n(email, displayName, password, passwordConfirm)
+Frontend -> UserController : POST /api/users\n{email, displayName, password, passwordConfirm, homeAddress}
+UserController -> PasswordValidator : validate(password, passwordConfirm)
+PasswordValidator --> UserController : Valid
+
+UserController -> UserService : createUser(request)
+UserService -> UserService : BCrypt.encode(password)
+UserService -> DB : save(User with passwordHash)
+DB --> UserService : Saved User
+UserService -> JwtUtils : generateToken(email)
+JwtUtils --> UserService : JWT token (24h expiry)
+UserService --> UserController : {user, token}
+UserController --> Frontend : 201 Created\n{user, token}
+Frontend -> Frontend : Store token in localStorage
+Frontend --> User : Redirect to dashboard
+
+== Login ==
+
+User -> Frontend : Enter email + password
+Frontend -> UserController : POST /api/users/login\n{email, password}
+UserController -> UserService : login(email, password)
+UserService -> DB : findByEmail(email)
+DB --> UserService : User
+UserService -> UserService : BCrypt.matches(password, passwordHash)
+UserService -> JwtUtils : generateToken(email)
+JwtUtils --> UserService : JWT token
+UserService --> UserController : {user, token}
+UserController --> Frontend : 200 OK\n{user, token}
+Frontend -> Frontend : Store token in localStorage
+Frontend --> User : Redirect to dashboard
+
+@enduml
+----
+
+==== Smart Suggestions Flow
+
+[plantuml, sequence-smart-suggestions, svg]
+----
+@startuml
+
+actor User
+participant Frontend
+participant GoogleTasksController
+participant TaskSuggestionService
+participant GoogleApiClient
+participant "Google Tasks API" as GoogleAPI
+
+User -> Frontend : Open dashboard
+Frontend -> Frontend : Check if suggestions\nnot dismissed today
+Frontend -> GoogleTasksController : GET /api/google/tasks/users/{id}/suggestions?date=tomorrow
+GoogleTasksController -> TaskSuggestionService : getSuggestions(userId, date)
+TaskSuggestionService -> GoogleApiClient : fetchTasks(userId)
+GoogleApiClient -> GoogleAPI : GET /tasks/v1/lists/.../tasks
+GoogleAPI --> GoogleApiClient : Task list
+GoogleApiClient --> TaskSuggestionService : Tasks
+TaskSuggestionService -> TaskSuggestionService : Filter tasks due tomorrow\nwith #mavigo: location tags
+TaskSuggestionService --> GoogleTasksController : List<Suggestion>
+GoogleTasksController --> Frontend : JSON suggestions
+Frontend --> User : Show suggestion cards\n"Journey to [task location]?"
+
+User -> Frontend : Click suggestion
+Frontend -> Frontend : Pre-fill journey form\n(home address → task location)
+Frontend --> User : Journey planning form ready
+
+@enduml
+----
+
+==== Eco Dashboard Flow
+
+[plantuml, sequence-eco-dashboard, svg]
+----
+@startuml
+
+actor User
+participant Frontend
+participant EcoScoreController
+participant GamificationService
+participant JourneyActivityRepository
+participant UserBadgeRepository
+participant BadgeRepository
+database DB
+
+User -> Frontend : Navigate to Eco Dashboard
+Frontend -> EcoScoreController : GET /api/eco/dashboard?userId=...
+EcoScoreController -> GamificationService : getDashboard(userId)
+GamificationService -> JourneyActivityRepository : findByUserId(userId)
+JourneyActivityRepository -> DB : SELECT journey activities
+DB --> JourneyActivityRepository : Activity list
+GamificationService -> GamificationService : Calculate total CO2 saved\nCalculate total distance
+GamificationService -> UserBadgeRepository : findByUserId(userId)
+UserBadgeRepository -> DB : SELECT user badges
+DB --> UserBadgeRepository : Earned badges
+GamificationService -> BadgeRepository : findAll()
+BadgeRepository -> DB : SELECT all badges
+DB --> BadgeRepository : All 16 badges
+GamificationService --> EcoScoreController : EcoScoreResponse\n{totalCo2, badges, activities}
+EcoScoreController --> Frontend : JSON response
+Frontend --> User : Display eco dashboard\nwith CO2 stats, badges,\nand journey history
+
+@enduml
+----
 
 ==== Journey Planning with Comfort Profile
 
@@ -738,61 +1004,95 @@ end note
 
 === Package Structure
 
-[.landscape]
-<<<
-
 [plantuml, package-structure, svg]
 ----
 @startuml
+skinparam defaultFontSize 10
+skinparam padding 2
+skinparam packageStyle rectangle
 
-package "org.marly.mavigo" {
+package "org.marly.mavigo" #white {
 
-    package "controller" {
-        class JourneyController
-        class UserController
-        class GoogleTasksController
-        class DisruptionController
+    together {
+        package "controller" #lightblue {
+            class JourneyController
+            class UserController
+            class GoogleTasksController
+            class DisruptionController
+            class EcoScoreController
+            class AuthController
+            class FrontendController
+        }
     }
 
-    package "service" {
-        package "journey" {
+    together {
+        package "filter" #mistyrose {
+            class JwtFilter
+        }
+
+        package "config" #mistyrose {
+            class JwtUtils
+            class CustomUserDetailsService
+            class BadgeSeeder
+        }
+
+        package "security" #mistyrose {
+            class JwtTokenService
+        }
+    }
+
+    together {
+        package "service.journey" #lightgreen {
             class JourneyPlanningService
             class JourneyPlanningServiceImpl
             class JourneyOptimizationService
             class JourneyManagementService
             class TaskOnRouteService
-            package "preferences" {
-                interface JourneyPreferenceStrategy
-                class ComfortModeJourneyStrategy
-            }
+            class JourneyPreferenceStrategy <<interface>>
+            class ComfortModeJourneyStrategy
         }
-        package "user" {
+
+        package "service.user" #lightgreen {
             class UserService
+            class PasswordValidator
         }
-        package "tasks" {
-            class GoogleTaskMapper
-        }
-        package "disruption" {
+
+        package "service.disruption" #lightgreen {
             class DisruptionReportingService
+        }
+
+        package "service.tracking" #lightgreen {
+            class GamificationService
+        }
+
+        package "service.suggestion" #lightgreen {
+            class TaskSuggestionService
+        }
+
+        package "service.tasks" #lightgreen {
+            class GoogleTaskMapper
         }
     }
 
-    package "client" {
-        package "prim" {
+    together {
+        package "client.prim" #lightyellow {
             class PrimApiClient
         }
-        package "google" {
+
+        package "client.google" #lightyellow {
             class GoogleApiClient
         }
     }
 
-    package "models" {
-        package "user" {
+    together {
+        package "models.user" #wheat {
             class User
             class ComfortProfile <<Embeddable>>
             class NamedComfortSetting
+            class PasswordResetToken
         }
-        package "journey" {
+
+        package "models.journey" #wheat {
             class Journey
             class JourneySegment
             class JourneyPoint
@@ -802,31 +1102,54 @@ package "org.marly.mavigo" {
             enum JourneyPointStatus
             enum TransitMode
         }
-        package "task" {
+
+        package "models.task" #wheat {
             class UserTask
             enum TaskSource
         }
-        package "disruption" {
+
+        package "models.disruption" #wheat {
             class Disruption
             enum DisruptionType
         }
-        package "poi" {
+
+        package "models.tracking" #wheat {
+            class Badge
+            class JourneyActivity
+            class UserBadge
+        }
+
+        package "models.poi" #wheat {
             class PointOfInterest
         }
-        package "shared" {
+
+        package "models.shared" #wheat {
             class GeoPoint <<Embeddable>>
         }
     }
 
-    package "repository" {
-        interface UserRepository
-        interface JourneyRepository
-        interface UserTaskRepository
-        interface DisruptionRepository
-        interface NamedComfortSettingRepository
-        interface PointOfInterestRepository
+    together {
+        package "repository" #plum {
+            interface UserRepository
+            interface JourneyRepository
+            interface UserTaskRepository
+            interface DisruptionRepository
+            interface NamedComfortSettingRepository
+            interface BadgeRepository
+            interface JourneyActivityRepository
+            interface UserBadgeRepository
+            interface PasswordResetTokenRepository
+            interface StopAreaRepository
+        }
     }
 }
+
+' Force vertical ordering with hidden links
+controller -[hidden]down-> filter
+filter -[hidden]down-> "service.journey"
+"service.journey" -[hidden]down-> "client.prim"
+"client.prim" -[hidden]down-> "models.user"
+"models.user" -[hidden]down-> repository
 
 @enduml
 ----
@@ -1125,6 +1448,7 @@ POST /api/journeys
     "plannedArrival": "2026-01-30T14:47:00+01:00",
     "status": "PLANNED",
     "comfortModeEnabled": true,
+    "ecoModeEnabled": false,
     "segments": [
       {
         "sequenceOrder": 0,
@@ -1302,10 +1626,6 @@ POST /api/users/{userId}/comfort-settings
 |`/api/google/tasks/users/{userId}/local`
 |Get locally stored tasks
 
-|POST
-|`/api/google/tasks/users/{userId}/lists/{listId}/tasks`
-|Create a new task with optional location
-
 |PATCH
 |`/api/google/tasks/users/{userId}/lists/{listId}/tasks/{taskId}/complete`
 |Mark task as completed
@@ -1339,35 +1659,6 @@ The system will:
 2. Geocode it using PRIM/BAN APIs
 3. Store coordinates in `UserTask.locationHint`
 4. Use it for task-on-route detection and journey optimization
-
-==== Example: Create Task with Location
-
-**Request:**
-[source,json]
-----
-POST /api/google/tasks/users/{userId}/lists/{listId}/tasks
-{
-  "title": "Pick up package",
-  "notes": "At the post office",
-  "locationQuery": "Gare du Nord",
-  "due": "2026-02-01"
-}
-----
-
-**Response:**
-[source,json]
-----
-{
-  "id": "google-task-xyz",
-  "title": "Pick up package",
-  "notes": "At the post office",
-  "localTaskId": "550e8400-e29b-41d4-a716-446655440001",
-  "locationResolved": true,
-  "locationLat": 48.8809,
-  "locationLng": 2.3553,
-  "status": "needsAction"
-}
-----
 
 <<<
 
@@ -1445,11 +1736,11 @@ POST /api/journeys/{journeyId}/disruptions/station
 
 |POST
 |`/api/users`
-|Create a new user
+|Register a new user (with password, returns JWT token)
 
 |POST
 |`/api/users/login`
-|Login with email (simplified auth)
+|Login with email and password (returns JWT token)
 
 |GET
 |`/api/users/{userId}`
@@ -1462,9 +1753,13 @@ POST /api/journeys/{journeyId}/disruptions/station
 |DELETE
 |`/api/users/{userId}`
 |Delete user account
+
+|PUT
+|`/api/users/{userId}/home-address`
+|Update user's home address
 |===
 
-==== Example: Create User
+==== Example: Register User
 
 **Request:**
 [source,json]
@@ -1472,7 +1767,10 @@ POST /api/journeys/{journeyId}/disruptions/station
 POST /api/users
 {
   "email": "user@example.com",
-  "displayName": "John Doe"
+  "displayName": "John Doe",
+  "password": "SecurePass1",
+  "passwordConfirm": "SecurePass1",
+  "homeAddress": "15 Rue de Rivoli, Paris"
 }
 ----
 
@@ -1480,15 +1778,199 @@ POST /api/users
 [source,json]
 ----
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "displayName": "John Doe",
+    "homeAddress": "15 Rue de Rivoli, Paris",
+    "googleAccountLinked": false,
+    "hasSeenComfortPrompt": false
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+----
+
+==== Example: Login
+
+**Request:**
+[source,json]
+----
+POST /api/users/login
+{
   "email": "user@example.com",
-  "displayName": "John Doe",
-  "googleAccountLinked": false,
-  "comfortPromptSeen": false
+  "password": "SecurePass1"
+}
+----
+
+**Response:**
+[source,json]
+----
+{
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "displayName": "John Doe",
+    "homeAddress": "15 Rue de Rivoli, Paris"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+----
+
+==== Example: Update Home Address
+
+**Request:**
+[source,json]
+----
+PUT /api/users/{userId}/home-address
+{
+  "homeAddress": "20 Avenue des Champs-Élysées, Paris"
 }
 ----
 
 <<<
+
+=== EcoScore API
+
+[cols="1,2,3", options="header"]
+|===
+|Method |Endpoint |Description
+
+|GET
+|`/api/eco/dashboard?userId={userId}`
+|Get eco dashboard with CO2 savings, badges, and journey activity history
+|===
+
+==== Example: Get Eco Dashboard
+
+**Request:**
+[source,json]
+----
+GET /api/eco/dashboard?userId=550e8400-e29b-41d4-a716-446655440000
+----
+
+**Response:**
+[source,json]
+----
+{
+  "totalCo2SavedKg": 12.5,
+  "totalDistanceMeters": 62500,
+  "totalJourneys": 15,
+  "badges": [
+    {
+      "id": "badge-uuid",
+      "name": "Eco-Beginner",
+      "description": "Save your first kg of CO2",
+      "icon": "leaf",
+      "earnedAt": "2026-02-10T10:30:00"
+    },
+    {
+      "id": "badge-uuid-2",
+      "name": "Public Transport Pro",
+      "description": "Complete 5 eco journeys",
+      "icon": "bus",
+      "earnedAt": "2026-02-12T14:15:00"
+    }
+  ],
+  "recentActivity": [
+    {
+      "journeyId": "journey-uuid",
+      "origin": "Gare de Lyon",
+      "destination": "Châtelet",
+      "distanceMeters": 3200,
+      "co2SavedKg": 0.64,
+      "recordedAt": "2026-02-15T09:00:00"
+    }
+  ]
+}
+----
+
+<<<
+
+=== Smart Suggestions API
+
+[cols="1,2,3", options="header"]
+|===
+|Method |Endpoint |Description
+
+|GET
+|`/api/google/tasks/users/{userId}/suggestions?date={date}`
+|Get task-based journey suggestions for a given date
+|===
+
+==== Example: Get Smart Suggestions
+
+**Request:**
+[source,json]
+----
+GET /api/google/tasks/users/550e8400-e29b-41d4-a716-446655440000/suggestions?date=2026-02-17
+----
+
+**Response:**
+[source,json]
+----
+[
+  {
+    "taskId": "google-task-abc",
+    "title": "Meeting at office",
+    "location": "La Défense",
+    "dueDate": "2026-02-17",
+    "suggestedOrigin": "15 Rue de Rivoli, Paris",
+    "suggestedDestination": "La Défense"
+  }
+]
+----
+
+== Security
+
+=== OAuth2 with Google
+
+Mavigo uses Spring Security OAuth2 for Google account linking, enabling access to the Google Tasks API. See the **Google Tasks Integration** section for full OAuth2 configuration and flow details.
+
+=== JWT Authentication
+
+==== Overview
+
+Mavigo v0.3 introduces password-based authentication with JWT tokens for API security.
+
+==== Token Structure
+
+* **Algorithm**: HMAC-SHA256
+* **Expiry**: 24 hours from issue time
+* **Payload**: Contains user email as the subject claim
+* **Signing key**: Configured via `app.secret-key` / `mavigo.jwt.secret` environment variable
+
+==== Authentication Flow
+
+1. User registers (`POST /api/users`) or logs in (`POST /api/users/login`)
+2. Server validates credentials and returns a JWT token
+3. Frontend stores token in `localStorage`
+4. Subsequent API requests include the token in the `Authorization: Bearer <token>` header
+5. `JwtFilter` intercepts requests, extracts and validates the token
+6. `CustomUserDetailsService` loads user details from the database
+7. Authenticated user is set in Spring Security's `SecurityContextHolder`
+
+==== Password Requirements
+
+Enforced by `PasswordValidator`:
+
+* Minimum 8 characters
+* At least one uppercase letter
+* At least one lowercase letter
+* At least one digit
+* Password and confirmation must match
+
+==== Public vs Authenticated Endpoints
+
+[cols="1,2", options="header"]
+|===
+|Access Level |Endpoints
+
+|**Public** (no token required)
+|`POST /api/users` (register), `POST /api/users/login`, `/oauth2/**`, static resources, `/`, `/search`, `/tasks`, `/results`
+
+|**Authenticated** (JWT required)
+|All other `/api/**` endpoints
+|===
 
 == Google Tasks Integration
 
@@ -1619,7 +2101,7 @@ private String extractLocationTag(TaskDto dto) {
 * **On-demand geocoding**: Location tags processed during fetch
 * **Local cache**: `UserTask` entities store geocoded coordinates
 * **Lazy refresh**: No automatic polling; user triggers sync by viewing tasks
-* **Bi-directional**: Changes in Google Tasks (completion, deletion) sync to local DB
+* **Read-only from Google**: No local task creation; tasks are managed directly in Google Tasks
 
 === Security Considerations
 
@@ -1627,6 +2109,53 @@ private String extractLocationTag(TaskDto dto) {
 * **Token Refresh**: Spring Security automatically refreshes expired access tokens using refresh token
 * **Principal Isolation**: Each user's Google account identified by unique `subject` claim
 * **Scope Limitation**: Only requests necessary scopes (`tasks`, `profile`, `email`)
+
+== Frontend Architecture
+
+=== Overview
+
+In v0.3, the frontend was significantly refactored from a monolithic `app.js` file (~2274 lines) into modular ES modules, improving maintainability and code organization.
+
+=== Module Structure
+
+The JavaScript codebase is organized under `Mavigo/src/main/resources/static/js/`:
+
+==== Core Modules (`js/core/`)
+* **api.js** — API client for backend communication
+* **config.js** — Application configuration constants
+* **state.js** — Client-side state management
+* **utils.js** — Shared utility functions
+
+==== Feature Modules (`js/features/`)
+* **auth.js** — Authentication (login/register forms, JWT handling)
+* **badge-unlock.js** — Badge unlock notification animations
+* **comfort-profile.js** — Comfort profile management UI
+* **confetti.js** — Confetti animation effects for achievements
+* **disruption.js** — Disruption reporting interface
+* **eco-score.js** — Eco dashboard and CO2 tracking display
+* **google-link.js** — Google account linking flow
+* **home-address.js** — Home address setting/update
+* **journey.js** — Journey planning and display
+* **nav.js** — Navigation and routing
+* **smart-suggestions.js** — Smart task suggestion cards
+* **task-notifications.js** — Task notification system
+* **tasks.js** — Google Tasks management
+* **user-dropdown.js** — User menu and profile dropdown
+
+==== UI Modules (`js/ui/`)
+* **tasks-modal.js** — Tasks modal dialog
+* **theme.js** — Light/dark theme switching
+* **toast.js** — Toast notification system
+
+=== SPA-Style Routing
+
+`FrontendController` handles client-side routing by forwarding URL paths to `index.html`:
+
+* `/search` → `forward:/index.html`
+* `/tasks` → `forward:/index.html`
+* `/results` → `forward:/index.html`
+
+This enables direct URL access and browser back/forward navigation without full page reloads.
 
 == Installation Guide
 
@@ -1674,6 +2203,9 @@ PRIM_API_BASE_URL=https://prim.iledefrance-mobilites.fr/marketplace/v2
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 
+# JWT Secret Key (Required for authentication)
+APP_SECRET_KEY=your-secret-key-at-least-32-chars
+
 # Database (H2 in-memory - default)
 SPRING_DATASOURCE_URL=jdbc:h2:mem:mavigodb
 SPRING_DATASOURCE_USERNAME=sa
@@ -1695,7 +2227,7 @@ SPRING_PROFILES_ACTIVE=dev
 
 ===== Google OAuth2
 
-Follow the steps in **Section 6 - Google Tasks Integration** to:
+Follow the steps in **Section 7 - Google Tasks Integration** to:
 
 1. Create Google Cloud project
 2. Enable Tasks API
@@ -1731,7 +2263,7 @@ GOOGLE_TASKS_API_BASE_URL=https://tasks.googleapis.com/tasks/v1
 # Skip tests during build
 ./gradlew build -x test
 
-# The JAR will be in build/libs/mavigo-0.2.0.jar
+# The JAR will be in build/libs/mavigo-0.3.0.jar
 ----
 
 === Running Tests
@@ -1770,35 +2302,14 @@ GOOGLE_TASKS_API_BASE_URL=https://tasks.googleapis.com/tasks/v1
 ./gradlew clean build -Pproduction
 
 # Run the JAR
-java -jar build/libs/mavigo-0.2.0.jar
+java -jar build/libs/mavigo-0.3.0.jar
 
 # With environment variables
-PRIM_API_KEY=xxx GOOGLE_CLIENT_ID=yyy java -jar build/libs/mavigo-0.2.0.jar
+PRIM_API_KEY=xxx GOOGLE_CLIENT_ID=yyy APP_SECRET_KEY=zzz java -jar build/libs/mavigo-0.3.0.jar
 ----
 
-==== Docker (Optional)
-
-[source,dockerfile]
-----
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
-COPY build/libs/mavigo-0.2.0.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
-----
 
 [source,bash]
-----
-# Build Docker image
-docker build -t mavigo:0.2.0 .
-
-# Run container
-docker run -p 8080:8080 \
-  -e PRIM_API_KEY=xxx \
-  -e GOOGLE_CLIENT_ID=yyy \
-  -e GOOGLE_CLIENT_SECRET=zzz \
-  mavigo:0.2.0
-----
 
 === Troubleshooting
 
@@ -1833,6 +2344,12 @@ Or kill existing process:
   lsof -ti:8080 | xargs kill -9
 ```
 
+**5. JWT token invalid or expired**
+```
+Solution: Clear localStorage in browser and log in again.
+Verify APP_SECRET_KEY is set consistently across restarts.
+```
+
 == License
 
 This project is licensed under the Apache License 2.0. See the LICENSE file for more details.
@@ -1843,9 +2360,19 @@ This project is licensed under the Apache License 2.0. See the LICENSE file for 
 
 === Architecture Evolution
 
-This documentation reflects **Mavigo v0.2**, which represents a major architectural evolution from v0.1:
+This documentation reflects **Mavigo v0.3**, which represents a major feature and quality evolution from v0.2:
 
-**Key Changes:**
+**Key Changes from v0.2 to v0.3:**
+
+* **Green Mode**: Carbon footprint tracking with CO2 savings calculation (200g CO2/km) and eco dashboard
+* **Gamification Badge System**: 16 badges across 3 categories (CO2 milestones, journey count, distance) seeded via `BadgeSeeder`
+* **Smart Suggestions**: Proactive journey suggestions based on tomorrow's Google Tasks with location tags
+* **JWT Authentication**: Password-based user accounts with BCrypt hashing, JWT tokens (HMAC-SHA256, 24h expiry), and `JwtFilter` for API request authentication
+* **Frontend Modularization**: Monolithic `app.js` (~2274 lines) refactored into modular ES modules under `js/core/`, `js/features/`, and `js/ui/`
+* **Test Coverage Improvement**: Increased from ~60% to ~85%+ with comprehensive unit and integration tests
+* **SPA-style Routing**: `FrontendController` forwards `/search`, `/tasks`, `/results` to `index.html`
+
+**Key Changes from v0.1 to v0.2:**
 
 * **Journey Model**: Migrated from simple `Journey → List<Leg>` to three-tier `Journey → JourneySegment → JourneyPoint` hierarchy
 * **Comfort Profiles**: Added comprehensive accessibility and comfort filtering system
@@ -1855,11 +2382,12 @@ This documentation reflects **Mavigo v0.2**, which represents a major architectu
 
 === Entity Counts
 
-* **Core Entities**: 10 (User, Journey, JourneySegment, JourneyPoint, UserTask, Disruption, PointOfInterest, NamedComfortSetting, ComfortProfile, GeoPoint)
-* **Enums**: 6 (JourneyStatus, SegmentType, JourneyPointType, JourneyPointStatus, TransitMode, DisruptionType, TaskSource)
-* **Controllers**: 4 (JourneyController, UserController, GoogleTasksController, DisruptionController)
-* **Services**: 10+ major service classes
-* **API Endpoints**: ~50 endpoints across 5 categories
+* **Core Entities**: 14 (User, Journey, JourneySegment, JourneyPoint, UserTask, Disruption, PointOfInterest, NamedComfortSetting, ComfortProfile, GeoPoint, Badge, JourneyActivity, UserBadge, PasswordResetToken)
+* **Enums**: 7 (JourneyStatus, SegmentType, JourneyPointType, JourneyPointStatus, TransitMode, DisruptionType, TaskSource)
+* **Controllers**: 7 (JourneyController, UserController, GoogleTasksController, DisruptionController, EcoScoreController, AuthController, FrontendController)
+* **Services**: 12+ major service classes (including GamificationService, PasswordValidator, CustomUserDetailsService, TaskSuggestionService, JwtTokenService)
+* **Repositories**: 10 (UserRepository, JourneyRepository, UserTaskRepository, DisruptionRepository, NamedComfortSettingRepository, BadgeRepository, JourneyActivityRepository, UserBadgeRepository, PasswordResetTokenRepository, StopAreaRepository)
+* **API Endpoints**: ~55+ endpoints across 8 categories
 
 === Contact and Support
 
