@@ -515,7 +515,7 @@ function checkComfortOnboarding(settings = []) {
 }
 
 async function markComfortPromptSeen() {
-  if (!state.currentUser || state.currentUser.hasSeenComfortPrompt) return;
+  if (!state || !state.currentUser || state.currentUser.hasSeenComfortPrompt) return;
 
   try {
     await api.post(`/api/users/${state.currentUser.userId}/comfort-prompt-seen`);

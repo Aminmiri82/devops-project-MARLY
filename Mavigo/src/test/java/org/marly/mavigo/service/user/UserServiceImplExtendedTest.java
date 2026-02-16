@@ -27,9 +27,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class UserServiceImplExtendedTest {
 
-    @Mock private UserRepository userRepository;
-    @Mock private NamedComfortSettingRepository namedComfortSettingRepository;
-    @Mock private PasswordEncoder passwordEncoder;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private NamedComfortSettingRepository namedComfortSettingRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     private UserServiceImpl service;
 
@@ -46,7 +49,8 @@ class UserServiceImplExtendedTest {
         when(passwordEncoder.encode(anyString())).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> {
             User u = inv.getArgument(0);
-            if (u.getId() == null) u.setId(UUID.randomUUID());
+            if (u.getId() == null)
+                u.setId(UUID.randomUUID());
             return u;
         });
 
@@ -65,7 +69,8 @@ class UserServiceImplExtendedTest {
         when(passwordEncoder.encode(anyString())).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> {
             User u = inv.getArgument(0);
-            if (u.getId() == null) u.setId(UUID.randomUUID());
+            if (u.getId() == null)
+                u.setId(UUID.randomUUID());
             return u;
         });
 
@@ -253,13 +258,14 @@ class UserServiceImplExtendedTest {
         when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(inv -> {
             User u = inv.getArgument(0);
-            if (u.getId() == null) u.setId(UUID.randomUUID());
+            if (u.getId() == null)
+                u.setId(UUID.randomUUID());
             return u;
         });
 
         User result = service.createUser(user);
         assertNotNull(result.getId());
-        verify(userRepository, times(2)).save(any(User.class));
+        verify(userRepository).save(any(User.class));
     }
 
     @Test

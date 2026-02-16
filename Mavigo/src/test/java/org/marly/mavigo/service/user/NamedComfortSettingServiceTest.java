@@ -30,7 +30,6 @@ class NamedComfortSettingServiceTest {
     @Test
     void addNamedComfortSettingStoresSetting() {
         User user = userService.createUser(new User("ext-named", "named@example.com", "Named Test"));
-        // User now starts with 1 default "Accessibility" setting
         int initialCount = user.getNamedComfortSettings().size();
         ComfortProfile profile = new ComfortProfile();
         profile.setDirectPath("only");
@@ -50,7 +49,6 @@ class NamedComfortSettingServiceTest {
     @Test
     void deleteNamedComfortSettingRemovesSetting() {
         User user = userService.createUser(new User("ext-del", "del@example.com", "Del Test"));
-        // User starts with default "Accessibility" setting
         int initialCount = user.getNamedComfortSettings().size();
         ComfortProfile profile = new ComfortProfile();
         profile.setDirectPath("none");
