@@ -24,8 +24,8 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
 
     public UserServiceImpl(UserRepository userRepository,
-                           NamedComfortSettingRepository namedComfortSettingRepository,
-                           PasswordEncoder passwordEncoder) {
+            NamedComfortSettingRepository namedComfortSettingRepository,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.namedComfortSettingRepository = namedComfortSettingRepository;
         this.passwordEncoder = passwordEncoder;
@@ -38,19 +38,14 @@ public class UserServiceImpl implements UserService {
         ensureExternalIdAvailable(user.getExternalId(), null);
         ensureEmailAvailable(user.getEmail(), null);
 
-        User saved = userRepository.save(user);
-        ComfortProfile accessibilityProfile = new ComfortProfile();
-        accessibilityProfile.setWheelchairAccessible(true);
-        NamedComfortSetting accessibilitySetting = new NamedComfortSetting("Accessibility", accessibilityProfile,
-                saved);
-        saved.addNamedComfortSetting(accessibilitySetting);
-
-        return userRepository.save(saved);
+        return userRepository.save(user);
     }
 
     @Override
-    public User createUserFromRegistration(String firstName, String lastName, String email, String password, String homeAddress) {
-        if (!StringUtils.hasText(firstName) || !StringUtils.hasText(lastName) || !StringUtils.hasText(email) || !StringUtils.hasText(password)) {
+    public User createUserFromRegistration(String firstName, String lastName, String email, String password,
+            String homeAddress) {
+        if (!StringUtils.hasText(firstName) || !StringUtils.hasText(lastName) || !StringUtils.hasText(email)
+                || !StringUtils.hasText(password)) {
             throw new IllegalArgumentException("First name, last name, email and password are required");
         }
         PasswordValidator.validate(password);
@@ -65,12 +60,7 @@ public class UserServiceImpl implements UserService {
         if (StringUtils.hasText(homeAddress)) {
             user.setHomeAddress(homeAddress.trim());
         }
-        User saved = userRepository.save(user);
-        ComfortProfile accessibilityProfile = new ComfortProfile();
-        accessibilityProfile.setWheelchairAccessible(true);
-        NamedComfortSetting accessibilitySetting = new NamedComfortSetting("Accessibility", accessibilityProfile, saved);
-        saved.addNamedComfortSetting(accessibilitySetting);
-        return userRepository.save(saved);
+        return userRepository.save(user);
     }
 
     @Override
