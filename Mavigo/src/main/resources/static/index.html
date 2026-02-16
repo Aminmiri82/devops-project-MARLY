@@ -81,8 +81,13 @@
             <label for="loginPassword">Password</label>
             <div class="password-input-wrapper">
               <input type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
-              <button type="button" class="password-toggle" id="loginPasswordToggle" aria-label="Show password" tabindex="-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <button type="button" class="password-toggle" id="loginPasswordToggle" aria-label="Show password"
+                tabindex="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               </button>
             </div>
           </div>
@@ -111,24 +116,37 @@
           <div class="form-group">
             <label for="registerPassword">Password</label>
             <div class="password-input-wrapper">
-              <input type="password" id="registerPassword" placeholder="At least 8 chars, 1 upper, 1 lower, 1 digit" required autocomplete="new-password" minlength="8">
-              <button type="button" class="password-toggle" id="registerPasswordToggle" aria-label="Show password" tabindex="-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <input type="password" id="registerPassword" placeholder="At least 8 chars, 1 upper, 1 lower, 1 digit"
+                required autocomplete="new-password" minlength="8">
+              <button type="button" class="password-toggle" id="registerPasswordToggle" aria-label="Show password"
+                tabindex="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               </button>
             </div>
           </div>
           <div class="form-group">
             <label for="registerPasswordConfirm">Confirm password</label>
             <div class="password-input-wrapper">
-              <input type="password" id="registerPasswordConfirm" placeholder="••••••••" required autocomplete="new-password" minlength="8">
-              <button type="button" class="password-toggle" id="registerPasswordConfirmToggle" aria-label="Show password" tabindex="-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <input type="password" id="registerPasswordConfirm" placeholder="••••••••" required
+                autocomplete="new-password" minlength="8">
+              <button type="button" class="password-toggle" id="registerPasswordConfirmToggle"
+                aria-label="Show password" tabindex="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               </button>
             </div>
           </div>
           <div class="form-group">
             <label for="registerHomeAddress">Home address (optional)</label>
-            <input type="text" id="registerHomeAddress" placeholder="e.g. 12 Rue de Rivoli, Paris" autocomplete="street-address">
+            <input type="text" id="registerHomeAddress" placeholder="e.g. 12 Rue de Rivoli, Paris"
+              autocomplete="street-address">
           </div>
           <button type="submit" class="btn btn-primary btn-block">Create Account</button>
         </form>
@@ -310,12 +328,6 @@
                   <label for="departure">Departure</label>
                   <input type="datetime-local" id="departure" required>
                 </div>
-                <div class="form-group">
-                  <label for="journeyComfortSelection">Comfort Profile</label>
-                  <select id="journeyComfortSelection" class="form-select">
-                    <option value="disabled">No Profile</option>
-                  </select>
-                </div>
               </div>
               <div class="travel-modes-container">
                 <p class="section-subtitle">Travel Options</p>
@@ -347,16 +359,40 @@
                       </label>
                     </div>
                   </div>
+
+                  <div class="travel-mode-card" id="comfortModeCard">
+                    <div class="travel-mode-icon">🌿</div>
+                    <div class="travel-mode-info">
+                      <span class="mode-name">Comfort Profile</span>
+                      <select id="journeyComfortSelection" class="form-select"
+                        style="margin-top:4px; font-size:0.875rem;">
+                        <option value="disabled">No Profile</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="travel-mode-card" id="taskModeCard">
+                    <div class="travel-mode-icon">📋</div>
+                    <div class="travel-mode-info">
+                      <span class="mode-name">Google Task</span>
+                      <span class="mode-desc">Include a task on the way</span>
+                    </div>
+                    <div class="travel-mode-toggle">
+                      <label class="switch">
+                        <input type="checkbox" id="journeyIncludeTask">
+                        <span class="slider round"></span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="journeyIncludeTask">
-                    <span>Include a Google Task on the way</span>
-                  </label>
-                </div>
+              <div id="selectedTaskContainer" class="form-group hidden animate-fade-in">
+                <label for="journeySpecificTask">Which task would you like to do?</label>
+                <select id="journeySpecificTask" class="form-select">
+                  <option value="">Choose a task with location...</option>
+                </select>
+                <p class="form-hint">Only tasks with a <code>#mavigo:Location</code> tag appear here.</p>
               </div>
               <button type="submit" class="btn btn-primary">Plan Journey</button>
             </form>
