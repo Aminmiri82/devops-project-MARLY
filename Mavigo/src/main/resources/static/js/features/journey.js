@@ -95,8 +95,8 @@ async function startJourney(journeyId, btnElement) {
     );
     const withTasks =
       prev &&
-      Array.isArray(prev.includedTasks) &&
-      prev.includedTasks.length > 0
+        Array.isArray(prev.includedTasks) &&
+        prev.includedTasks.length > 0
         ? { ...journey, includedTasks: prev.includedTasks }
         : journey;
     updateCurrentJourney(withTasks);
@@ -274,15 +274,8 @@ function renderCurrentJourney(journey) {
     }
             <h3>${journey.originLabel} → ${journey.destinationLabel}</h3>
 
-            ${journey.status === "IN_PROGRESS" || journey.status === "REROUTED"
-      ? `
-                <div class="progress-container">
-                    <div class="progress-bar" style="width: ${progress}%"></div>
-                </div>
-                <span class="progress-text">${progress}% Completed</span>
-            `
-      : ""
-    }
+
+
 
             <p><strong>Planned Departure:</strong> ${formatDateTime(
       journey.plannedDeparture
@@ -593,24 +586,24 @@ function displayJourneyCard(journey, index, total) {
             </div>
             <div class="leg-content">
                 <span class="leg-mode">${formatMode(seg.mode)}${seg.lineName
-            ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>`
-            : ""
-          }</span>
+        ? ` <span class="leg-line-name">${escapeHtml(seg.lineName)}</span>`
+        : ""
+      }</span>
                 <span class="leg-route">${seg.originLabel || "?"} → ${seg.destinationLabel || "?"
-          }</span>
+      }</span>
                 <div class="leg-times">
                     ${seg.scheduledDeparture
-            ? formatDateTime(seg.scheduledDeparture)
-            : "?"
-          } -
+        ? formatDateTime(seg.scheduledDeparture)
+        : "?"
+      } -
                     ${seg.scheduledArrival
-            ? formatDateTime(seg.scheduledArrival)
-            : "?"
-          }
+        ? formatDateTime(seg.scheduledArrival)
+        : "?"
+      }
                     <span class="leg-duration">(${seg.durationSeconds
-            ? formatDuration(seg.durationSeconds)
-            : "?"
-          })</span>
+        ? formatDuration(seg.durationSeconds)
+        : "?"
+      })</span>
                 </div>
             </div>
         </li>
@@ -630,11 +623,10 @@ function displayJourneyCard(journey, index, total) {
         </div>
         <div class="leg-content">
           <span class="leg-mode">Task stop</span>
-          <span class="leg-route">${escapeHtml(taskTitle)}${
-            taskLocation
-              ? ` – ${escapeHtml(task.locationQuery)}`
-              : ""
-          }</span>
+          <span class="leg-route">${escapeHtml(taskTitle)}${taskLocation
+        ? ` – ${escapeHtml(task.locationQuery)}`
+        : ""
+      }</span>
         </div>
       </li>
     `;
@@ -725,9 +717,10 @@ export function prefillJourneyFromSuggestion(task) {
 
 export function setDefaultDepartureTime() {
   if (!departureInput) return;
-  const d = new Date(Date.now() + 60 * 60 * 1000);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  departureInput.value = d.toISOString().slice(0, 16);
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  departureInput.value = localIso;
 }
 
 // --- Home Suggestions ---
