@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -271,7 +270,7 @@ class BanGeocodingServiceTest {
         @Test
         @DisplayName("choisit la meilleure feature basée sur le score et le cityHint")
         void chooseBestFeature_withCityHint_returnsMatchingCity() {
-            // Given
+            // Given - Paris (score 0.5) vs Nanterre (score 0.9), avec cityHint "Paris"
             BanGeocodingService.BanFeature f1 = new BanGeocodingService.BanFeature();
             f1.properties = new BanGeocodingService.BanProperties();
             f1.properties.city = "Paris";
@@ -286,11 +285,19 @@ class BanGeocodingServiceTest {
             f2.geometry = new BanGeocodingService.BanGeometry();
             f2.geometry.coordinates = java.util.List.of(2.2137, 48.8924);
 
-            java.util.List<BanGeocodingService.BanFeature> features = java.util.List.of(f1, f2);
+            BanGeocodingService.BanResponse response = new BanGeocodingService.BanResponse();
+            response.features = java.util.List.of(f1, f2);
 
-            // When
-            // Testing via reflection or indirectly since it's private. 
-            // Geocode uses it, so we test via geocode with city hint.
+            when(restTemplate.getForObject(anyString(), eq(BanGeocodingService.BanResponse.class)))
+                    .thenReturn(response);
+
+            // When - geocode utilise chooseBestFeature en interne, cityHint = "Paris" (après la virgule)
+            GeoPoint result = service.geocode("10 Rue de Test, Paris");
+
+            // Then - doit retourner Paris (matching cityHint) et non Nanterre (meilleur score)
+            assertThat(result).isNotNull();
+            assertThat(result.getLatitude()).isEqualTo(48.8566);
+            assertThat(result.getLongitude()).isEqualTo(2.3522);
         }
     }
 }
