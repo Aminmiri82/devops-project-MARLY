@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/eco")
@@ -32,7 +31,7 @@ public class EcoScoreController {
                                                 ub.getBadge().getDescription(),
                                                 ub.getBadge().getIcon(),
                                                 ub.getEarnedAt()))
-                                .collect(Collectors.toList());
+                                .toList();
 
                 List<EcoScoreResponse.AllBadgeInfo> allBadges = gamificationService.getAllSystemBadges()
                                 .stream()
@@ -40,7 +39,7 @@ public class EcoScoreController {
                                                 b.getName(),
                                                 b.getDescription(),
                                                 b.getIcon()))
-                                .collect(Collectors.toList());
+                                .toList();
 
                 List<EcoScoreResponse.JourneyActivityResponse> history = gamificationService.getJourneyHistory(userId)
                                 .stream()
@@ -52,7 +51,7 @@ public class EcoScoreController {
                                                                 : 0.0,
                                                 ja.getCo2SavedKg() != null ? ja.getCo2SavedKg() : 0.0,
                                                 ja.getRecordedAt()))
-                                .collect(Collectors.toList());
+                                .toList();
 
                 return ResponseEntity.ok(
                                 new EcoScoreResponse(totalCo2, userBadges.size(), earnedBadges, allBadges, history));
