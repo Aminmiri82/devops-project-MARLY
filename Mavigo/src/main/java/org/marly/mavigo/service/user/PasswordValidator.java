@@ -16,13 +16,13 @@ public final class PasswordValidator {
         if (password.length() < MIN_LENGTH) {
             throw new IllegalArgumentException("Password must be at least " + MIN_LENGTH + " characters");
         }
-        if (!password.matches(".*[A-Z].*")) {
+        if (password.chars().noneMatch(Character::isUpperCase)) {
             throw new IllegalArgumentException("Password must contain at least one uppercase letter");
         }
-        if (!password.matches(".*[a-z].*")) {
+        if (password.chars().noneMatch(Character::isLowerCase)) {
             throw new IllegalArgumentException("Password must contain at least one lowercase letter");
         }
-        if (!password.matches(".*[0-9].*")) {
+        if (password.chars().noneMatch(Character::isDigit)) {
             throw new IllegalArgumentException("Password must contain at least one digit");
         }
     }
