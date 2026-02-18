@@ -126,6 +126,23 @@ class GoogleTasksControllerEdgeCasesTest {
     }
 
     @Test
+    void listsForUser_usesGoogleEmailFallbackWhenSubjectLookupMisses() {
+        UUID userId = UUID.randomUUID();
+        User user = new User("ext", "u@example.com", "User");
+        user.setId(userId);
+        user.setGoogleAccountSubject("sub-123");
+        user.setGoogleAccountEmail("google@example.com");
+        when(userService.getUser(userId)).thenReturn(user);
+        when(authorizedClientService.loadAuthorizedClient("google", "sub-123")).thenReturn(null);
+        when(authorizedClientService.loadAuthorizedClient("google", "google@example.com"))
+                .thenReturn(buildAuthorizedClient("google@example.com"));
+
+        List<?> lists = controller.listsForUser(userId, null, null);
+
+        assertEquals(1, lists.size());
+    }
+
+    @Test
     void tasksForUser_filtersByDateAndExcludesCompletedWhenRequested() {
         UUID userId = UUID.randomUUID();
         User user = new User("ext", "u@example.com", "User");
