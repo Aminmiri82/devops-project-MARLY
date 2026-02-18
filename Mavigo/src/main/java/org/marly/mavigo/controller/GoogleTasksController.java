@@ -475,6 +475,9 @@ public class GoogleTasksController {
         }
 
         OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient("google", subject);
+        if ((client == null || client.getAccessToken() == null) && StringUtils.hasText(user.getGoogleAccountEmail())) {
+            client = authorizedClientService.loadAuthorizedClient("google", user.getGoogleAccountEmail());
+        }
         if (client == null || client.getAccessToken() == null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
