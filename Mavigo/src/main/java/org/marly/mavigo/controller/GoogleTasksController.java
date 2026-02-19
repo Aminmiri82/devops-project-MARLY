@@ -57,7 +57,8 @@ public class GoogleTasksController {
      * "Acheter du lait #loc:Gare de Lyon"
      */
     private static final Pattern LOCATION_TAG = Pattern.compile("(?i)#mavigo:\\s*([^\\n#]+)");
-    private static final String COMPLETED_KEY = "completed";
+    private static final String COMPLETED_FIELD = "completed";
+    private static final String STATUS_COMPLETED = "completed";
     private static final String LOCATION_QUERY_KEY = "locationQuery";
 
     private final WebClient googleApiWebClient;
@@ -206,7 +207,7 @@ public class GoogleTasksController {
         m.put("notes", dto.notes());
         m.put("status", dto.status());
         m.put("due", dto.due());
-        m.put(COMPLETED_KEY, dto.completed());
+        m.put(COMPLETED_FIELD, dto.completed());
         m.put("updated", dto.updated());
         String locationQuery = extractLocationTag(dto);
         if (StringUtils.hasText(locationQuery)) {
@@ -303,7 +304,7 @@ public class GoogleTasksController {
             m.put("title", dto.title() != null ? dto.title() : "");
             m.put(LOCATION_QUERY_KEY, locationQuery);
             m.put("locationHint", Map.of("lat", hint.getLatitude(), "lng", hint.getLongitude()));
-            m.put(COMPLETED_KEY, completed);
+            m.put(COMPLETED_FIELD, completed);
             out.add(m);
         }
         return out;
@@ -348,8 +349,8 @@ public class GoogleTasksController {
 
         try {
             Map<String, Object> patch = new java.util.HashMap<>();
-            patch.put("status", COMPLETED_KEY);
-            patch.put(COMPLETED_KEY, Instant.now().toString());
+            patch.put("status", STATUS_COMPLETED);
+            patch.put(COMPLETED_FIELD, Instant.now().toString());
 
             Map<String, Object> response = googleApiWebClient.patch()
                     .uri(b -> b.path("/lists/{taskListId}/tasks/{taskId}").build(listId, taskId))
@@ -447,7 +448,7 @@ public class GoogleTasksController {
             }
             if (!includeCompleted) {
                 items = items.stream()
-                        .filter(t -> t.status() == null || !COMPLETED_KEY.equalsIgnoreCase(t.status()))
+                        .filter(t -> t.status() == null || !STATUS_COMPLETED.equalsIgnoreCase(t.status()))
                         .toList();
             }
 
