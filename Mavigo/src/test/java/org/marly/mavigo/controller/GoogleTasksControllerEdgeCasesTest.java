@@ -185,14 +185,8 @@ class GoogleTasksControllerEdgeCasesTest {
         Method m = GoogleTasksController.class.getDeclaredMethod("resolveGeoPointFromQuery", String.class);
         m.setAccessible(true);
 
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> {
-                    try {
-                        m.invoke(controller, "query");
-                    } catch (Exception reflectionEx) {
-                        throw (ResponseStatusException) reflectionEx.getCause();
-                    }
-                });
+        Exception reflectionEx = assertThrows(Exception.class, () -> m.invoke(controller, "query"));
+        ResponseStatusException ex = (ResponseStatusException) reflectionEx.getCause();
 
         assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode());
     }
@@ -204,14 +198,8 @@ class GoogleTasksControllerEdgeCasesTest {
         Method m = GoogleTasksController.class.getDeclaredMethod("resolveGeoPointFromQuery", String.class);
         m.setAccessible(true);
 
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> {
-                    try {
-                        m.invoke(controller, "query");
-                    } catch (Exception reflectionEx) {
-                        throw (ResponseStatusException) reflectionEx.getCause();
-                    }
-                });
+        Exception reflectionEx = assertThrows(Exception.class, () -> m.invoke(controller, "query"));
+        ResponseStatusException ex = (ResponseStatusException) reflectionEx.getCause();
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }

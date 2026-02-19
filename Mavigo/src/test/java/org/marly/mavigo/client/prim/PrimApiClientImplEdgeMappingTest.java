@@ -99,15 +99,18 @@ class PrimApiClientImplEdgeMappingTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Journey request cannot be null");
 
-        assertThatThrownBy(() -> client.calculateJourneyPlans(new PrimJourneyRequest(" ", "to", LocalDateTime.now())))
+        PrimJourneyRequest blankFrom = new PrimJourneyRequest(" ", "to", LocalDateTime.now());
+        assertThatThrownBy(() -> client.calculateJourneyPlans(blankFrom))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("From stop area ID");
 
-        assertThatThrownBy(() -> client.calculateJourneyPlans(new PrimJourneyRequest("from", "", LocalDateTime.now())))
+        PrimJourneyRequest emptyTo = new PrimJourneyRequest("from", "", LocalDateTime.now());
+        assertThatThrownBy(() -> client.calculateJourneyPlans(emptyTo))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("To stop area ID");
 
-        assertThatThrownBy(() -> client.calculateJourneyPlans(new PrimJourneyRequest("from", "to", null)))
+        PrimJourneyRequest nullDatetime = new PrimJourneyRequest("from", "to", null);
+        assertThatThrownBy(() -> client.calculateJourneyPlans(nullDatetime))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Datetime cannot be null");
     }

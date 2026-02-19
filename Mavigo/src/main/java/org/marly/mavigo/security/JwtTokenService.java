@@ -20,7 +20,7 @@ public class JwtTokenService {
     private final long expirationSeconds;
 
     public JwtTokenService(
-            @Value("${mavigo.jwt.secret:change-me-please-change-me-please-change-me}") String secret,
+            @Value("${mavigo.jwt.secret:${JWT_SECRET}}") String secret,
             @Value("${mavigo.jwt.expiration-seconds:86400}") long expirationSeconds) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationSeconds = expirationSeconds;

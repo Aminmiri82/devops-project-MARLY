@@ -100,9 +100,7 @@ class JourneyAssemblerAdvancedTest {
         void mapSegments_filtersSegmentsWithNoPoints() {
             // Given - a leg with same origin/destination and short duration won't create
             // two points
-            LegDto samePointLeg = createLegDto(0, "section-1", "transfer", null,
-                    "Same Station", "Same Station", 48.88, 2.35, 48.88, 2.35);
-            samePointLeg = new LegDto(0, "section-1", "transfer", null, null, null, null, null,
+            LegDto samePointLeg = new LegDto(0, "section-1", "transfer", null, null, null, null, null,
                     OffsetDateTime.now(), OffsetDateTime.now(), 30, // 30 seconds
                     null, "Same Station", 48.88, 2.35,
                     null, "Same Station", 48.88, 2.35,
