@@ -8,6 +8,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,46 +43,21 @@ class JourneyControllerIntegrationTest {
         testUser = userRepository.save(testUser);
     }
 
-    @Test
+    @ParameterizedTest(name = "{0} /api/journeys/id{1} devrait retourner 404")
+    @CsvSource({
+        "GET, ''",
+        "POST, /start",
+        "POST, /complete",
+        "POST, /cancel"
+    })
     @WithMockUser
-    @DisplayName("GET /api/journeys/{id} devrait retourner 404 pour un trajet inexistant")
-    void getJourney_shouldReturn404ForNonExistentJourney() throws Exception {
+    void journeyAction_shouldReturn404ForNonExistentJourney(String method, String suffix) throws Exception {
         UUID nonExistentId = UUID.randomUUID();
-
-        mockMvc.perform(get("/api/journeys/{id}", nonExistentId))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @WithMockUser
-    @DisplayName("POST /api/journeys/{id}/start devrait retourner 404 pour un trajet inexistant")
-    void startJourney_shouldReturn404ForNonExistentJourney() throws Exception {
-        UUID nonExistentId = UUID.randomUUID();
-
-        mockMvc.perform(post("/api/journeys/{id}/start", nonExistentId)
-                .with(SecurityMockMvcRequestPostProcessors.csrf()))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @WithMockUser
-    @DisplayName("POST /api/journeys/{id}/complete devrait retourner 404 pour un trajet inexistant")
-    void completeJourney_shouldReturn404ForNonExistentJourney() throws Exception {
-        UUID nonExistentId = UUID.randomUUID();
-
-        mockMvc.perform(post("/api/journeys/{id}/complete", nonExistentId)
-                .with(SecurityMockMvcRequestPostProcessors.csrf()))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @WithMockUser
-    @DisplayName("POST /api/journeys/{id}/cancel devrait retourner 404 pour un trajet inexistant")
-    void cancelJourney_shouldReturn404ForNonExistentJourney() throws Exception {
-        UUID nonExistentId = UUID.randomUUID();
-
-        mockMvc.perform(post("/api/journeys/{id}/cancel", nonExistentId)
-                .with(SecurityMockMvcRequestPostProcessors.csrf()))
+        var requestBuilder = "GET".equals(method)
+                ? get("/api/journeys/{id}" + suffix, nonExistentId)
+                : post("/api/journeys/{id}" + suffix, nonExistentId)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf());
+        mockMvc.perform(requestBuilder)
                 .andExpect(status().isNotFound());
     }
 

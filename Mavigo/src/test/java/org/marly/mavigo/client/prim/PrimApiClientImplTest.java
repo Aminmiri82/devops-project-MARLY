@@ -77,9 +77,6 @@ class PrimApiClientImplTest {
     @Test
     @DisplayName("searchPlacesNearby (City): filters by distance and sorts")
     void searchPlacesNearby_withCityName_shouldFilterAndSort() {
-        // Center: Paris (48.8566, 2.3522)
-        PrimCoordinates center = new PrimCoordinates(48.8566, 2.3522);
-        
         // Place 1: Very close (Notre Dame)
         PrimCoordinates c1 = new PrimCoordinates(48.8530, 2.3499);
         PrimStopArea sa1 = new PrimStopArea("id1", "Notre Dame", c1);

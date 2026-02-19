@@ -15,7 +15,6 @@ public class JourneyResultsPage {
 
     private final WebDriver driver;
     private final WebDriverWait wait;
-    private final String baseUrl;
 
     @FindBy(css = "[data-testid='journey-results'], .journey-results")
     private WebElement resultsContainer;
@@ -37,7 +36,6 @@ public class JourneyResultsPage {
 
     public JourneyResultsPage(WebDriver driver, String baseUrl) {
         this.driver = driver;
-        this.baseUrl = baseUrl;
         this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
         PageFactory.initElements(driver, this);
     }

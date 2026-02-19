@@ -93,7 +93,8 @@ class DomainModelCoverageTest {
         assertEquals("Signal issue", alert.getDescription());
         assertEquals("RER-A", alert.getLineCode());
         assertEquals(2, alert.getAffectedStopIds().size());
-        assertThrows(UnsupportedOperationException.class, () -> alert.getAffectedStopIds().add("stop-3"));
+        var stopIds = alert.getAffectedStopIds();
+        assertThrows(UnsupportedOperationException.class, () -> stopIds.add("stop-3"));
     }
 
     @Test

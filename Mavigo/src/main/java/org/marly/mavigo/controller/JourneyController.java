@@ -92,10 +92,13 @@ public class JourneyController {
                 || (request.taskIds() != null && !request.taskIds().isEmpty());
 
         if (useTaskOptimization) {
-            var optimizedResults = (request.taskDetails() != null && !request.taskDetails().isEmpty())
-                    ? journeyOptimizationService.planOptimizedJourneyWithTaskDetails(parameters, request.taskDetails())
-                    : journeyOptimizationService.planOptimizedJourneyWithTasks(parameters,
-                            request.taskIds() != null ? request.taskIds() : List.of());
+            java.util.List<org.marly.mavigo.service.journey.JourneyOptimizationService.OptimizedJourneyResult> optimizedResults;
+            if (request.taskDetails() != null && !request.taskDetails().isEmpty()) {
+                optimizedResults = journeyOptimizationService.planOptimizedJourneyWithTaskDetails(parameters, request.taskDetails());
+            } else {
+                List<UUID> taskIds = request.taskIds() != null ? request.taskIds() : List.of();
+                optimizedResults = journeyOptimizationService.planOptimizedJourneyWithTasks(parameters, taskIds);
+            }
 
             if (optimizedResults.isEmpty()) {
                 LOGGER.warn("Optimization failed, falling back to normal journey");

@@ -10,6 +10,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -72,48 +75,12 @@ class NavitiaDateTimeDeserializerTest {
             assertThat(result.dateTime.getSecond()).isEqualTo(0);
         }
 
-        @Test
-        @DisplayName("deserialize avec valeur null retourne null")
-        void deserialize_nullValue_returnsNull() throws JsonProcessingException {
-            // Given
-            String json = """
-                    {"dateTime": null}
-                    """;
-
-            // When
+        @ParameterizedTest(name = "deserialize avec valeur \"{0}\" retourne null")
+        @NullAndEmptySource
+        @ValueSource(strings = {"   "})
+        void deserialize_nullOrBlankValue_returnsNull(String value) throws JsonProcessingException {
+            String json = value == null ? "{\"dateTime\": null}" : "{\"dateTime\": \"" + value + "\"}";
             TestDto result = objectMapper.readValue(json, TestDto.class);
-
-            // Then
-            assertThat(result.dateTime).isNull();
-        }
-
-        @Test
-        @DisplayName("deserialize avec valeur vide retourne null")
-        void deserialize_blankValue_returnsNull() throws JsonProcessingException {
-            // Given
-            String json = """
-                    {"dateTime": ""}
-                    """;
-
-            // When
-            TestDto result = objectMapper.readValue(json, TestDto.class);
-
-            // Then
-            assertThat(result.dateTime).isNull();
-        }
-
-        @Test
-        @DisplayName("deserialize avec valeur whitespace retourne null")
-        void deserialize_whitespaceValue_returnsNull() throws JsonProcessingException {
-            // Given
-            String json = """
-                    {"dateTime": "   "}
-                    """;
-
-            // When
-            TestDto result = objectMapper.readValue(json, TestDto.class);
-
-            // Then
             assertThat(result.dateTime).isNull();
         }
 

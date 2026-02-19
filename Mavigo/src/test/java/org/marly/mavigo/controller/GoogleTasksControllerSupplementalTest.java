@@ -2,6 +2,7 @@ package org.marly.mavigo.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -112,18 +113,11 @@ class GoogleTasksControllerSupplementalTest {
         Method m = GoogleTasksController.class.getDeclaredMethod("resolveGeoPointFromQuery", String.class);
         m.setAccessible(true);
 
-        assertThatThrownBy(() -> {
-            try {
-                m.invoke(controller, "test");
-            } catch (Exception e) {
-                throw e.getCause();
-            }
-        }).isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> {
-                    ResponseStatusException rse = (ResponseStatusException) ex;
-                    assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-                    assertThat(rse.getReason()).contains("PRIM error:");
-                });
+        Exception reflectionEx = assertThrows(Exception.class, () -> m.invoke(controller, "test"));
+        assertThat(reflectionEx.getCause()).isInstanceOf(ResponseStatusException.class);
+        ResponseStatusException rse = (ResponseStatusException) reflectionEx.getCause();
+        assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(rse.getReason()).contains("PRIM error:");
     }
 
     private GoogleTasksController controllerFor(ExchangeFunction exchangeFunction) {

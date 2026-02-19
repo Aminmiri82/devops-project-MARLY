@@ -220,6 +220,7 @@ class JourneySegmentTest {
         JourneyPoint point = new JourneyPoint(segment, 1, JourneyPointType.ORIGIN, "Origin");
         segment.addPoint(point);
 
-        assertThrows(UnsupportedOperationException.class, () -> segment.getPoints().add(null));
+        var points = segment.getPoints();
+        assertThrows(UnsupportedOperationException.class, () -> points.add(null));
     }
 }

@@ -11,6 +11,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,33 +42,11 @@ class NominatimGeocodingServiceTest {
     @DisplayName("Tests geocode")
     class GeocodeTests {
 
-        @Test
-        @DisplayName("geocode avec adresse null retourne null")
-        void geocode_withNullAddress_returnsNull() {
-            // When
-            GeoPoint result = service.geocode(null);
-
-            // Then
-            assertThat(result).isNull();
-        }
-
-        @Test
-        @DisplayName("geocode avec adresse vide retourne null")
-        void geocode_withBlankAddress_returnsNull() {
-            // When
-            GeoPoint result = service.geocode("   ");
-
-            // Then
-            assertThat(result).isNull();
-        }
-
-        @Test
-        @DisplayName("geocode avec adresse vide (chaîne vide) retourne null")
-        void geocode_withEmptyAddress_returnsNull() {
-            // When
-            GeoPoint result = service.geocode("");
-
-            // Then
+        @ParameterizedTest(name = "geocode avec adresse \"{0}\" retourne null")
+        @NullAndEmptySource
+        @ValueSource(strings = {"   "})
+        void geocode_withNullOrBlankAddress_returnsNull(String address) {
+            GeoPoint result = service.geocode(address);
             assertThat(result).isNull();
         }
 
