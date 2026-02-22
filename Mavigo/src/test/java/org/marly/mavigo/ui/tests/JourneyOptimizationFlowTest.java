@@ -36,10 +36,10 @@ class JourneyOptimizationFlowTest extends BaseSeleniumTest {
         searchPage.enterOrigin("Gare de Lyon");
         searchPage.enterDestination("Châtelet");
 
-        // Note: This test verifies the UI has an optimization option
-        // The actual presence depends on the frontend implementation
-        if (searchPage.hasSearchButton()) {
-            assertThat(searchPage.isSearchButtonEnabled()).isTrue();
+        // Note: The journey form can be hidden when the user is not authenticated.
+        // When visible, verify an optimization control is present in the updated UI.
+        if (searchPage.hasJourneyForm()) {
+            assertThat(searchPage.hasOptimizationOption()).isTrue();
         } else {
             assertThat(searchPage.getCurrentUrl()).contains("/search");
         }
