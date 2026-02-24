@@ -57,6 +57,9 @@ public class GoogleTasksController {
      * "Acheter du lait #loc:Gare de Lyon"
      */
     private static final Pattern LOCATION_TAG = Pattern.compile("(?i)#mavigo:\\s*([^\\n#]+)");
+    private static final String COMPLETED_FIELD = "completed";
+    private static final String STATUS_COMPLETED = "completed";
+    private static final String LOCATION_QUERY_KEY = "locationQuery";
 
     private final WebClient googleApiWebClient;
     private final OAuth2AuthorizedClientService authorizedClientService;
@@ -187,7 +190,7 @@ public class GoogleTasksController {
         return googleTasks.stream()
                 .map(this::taskDtoToResponseMap)
                 .filter(task -> {
-                    Object locationQuery = task.get("locationQuery");
+                    Object locationQuery = task.get(LOCATION_QUERY_KEY);
                     return locationQuery != null && StringUtils.hasText(String.valueOf(locationQuery));
                 })
                 .toList();
@@ -204,11 +207,11 @@ public class GoogleTasksController {
         m.put("notes", dto.notes());
         m.put("status", dto.status());
         m.put("due", dto.due());
-        m.put("completed", dto.completed());
+        m.put(COMPLETED_FIELD, dto.completed());
         m.put("updated", dto.updated());
         String locationQuery = extractLocationTag(dto);
         if (StringUtils.hasText(locationQuery)) {
-            m.put("locationQuery", locationQuery);
+            m.put(LOCATION_QUERY_KEY, locationQuery);
         }
         return m;
     }
@@ -261,7 +264,7 @@ public class GoogleTasksController {
                     } else {
                         m.put("locationHint", null);
                     }
-                    m.put("locationQuery", t.getLocationQuery());
+                    m.put(LOCATION_QUERY_KEY, t.getLocationQuery());
                     return m;
                 })
                 .toList();
@@ -299,9 +302,9 @@ public class GoogleTasksController {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", dto.id());
             m.put("title", dto.title() != null ? dto.title() : "");
-            m.put("locationQuery", locationQuery);
+            m.put(LOCATION_QUERY_KEY, locationQuery);
             m.put("locationHint", Map.of("lat", hint.getLatitude(), "lng", hint.getLongitude()));
-            m.put("completed", completed);
+            m.put(COMPLETED_FIELD, completed);
             out.add(m);
         }
         return out;
@@ -346,8 +349,8 @@ public class GoogleTasksController {
 
         try {
             Map<String, Object> patch = new java.util.HashMap<>();
-            patch.put("status", "completed");
-            patch.put("completed", Instant.now().toString());
+            patch.put("status", STATUS_COMPLETED);
+            patch.put(COMPLETED_FIELD, Instant.now().toString());
 
             Map<String, Object> response = googleApiWebClient.patch()
                     .uri(b -> b.path("/lists/{taskListId}/tasks/{taskId}").build(listId, taskId))
@@ -445,7 +448,7 @@ public class GoogleTasksController {
             }
             if (!includeCompleted) {
                 items = items.stream()
-                        .filter(t -> t.status() == null || !"completed".equalsIgnoreCase(t.status()))
+                        .filter(t -> t.status() == null || !STATUS_COMPLETED.equalsIgnoreCase(t.status()))
                         .toList();
             }
 
@@ -475,6 +478,9 @@ public class GoogleTasksController {
         }
 
         OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient("google", subject);
+        if ((client == null || client.getAccessToken() == null) && StringUtils.hasText(user.getGoogleAccountEmail())) {
+            client = authorizedClientService.loadAuthorizedClient("google", user.getGoogleAccountEmail());
+        }
         if (client == null || client.getAccessToken() == null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,

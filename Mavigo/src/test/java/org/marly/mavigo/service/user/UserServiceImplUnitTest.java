@@ -104,8 +104,9 @@ class UserServiceImplUnitTest {
         existing.setId(UUID.randomUUID());
         when(userRepository.findByGoogleAccountSubject("sub-dup")).thenReturn(Optional.of(existing));
 
+        GoogleAccountLink dupLink = new GoogleAccountLink("sub-dup", "dup@example.com");
         assertThrows(GoogleAccountAlreadyLinkedException.class,
-                () -> service.linkGoogleAccount(userId, new GoogleAccountLink("sub-dup", "dup@example.com")));
+                () -> service.linkGoogleAccount(userId, dupLink));
     }
 
     @Test

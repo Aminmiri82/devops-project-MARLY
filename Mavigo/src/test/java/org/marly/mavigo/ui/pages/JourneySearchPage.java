@@ -24,6 +24,9 @@ public class JourneySearchPage {
             "[data-testid='departure-time'], #departureTime, #departure, input[name='departureTime'], input[name='departure']");
     private static final By SEARCH_BUTTON = By.cssSelector(
             "[data-testid='search-button'], #journeyForm button[type='submit'], #journeyForm .search-button");
+    private static final By JOURNEY_FORM = By.cssSelector("#journeyForm, [data-testid='journey-form']");
+    private static final By OPTIMIZATION_OPTION = By.cssSelector(
+            "#ecoModeToggle, #journeyIncludeTask, [data-testid='optimization-toggle']");
     private static final By COMFORT_MODE_TOGGLE = By.cssSelector(
             "[data-testid='comfort-mode-toggle'], .comfort-mode-toggle, input[name='comfortMode']");
     private static final By SWAP_BUTTON = By.cssSelector("[data-testid='swap-button'], .swap-button");
@@ -116,7 +119,15 @@ public class JourneySearchPage {
     }
 
     public boolean hasSearchButton() {
-        return !driver.findElements(SEARCH_BUTTON).isEmpty();
+        return findVisible(SEARCH_BUTTON) != null;
+    }
+
+    public boolean hasJourneyForm() {
+        return findVisible(JOURNEY_FORM) != null;
+    }
+
+    public boolean hasOptimizationOption() {
+        return findVisible(OPTIMIZATION_OPTION) != null;
     }
 
     public String getCurrentUrl() {

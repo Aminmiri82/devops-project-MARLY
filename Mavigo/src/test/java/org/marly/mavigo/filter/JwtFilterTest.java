@@ -22,6 +22,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.ServletException;
@@ -99,5 +100,23 @@ class JwtFilterTest {
 
         assertEquals("existing-user", SecurityContextHolder.getContext().getAuthentication().getPrincipal());
         verify(uds, never()).loadUserByUsername("new-user");
+    }
+
+    @Test
+    void doFilterInternal_ignoresUnknownUserFromToken() throws ServletException, IOException {
+        CustomUserDetailsService uds = mock(CustomUserDetailsService.class);
+        JwtUtils jwtUtils = mock(JwtUtils.class);
+        JwtFilter filter = new JwtFilter(uds, jwtUtils);
+
+        when(jwtUtils.extractUsername("stale-token")).thenReturn("ghost@example.com");
+        when(uds.loadUserByUsername("ghost@example.com"))
+                .thenThrow(new UsernameNotFoundException("missing"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer stale-token");
+
+        filter.doFilterInternal(request, new MockHttpServletResponse(), new MockFilterChain());
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 }

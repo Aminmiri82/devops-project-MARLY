@@ -6,6 +6,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.marly.mavigo.client.prim.model.PrimCoordinates;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -92,38 +94,21 @@ class PrimCoordinatesDeserializerTest {
             assertThat(result.coordinates).isNull();
         }
 
-        @Test
-        @DisplayName("deserialize avec lat manquant retourne PrimCoordinates avec lat null")
-        void deserialize_missingLat_returnsCoordinatesWithNullLat() throws JsonProcessingException {
-            // Given
-            String json = """
-                    {"coordinates": {"lon": 2.3730}}
-                    """;
-
-            // When
-            TestDto result = objectMapper.readValue(json, TestDto.class);
-
-            // Then
+        @ParameterizedTest(name = "deserialize avec {0} manquant retourne PrimCoordinates avec {0} null")
+        @CsvSource(value = {
+            "lat | {\"coordinates\": {\"lon\": 2.3730}} | 2.3730",
+            "lon | {\"coordinates\": {\"lat\": 48.8443}} | 48.8443"
+        }, delimiter = '|')
+        void deserialize_missingCoordinate_returnsWithNull(String missingField, String json, double presentValue) throws JsonProcessingException {
+            TestDto result = objectMapper.readValue(json.trim(), TestDto.class);
             assertThat(result.coordinates).isNotNull();
-            assertThat(result.coordinates.latitude()).isNull();
-            assertThat(result.coordinates.longitude()).isEqualTo(2.3730);
-        }
-
-        @Test
-        @DisplayName("deserialize avec lon manquant retourne PrimCoordinates avec lon null")
-        void deserialize_missingLon_returnsCoordinatesWithNullLon() throws JsonProcessingException {
-            // Given
-            String json = """
-                    {"coordinates": {"lat": 48.8443}}
-                    """;
-
-            // When
-            TestDto result = objectMapper.readValue(json, TestDto.class);
-
-            // Then
-            assertThat(result.coordinates).isNotNull();
-            assertThat(result.coordinates.latitude()).isEqualTo(48.8443);
-            assertThat(result.coordinates.longitude()).isNull();
+            if ("lat".equals(missingField.trim())) {
+                assertThat(result.coordinates.latitude()).isNull();
+                assertThat(result.coordinates.longitude()).isEqualTo(presentValue);
+            } else {
+                assertThat(result.coordinates.latitude()).isEqualTo(presentValue);
+                assertThat(result.coordinates.longitude()).isNull();
+            }
         }
 
         @Test

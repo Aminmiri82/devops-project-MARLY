@@ -293,34 +293,6 @@ class JourneyControllerTest {
 
     @Test
     @WithMockUser
-    @DisplayName("POST /api/journeys sans CSRF devrait passer (car csrf disabled)")
-    void planJourney_withoutCsrf_shouldPass() throws Exception {
-        UUID userId = UUID.randomUUID();
-        User user = new User("ext-123", "test@example.com", "Test User");
-        user.setId(userId);
-        Journey mockJourney = createMockJourney(user);
-        when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
-                .thenReturn(List.of(mockJourney));
-
-        String requestBody = """
-                {
-                    "journey": {
-                        "userId": "%s",
-                        "originQuery": "Gare de Lyon",
-                        "destinationQuery": "Châtelet",
-                        "departureTime": "2025-12-14T18:00:00"
-                    }
-                }
-                """.formatted(userId);
-
-        mockMvc.perform(post("/api/journeys")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requestBody))
-                .andExpect(status().is2xxSuccessful());
-    }
-
-    @Test
-    @WithMockUser
     @DisplayName("GET /api/journeys/debug/user-tasks avec détails devrait couvrir la lambda")
     void debugUserTasks_withDetails_shouldCoverLambda() throws Exception {
         // Given

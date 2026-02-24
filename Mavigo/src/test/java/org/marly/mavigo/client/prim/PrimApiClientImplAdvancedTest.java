@@ -175,7 +175,7 @@ class PrimApiClientImplAdvancedTest {
         assertEquals(2, plan.legs().size());
         assertNotNull(plan.legs().get(0).stopDateTimes());
         assertEquals(2, plan.legs().get(0).stopDateTimes().size());
-        assertTrue(Boolean.TRUE.equals(plan.legs().get(0).hasAirConditioning()));
+        assertEquals(Boolean.TRUE, plan.legs().get(0).hasAirConditioning());
     }
 
     @Test

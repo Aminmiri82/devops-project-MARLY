@@ -179,7 +179,6 @@ class RealTimeAlertServiceImpl implements RealTimeAlertService {
 
     private final JourneyRepository journeyRepository;
     private final TrafficAlertRepository trafficAlertRepository;
-    private final NotificationService notificationService;
     private final java.util.Set<UUID> subscribedJourneys = new java.util.HashSet<>();
 
     public RealTimeAlertServiceImpl(JourneyRepository journeyRepository,
@@ -187,7 +186,6 @@ class RealTimeAlertServiceImpl implements RealTimeAlertService {
             NotificationService notificationService) {
         this.journeyRepository = journeyRepository;
         this.trafficAlertRepository = trafficAlertRepository;
-        this.notificationService = notificationService;
     }
 
     @Override
@@ -208,11 +206,10 @@ class RealTimeAlertServiceImpl implements RealTimeAlertService {
 
         for (UUID journeyId : subscribedJourneys) {
             journeyRepository.findById(journeyId).ifPresent(journey -> {
-                if (journey.isLineUsed(alert.getLineCode())) {
-                    if (alert.getSeverity() == AlertSeverity.HIGH
-                            || alert.getSeverity() == AlertSeverity.CRITICAL) {
-                        // Would send notification
-                    }
+                if (journey.isLineUsed(alert.getLineCode())
+                        && (alert.getSeverity() == AlertSeverity.HIGH
+                                || alert.getSeverity() == AlertSeverity.CRITICAL)) {
+                    // Would send notification
                 }
             });
         }

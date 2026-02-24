@@ -12,6 +12,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.marly.mavigo.config.CustomUserDetailsService;
 import org.marly.mavigo.config.JwtUtils;
 import org.marly.mavigo.config.SecurityConfig;
@@ -245,11 +247,15 @@ class JourneyControllerAdvancedTest {
     @DisplayName("Tests de parsing departureTime")
     class DepartureTimeParsingTests {
 
-        @Test
+        @ParameterizedTest(name = "planJourney accepte le format: {0}")
+        @ValueSource(strings = {
+            "2025-12-14T18:00:00+01:00",
+            "2025-12-14T18:00:00",
+            "2025-12-14T18:00",
+            "2025-12-14T17:00:00Z"
+        })
         @WithMockUser
-        @DisplayName("planJourney accepte ISO avec offset")
-        void planJourney_acceptsIsoWithOffset() throws Exception {
-            // Given
+        void planJourney_acceptsVariousDateTimeFormats(String departureTime) throws Exception {
             UUID userId = UUID.randomUUID();
             User user = new User("ext-123", "test@example.com", "Test User");
             user.setId(userId);
@@ -266,114 +272,11 @@ class JourneyControllerAdvancedTest {
                             "userId": "%s",
                             "originQuery": "Gare de Lyon",
                             "destinationQuery": "Châtelet",
-                            "departureTime": "2025-12-14T18:00:00+01:00"
+                            "departureTime": "%s"
                         }
                     }
-                    """.formatted(userId);
+                    """.formatted(userId, departureTime);
 
-            // When/Then
-            mockMvc.perform(post("/api/journeys")
-                    .with(SecurityMockMvcRequestPostProcessors.csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requestBody))
-                    .andExpect(status().is2xxSuccessful());
-        }
-
-        @Test
-        @WithMockUser
-        @DisplayName("planJourney accepte ISO local avec secondes")
-        void planJourney_acceptsIsoLocalWithSeconds() throws Exception {
-            // Given
-            UUID userId = UUID.randomUUID();
-            User user = new User("ext-123", "test@example.com", "Test User");
-            user.setId(userId);
-
-            Journey mockJourney = createMockJourney(user);
-
-            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
-                    .thenReturn(List.of(mockJourney));
-            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
-
-            String requestBody = """
-                    {
-                        "journey": {
-                            "userId": "%s",
-                            "originQuery": "Gare de Lyon",
-                            "destinationQuery": "Châtelet",
-                            "departureTime": "2025-12-14T18:00:00"
-                        }
-                    }
-                    """.formatted(userId);
-
-            // When/Then
-            mockMvc.perform(post("/api/journeys")
-                    .with(SecurityMockMvcRequestPostProcessors.csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requestBody))
-                    .andExpect(status().is2xxSuccessful());
-        }
-
-        @Test
-        @WithMockUser
-        @DisplayName("planJourney accepte ISO local sans secondes")
-        void planJourney_acceptsIsoLocalWithoutSeconds() throws Exception {
-            // Given
-            UUID userId = UUID.randomUUID();
-            User user = new User("ext-123", "test@example.com", "Test User");
-            user.setId(userId);
-
-            Journey mockJourney = createMockJourney(user);
-
-            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
-                    .thenReturn(List.of(mockJourney));
-            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
-
-            String requestBody = """
-                    {
-                        "journey": {
-                            "userId": "%s",
-                            "originQuery": "Gare de Lyon",
-                            "destinationQuery": "Châtelet",
-                            "departureTime": "2025-12-14T18:00"
-                        }
-                    }
-                    """.formatted(userId);
-
-            // When/Then
-            mockMvc.perform(post("/api/journeys")
-                    .with(SecurityMockMvcRequestPostProcessors.csrf())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(requestBody))
-                    .andExpect(status().is2xxSuccessful());
-        }
-
-        @Test
-        @WithMockUser
-        @DisplayName("planJourney accepte ISO avec timezone Z")
-        void planJourney_acceptsIsoWithZuluTimezone() throws Exception {
-            // Given
-            UUID userId = UUID.randomUUID();
-            User user = new User("ext-123", "test@example.com", "Test User");
-            user.setId(userId);
-
-            Journey mockJourney = createMockJourney(user);
-
-            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
-                    .thenReturn(List.of(mockJourney));
-            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
-
-            String requestBody = """
-                    {
-                        "journey": {
-                            "userId": "%s",
-                            "originQuery": "Gare de Lyon",
-                            "destinationQuery": "Châtelet",
-                            "departureTime": "2025-12-14T17:00:00Z"
-                        }
-                    }
-                    """.formatted(userId);
-
-            // When/Then
             mockMvc.perform(post("/api/journeys")
                     .with(SecurityMockMvcRequestPostProcessors.csrf())
                     .contentType(MediaType.APPLICATION_JSON)

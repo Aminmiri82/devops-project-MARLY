@@ -224,15 +224,17 @@ class UserServiceImplExtendedTest {
 
     @Test
     void linkGoogleAccount_rejectsNullUserId() {
+        GoogleAccountLink link1 = new GoogleAccountLink("sub", "e@x.com");
         assertThrows(NullPointerException.class,
-                () -> service.linkGoogleAccount(null, new GoogleAccountLink("sub", "e@x.com")));
+                () -> service.linkGoogleAccount(null, link1));
     }
 
     @Test
     void linkGoogleAccount_rejectsBlankSubject() {
         UUID userId = UUID.randomUUID();
+        GoogleAccountLink blankSubject = new GoogleAccountLink("", "e@x.com");
         assertThrows(IllegalArgumentException.class,
-                () -> service.linkGoogleAccount(userId, new GoogleAccountLink("", "e@x.com")));
+                () -> service.linkGoogleAccount(userId, blankSubject));
     }
 
     // ── getUser ──

@@ -7,7 +7,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.marly.mavigo.ui.BaseSeleniumTest;
-import org.marly.mavigo.ui.pages.JourneyResultsPage;
 import org.marly.mavigo.ui.pages.JourneySearchPage;
 import org.marly.mavigo.ui.pages.TaskSelectionPage;
 import org.openqa.selenium.By;
@@ -18,13 +17,11 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 class JourneyOptimizationFlowTest extends BaseSeleniumTest {
 
     private JourneySearchPage searchPage;
-    private JourneyResultsPage resultsPage;
     private TaskSelectionPage taskSelectionPage;
 
     @BeforeEach
     void setUpPages() {
         searchPage = new JourneySearchPage(driver, baseUrl);
-        resultsPage = new JourneyResultsPage(driver, baseUrl);
         taskSelectionPage = new TaskSelectionPage(driver, baseUrl);
     }
 
@@ -39,16 +36,10 @@ class JourneyOptimizationFlowTest extends BaseSeleniumTest {
         searchPage.enterOrigin("Gare de Lyon");
         searchPage.enterDestination("Châtelet");
 
-        // Then - Optimization option should be visible
-        boolean optimizationOptionExists = driver.findElements(
-                By.cssSelector("[data-testid='optimization-option'], .optimization-option, .include-tasks-checkbox"))
-                .stream()
-                .anyMatch(element -> element.isDisplayed());
-
-        // Note: This test verifies the UI has an optimization option
-        // The actual presence depends on the frontend implementation
-        if (searchPage.hasSearchButton()) {
-            assertThat(searchPage.isSearchButtonEnabled()).isTrue();
+        // Note: The journey form can be hidden when the user is not authenticated.
+        // When visible, verify an optimization control is present in the updated UI.
+        if (searchPage.hasJourneyForm()) {
+            assertThat(searchPage.hasOptimizationOption()).isTrue();
         } else {
             assertThat(searchPage.getCurrentUrl()).contains("/search");
         }

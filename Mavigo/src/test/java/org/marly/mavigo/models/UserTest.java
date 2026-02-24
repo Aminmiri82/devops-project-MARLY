@@ -192,7 +192,9 @@ class UserTest {
     @DisplayName("Les listes de journeys et settings devraient être non modifiables")
     void lists_shouldBeUnmodifiable() {
         // When/Then
-        assertThrows(UnsupportedOperationException.class, () -> user.getJourneys().add(null));
-        assertThrows(UnsupportedOperationException.class, () -> user.getNamedComfortSettings().add(null));
+        var journeys = user.getJourneys();
+        assertThrows(UnsupportedOperationException.class, () -> journeys.add(null));
+        var settings = user.getNamedComfortSettings();
+        assertThrows(UnsupportedOperationException.class, () -> settings.add(null));
     }
 }
