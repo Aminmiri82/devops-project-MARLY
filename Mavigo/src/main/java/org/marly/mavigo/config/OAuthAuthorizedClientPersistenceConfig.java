@@ -18,6 +18,38 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepo
 @Configuration
 public class OAuthAuthorizedClientPersistenceConfig {
 
+    private static final String CREATE_OAUTH2_AUTHORIZED_CLIENT_TABLE_POSTGRES = """
+            CREATE TABLE IF NOT EXISTS oauth2_authorized_client (
+              client_registration_id varchar(100) NOT NULL,
+              principal_name varchar(200) NOT NULL,
+              access_token_type varchar(100) NOT NULL,
+              access_token_value bytea NOT NULL,
+              access_token_issued_at timestamp NOT NULL,
+              access_token_expires_at timestamp NOT NULL,
+              access_token_scopes varchar(1000) DEFAULT NULL,
+              refresh_token_value bytea DEFAULT NULL,
+              refresh_token_issued_at timestamp DEFAULT NULL,
+              created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+              PRIMARY KEY (client_registration_id, principal_name)
+            )
+            """;
+
+    private static final String CREATE_OAUTH2_AUTHORIZED_CLIENT_TABLE_DEFAULT = """
+            CREATE TABLE IF NOT EXISTS oauth2_authorized_client (
+              client_registration_id varchar(100) NOT NULL,
+              principal_name varchar(200) NOT NULL,
+              access_token_type varchar(100) NOT NULL,
+              access_token_value varbinary NOT NULL,
+              access_token_issued_at timestamp NOT NULL,
+              access_token_expires_at timestamp NOT NULL,
+              access_token_scopes varchar(1000) DEFAULT NULL,
+              refresh_token_value varbinary DEFAULT NULL,
+              refresh_token_issued_at timestamp DEFAULT NULL,
+              created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+              PRIMARY KEY (client_registration_id, principal_name)
+            )
+            """;
+
     @Bean
     public OAuth2AuthorizedClientService authorizedClientService(
             DataSource dataSource,
@@ -46,25 +78,11 @@ public class OAuthAuthorizedClientPersistenceConfig {
             String urlLower = jdbcUrl == null ? "" : jdbcUrl.toLowerCase();
             boolean postgres = productLower.contains("postgres")
                     || urlLower.contains("mode=postgresql");
-            String binaryType = postgres ? "bytea" : "varbinary";
-
-            String sql = """
-                    CREATE TABLE IF NOT EXISTS oauth2_authorized_client (
-                      client_registration_id varchar(100) NOT NULL,
-                      principal_name varchar(200) NOT NULL,
-                      access_token_type varchar(100) NOT NULL,
-                      access_token_value %s NOT NULL,
-                      access_token_issued_at timestamp NOT NULL,
-                      access_token_expires_at timestamp NOT NULL,
-                      access_token_scopes varchar(1000) DEFAULT NULL,
-                      refresh_token_value %s DEFAULT NULL,
-                      refresh_token_issued_at timestamp DEFAULT NULL,
-                      created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                      PRIMARY KEY (client_registration_id, principal_name)
-                    )
-                    """.formatted(binaryType, binaryType);
-
-            jdbcTemplate.execute(sql);
+            if (postgres) {
+                jdbcTemplate.execute(CREATE_OAUTH2_AUTHORIZED_CLIENT_TABLE_POSTGRES);
+            } else {
+                jdbcTemplate.execute(CREATE_OAUTH2_AUTHORIZED_CLIENT_TABLE_DEFAULT);
+            }
         };
     }
 }
