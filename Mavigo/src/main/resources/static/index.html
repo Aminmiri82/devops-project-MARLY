@@ -420,20 +420,40 @@
           </div>
           <div class="panel-body">
 
-            <div class="tasks-toolbar">
-              <p class="tasks-listname" id="tasksListName">Default list: —</p>
-
-              <div class="tasks-toolbar-actions">
-                <label class="checkbox-label">
-                  <input type="checkbox" id="tasksIncludeCompleted">
-                  <span>Include completed</span>
-                </label>
-
-                <button type="button" class="btn btn-outline btn-sm" id="refreshTasksBtn">Refresh</button>
+            <div class="tasks-overview-box"
+              style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 24px;">
+              <div class="tasks-overview-header"
+                style="background: var(--color-surface-hover); padding: 16px 20px; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                <p style="margin: 0; font-size: 0.95rem; color: var(--color-text-secondary); flex: 1;">
+                  Tasks are managed in Google Tasks. Use the list below to view and complete them.
+                </p>
+                <div class="tasks-toolbar-actions"
+                  style="display: flex; align-items: center; gap: 16px; background: var(--color-surface); padding: 6px 16px; border-radius: var(--radius-lg); border: 1px solid var(--color-border-light); box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                  <label class="checkbox-label" style="margin: 0; padding: 0;">
+                    <input type="checkbox" id="tasksIncludeCompleted">
+                    <span>Include completed</span>
+                  </label>
+                  <div style="width: 1px; height: 16px; background: var(--color-border);"></div>
+                  <button type="button" class="btn btn-ghost btn-sm" id="refreshTasksBtn"
+                    style="color: var(--color-primary); display: flex; align-items: center; gap: 4px; padding: 4px 8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15">
+                      </path>
+                    </svg>
+                    Refresh Tasks
+                  </button>
+                </div>
+              </div>
+              <div class="tasks-overview-tip"
+                style="padding: 16px 20px; background: rgba(29, 161, 242, 0.05); display: flex; gap: 12px; align-items: flex-start;">
+                <span style="font-size: 1.25rem;">💡</span>
+                <p style="margin: 0; font-size: 0.95rem; color: var(--color-text); line-height: 1.5;">
+                  <strong>Tip:</strong> When creating a new task in Google Tasks, add the tag
+                  <code>#mavigo:[location name]</code> in the details so the app can detect it and include it in your
+                  journey planning.
+                </p>
               </div>
             </div>
-
-            <p class="tasks-info">Tasks are managed in Google Tasks. Use the list below to view and complete them.</p>
 
           </div>
         </section>
