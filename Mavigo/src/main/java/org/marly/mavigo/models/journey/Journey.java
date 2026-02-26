@@ -98,6 +98,12 @@ public class Journey {
     @Column(name = "disruption_count", nullable = false)
     private int disruptionCount = 0;
 
+    @Column(name = "intermediate_query")
+    private String intermediateQuery;
+
+    @Column(name = "intermediate_departure_time")
+    private OffsetDateTime intermediateDepartureTime;
+
     @OneToMany(mappedBy = "journey", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("sequenceOrder ASC")
     private List<JourneySegment> segments = new ArrayList<>();
@@ -369,6 +375,22 @@ public class Journey {
 
     public void setDisruptionCount(int disruptionCount) {
         this.disruptionCount = disruptionCount;
+    }
+
+    public String getIntermediateQuery() {
+        return intermediateQuery;
+    }
+
+    public void setIntermediateQuery(String intermediateQuery) {
+        this.intermediateQuery = intermediateQuery;
+    }
+
+    public OffsetDateTime getIntermediateDepartureTime() {
+        return intermediateDepartureTime;
+    }
+
+    public void setIntermediateDepartureTime(OffsetDateTime intermediateDepartureTime) {
+        this.intermediateDepartureTime = intermediateDepartureTime;
     }
 
     public List<JourneySegment> getSegments() {

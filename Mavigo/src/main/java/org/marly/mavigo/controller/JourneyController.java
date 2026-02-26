@@ -238,6 +238,10 @@ public class JourneyController {
 
         aggregated.replaceSegments(allSegments);
         aggregated.setStatus(JourneyStatus.PLANNED);
+        aggregated.setIntermediateQuery(intermediateQuery);
+        if (intermediateDepartureTime != null) {
+            aggregated.setIntermediateDepartureTime(intermediateDepartureTime.atOffset(java.time.ZoneOffset.UTC));
+        }
         return List.of(journeyRepository.save(aggregated));
     }
 
