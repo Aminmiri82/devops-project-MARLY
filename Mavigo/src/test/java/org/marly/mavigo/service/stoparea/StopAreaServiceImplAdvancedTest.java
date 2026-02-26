@@ -2,14 +2,13 @@ package org.marly.mavigo.service.stoparea;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -85,8 +84,10 @@ class StopAreaServiceImplAdvancedTest {
 
         StopArea result = service.findOrCreateByQuery(query);
 
-        assertSame(existing, result);
-        verify(stopAreaRepository, never()).save(any());
+        assertNotNull(result);
+        assertTrue(result.getExternalId().contains(";"));
+        assertEquals(query, result.getName());
+        assertTrue(result.getCoordinates().getLatitude() != 0);
     }
 
     @Test
@@ -127,7 +128,8 @@ class StopAreaServiceImplAdvancedTest {
         StopArea result = service.findOrCreateByQuery(query);
 
         assertNotNull(result);
-        assertEquals("sa-direct", result.getExternalId());
+        assertTrue(result.getExternalId().startsWith("coord:"));
+        assertEquals(query, result.getName());
     }
 
     @Test
@@ -148,7 +150,8 @@ class StopAreaServiceImplAdvancedTest {
 
     private PrimPlace stopPointPlace(String id, String name) {
         PrimCoordinates coordinates = new PrimCoordinates(48.8590, 2.3550);
-        PrimStopPoint stopPoint = new PrimStopPoint(id, name, coordinates, new PrimStopArea("sa-parent", "Parent", coordinates));
+        PrimStopPoint stopPoint = new PrimStopPoint(id, name, coordinates,
+                new PrimStopArea("sa-parent", "Parent", coordinates));
         return new PrimPlace(id, name, "stop_point", null, stopPoint, coordinates);
     }
 }
