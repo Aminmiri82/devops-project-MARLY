@@ -33,7 +33,9 @@ public record JourneyResponse(
                 List<TaskOnRouteResponse> tasksOnRoute,
                 List<IncludedTaskResponse> includedTasks,
                 Long baseDurationSeconds,
-                List<BadgeResponse> newBadges) {
+                List<BadgeResponse> newBadges,
+                String intermediateQuery,
+                OffsetDateTime intermediateDepartureTime) {
 
         public record BadgeResponse(String name, String description, String icon) {
         }
@@ -78,7 +80,9 @@ public record JourneyResponse(
                                 tasksOnRoute == null ? Collections.emptyList() : tasksOnRoute,
                                 Collections.emptyList(),
                                 null,
-                                badgeResponses);
+                                badgeResponses,
+                                journey.getIntermediateQuery(),
+                                journey.getIntermediateDepartureTime());
         }
 
         public static JourneyResponse fromOptimized(
@@ -105,7 +109,9 @@ public record JourneyResponse(
                                 base.tasksOnRoute(),
                                 includedTasks == null ? Collections.emptyList() : includedTasks,
                                 baseDurationSeconds,
-                                base.newBadges());
+                                base.newBadges(),
+                                base.intermediateQuery(),
+                                base.intermediateDepartureTime());
         }
 
         private static JourneySummary createSummary(Journey journey) {

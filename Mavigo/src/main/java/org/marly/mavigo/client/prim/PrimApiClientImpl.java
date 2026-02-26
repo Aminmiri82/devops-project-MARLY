@@ -122,8 +122,10 @@ public class PrimApiClientImpl implements PrimApiClient {
 
                 List<PrimPlace> validPlaces = new ArrayList<>();
                 for (PrimPlace place : places) {
-                    if (place == null) continue;
-                    if (!hasStopAreaOrPoint(place)) continue;
+                    if (place == null)
+                        continue;
+                    if (!hasStopAreaOrPoint(place))
+                        continue;
 
                     PrimCoordinates coords = placeCoordinates(place);
                     if (coords != null && coords.latitude() != null && coords.longitude() != null) {
@@ -142,9 +144,12 @@ public class PrimApiClientImpl implements PrimApiClient {
                 validPlaces.sort((p1, p2) -> {
                     PrimCoordinates c1 = placeCoordinates(p1);
                     PrimCoordinates c2 = placeCoordinates(p2);
-                    if (c1 == null && c2 == null) return 0;
-                    if (c1 == null) return 1;
-                    if (c2 == null) return -1;
+                    if (c1 == null && c2 == null)
+                        return 0;
+                    if (c1 == null)
+                        return 1;
+                    if (c2 == null)
+                        return -1;
                     double d1 = calculateDistance(latitude, longitude, c1.latitude(), c1.longitude());
                     double d2 = calculateDistance(latitude, longitude, c2.latitude(), c2.longitude());
                     return Double.compare(d1, d2);
@@ -185,8 +190,10 @@ public class PrimApiClientImpl implements PrimApiClient {
 
             List<PrimPlace> validPlaces = new ArrayList<>();
             for (PrimPlace place : places) {
-                if (place == null) continue;
-                if (!hasStopAreaOrPoint(place)) continue;
+                if (place == null)
+                    continue;
+                if (!hasStopAreaOrPoint(place))
+                    continue;
 
                 PrimCoordinates coords = placeCoordinates(place);
                 if (coords != null && coords.latitude() != null && coords.longitude() != null) {
@@ -212,14 +219,17 @@ public class PrimApiClientImpl implements PrimApiClient {
     }
 
     private boolean hasStopAreaOrPoint(PrimPlace place) {
-        if (place == null) return false;
+        if (place == null)
+            return false;
         return (place.stopArea() != null && place.stopArea().id() != null)
                 || (place.stopPoint() != null && place.stopPoint().id() != null);
     }
 
     private PrimCoordinates placeCoordinates(PrimPlace place) {
-        if (place == null) return null;
-        if (place.coordinates() != null) return place.coordinates();
+        if (place == null)
+            return null;
+        if (place.coordinates() != null)
+            return place.coordinates();
         if (place.stopArea() != null && place.stopArea().coordinates() != null) {
             return place.stopArea().coordinates();
         }
@@ -235,7 +245,7 @@ public class PrimApiClientImpl implements PrimApiClient {
         double lonDistance = Math.toRadians(lon2 - lon1);
         double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+                        * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     }
@@ -294,11 +304,15 @@ public class PrimApiClientImpl implements PrimApiClient {
         request.getWheelchair().ifPresent(wheelchair -> uriBuilder.queryParam("wheelchair", wheelchair));
         request.getRealtime().ifPresent(realtime -> uriBuilder.queryParam("realtime", realtime));
         request.getMaxWaitingDuration().ifPresent(duration -> uriBuilder.queryParam("max_waiting_duration", duration));
-        request.getMaxWalkingDurationToPt().ifPresent(duration -> uriBuilder.queryParam("max_walking_duration_to_pt", duration));
+        request.getMaxWalkingDurationToPt()
+                .ifPresent(duration -> uriBuilder.queryParam("max_walking_duration_to_pt", duration));
         request.getDirectPath().ifPresent(path -> uriBuilder.queryParam("direct_path", path));
         request.getEquipmentDetails().ifPresent(details -> uriBuilder.queryParam("equipment_details", details));
-        request.getFirstSectionModes().ifPresent(modes -> modes.forEach(mode -> uriBuilder.queryParam("first_section_mode[]", mode)));
-        request.getLastSectionModes().ifPresent(modes -> modes.forEach(mode -> uriBuilder.queryParam("last_section_mode[]", mode)));
+        request.getFirstSectionModes()
+                .ifPresent(modes -> modes.forEach(mode -> uriBuilder.queryParam("first_section_mode[]", mode)));
+        request.getLastSectionModes()
+                .ifPresent(modes -> modes.forEach(mode -> uriBuilder.queryParam("last_section_mode[]", mode)));
+        request.getExcludedLines().forEach(line -> uriBuilder.queryParam("forbidden_id[]", line));
 
         String url = uriBuilder.toUriString();
 
@@ -405,7 +419,8 @@ public class PrimApiClientImpl implements PrimApiClient {
                                 networkName,
                                 toOffset(first.departureDateTime() != null ? first.departureDateTime()
                                         : section.departureDateTime()),
-                                toOffset(last.arrivalDateTime() != null ? last.arrivalDateTime() : section.arrivalDateTime()),
+                                toOffset(last.arrivalDateTime() != null ? last.arrivalDateTime()
+                                        : section.arrivalDateTime()),
                                 section.duration(),
                                 from.id(),
                                 from.name(),

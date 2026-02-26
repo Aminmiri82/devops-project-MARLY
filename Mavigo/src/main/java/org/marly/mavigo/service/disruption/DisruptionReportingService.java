@@ -1,6 +1,7 @@
 package org.marly.mavigo.service.disruption;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -166,18 +167,115 @@ public class DisruptionReportingService {
         }
         StopArea destination = stopAreaService.findOrCreateByQuery(original.getDestinationLabel());
 
-        return calculateAlternatives(original, origin, destination, null);
+        // Check if there's an intermediate stop and if it's still ahead
+        String via = original.getIntermediateQuery();
+        if (via != null && !via.isBlank()) {
+            // Simple heuristic: if the via stop name matches any point later in the
+            // original journey,
+            // we check if that point is after our newOrigin.
+            // However, a safer way is to assume we still need to go to Via if we haven't
+            // reached it yet.
+            // For now, if via is present, we try to route through it.
+            // Optimization: if newOrigin itself is the via stop (or very close), we might
+            // skip it.
+            if (!newOrigin.getName().equalsIgnoreCase(via)) {
+                return calculateAlternatives(original, origin, destination, via,
+                        original.getIntermediateDepartureTime(), null);
+            }
+        }
+
+        return calculateAlternatives(original, origin, destination, null, null, null);
     }
 
     private List<Journey> recalculateExcluding(Journey original, String excludedLine) {
         StopArea origin = stopAreaService.findOrCreateByQuery(original.getOriginLabel());
         StopArea destination = stopAreaService.findOrCreateByQuery(original.getDestinationLabel());
-        return calculateAlternatives(original, origin, destination, excludedLine);
+
+        String via = original.getIntermediateQuery();
+        if (via != null && !via.isBlank()) {
+            return calculateAlternatives(original, origin, destination, via,
+                    original.getIntermediateDepartureTime(), excludedLine);
+        }
+
+        return calculateAlternatives(original, origin, destination, null, null, excludedLine);
     }
 
     private List<Journey> calculateAlternatives(Journey original, StopArea origin, StopArea destination,
-            String excludedLine) {
+            String viaQuery, java.time.OffsetDateTime viaDeparture, String excludedLine) {
         try {
+            if (viaQuery != null && !viaQuery.isBlank()) {
+                // Multistop rerouting logic
+                // Leg 1: Current Origin -> Via
+                StopArea viaStop = stopAreaService.findOrCreateByQuery(viaQuery);
+                var request1 = new PrimJourneyRequest(origin.getExternalId(), viaStop.getExternalId(),
+                        LocalDateTime.now());
+                if (excludedLine != null) {
+                    request1.addExcludedLine(excludedLine);
+                }
+                List<PrimJourneyPlanDto> leg1Options = primApiClient.calculateJourneyPlans(request1);
+                if (excludedLine != null) {
+                    leg1Options = leg1Options.stream()
+                            .filter(plan -> plan.legs() == null
+                                    || plan.legs().stream().noneMatch(leg -> excludedLine.equals(leg.lineCode())))
+                            .toList();
+                }
+
+                if (leg1Options.isEmpty()) {
+                    LOG.warn("Could not find reroute to intermediate stop '{}', falling back to direct", viaQuery);
+                    return calculateAlternatives(original, origin, destination, null, null, excludedLine);
+                }
+
+                PrimJourneyPlanDto leg1 = leg1Options.get(0);
+                LocalDateTime leg2Time = viaDeparture != null ? viaDeparture.toLocalDateTime()
+                        : LocalDateTime.now()
+                                .plusSeconds(leg1.durationSeconds() != null ? leg1.durationSeconds() : 3600);
+
+                // Leg 2: Via -> Destination
+                var request2 = new PrimJourneyRequest(viaStop.getExternalId(), destination.getExternalId(), leg2Time);
+                if (excludedLine != null) {
+                    request2.addExcludedLine(excludedLine);
+                }
+                List<PrimJourneyPlanDto> leg2Options = primApiClient.calculateJourneyPlans(request2);
+
+                if (excludedLine != null) {
+                    leg2Options = leg2Options.stream()
+                            .filter(plan -> plan.legs() == null
+                                    || plan.legs().stream().noneMatch(leg -> excludedLine.equals(leg.lineCode())))
+                            .toList();
+                }
+
+                if (leg2Options.isEmpty()) {
+                    LOG.warn("Could not find reroute from intermediate stop '{}' to destination", viaQuery);
+                    return calculateAlternatives(original, origin, destination, null, null, excludedLine);
+                }
+
+                // For simplicity and matching JourneyController logic, we take the best of each
+                // and combine
+                // In a real scenario, we'd maybe want to limit/filter them
+                List<Journey> combinedResults = new ArrayList<>();
+                // Combining is complex here because we need to assemble them first.
+                // Let's reuse a simplified version of planViaJourney logic or just call it if
+                // possible.
+                // But planViaJourney is in the Controller.
+                // Let's assemble a combined result manually or refactor.
+
+                // For now, let's assemble at least one combined journey to verify it works.
+                Journey leg1J = journeyAssembler.assemble(original.getUser(), origin, viaStop, leg1Options.get(0),
+                        new JourneyPreferences(original.isComfortModeEnabled(), false,
+                                original.getNamedComfortSettingId()));
+                Journey leg2J = journeyAssembler.assemble(original.getUser(), viaStop, destination, leg2Options.get(0),
+                        new JourneyPreferences(original.isComfortModeEnabled(), false,
+                                original.getNamedComfortSettingId()));
+
+                Journey combined = combineJourneys(leg1J, leg2J);
+                combined.setIntermediateQuery(viaQuery);
+                combined.setIntermediateDepartureTime(viaDeparture);
+                original.getDisruptions().forEach(combined::addDisruption);
+
+                return List.of(journeyRepository.save(combined));
+            }
+
+            // Standard direct rerouting logic
             var request = new PrimJourneyRequest(origin.getExternalId(), destination.getExternalId(),
                     LocalDateTime.now());
             List<PrimJourneyPlanDto> options = primApiClient.calculateJourneyPlans(request);
@@ -234,5 +332,54 @@ public class DisruptionReportingService {
         journey.getSegments().forEach(s -> Hibernate.initialize(s.getPoints()));
         Hibernate.initialize(journey.getDisruptions());
         return journey;
+    }
+
+    private Journey combineJourneys(Journey leg1, Journey leg2) {
+        Journey aggregated = new Journey(
+                leg1.getUser(),
+                leg1.getOriginLabel(),
+                leg2.getDestinationLabel(),
+                leg1.getPlannedDeparture(),
+                leg2.getPlannedArrival());
+
+        List<JourneySegment> allSegments = new java.util.ArrayList<>();
+        int sequenceOrder = 0;
+
+        for (Journey segment : List.of(leg1, leg2)) {
+            if (segment.getSegments() != null) {
+                for (JourneySegment seg : segment.getSegments()) {
+                    JourneySegment newSeg = new JourneySegment(aggregated, sequenceOrder++, seg.getSegmentType());
+                    newSeg.setTransitMode(seg.getTransitMode());
+                    newSeg.setLineCode(seg.getLineCode());
+                    newSeg.setLineName(seg.getLineName());
+                    newSeg.setLineColor(seg.getLineColor());
+                    newSeg.setNetworkName(seg.getNetworkName());
+                    newSeg.setScheduledDeparture(seg.getScheduledDeparture());
+                    newSeg.setScheduledArrival(seg.getScheduledArrival());
+                    newSeg.setDurationSeconds(seg.getDurationSeconds());
+                    newSeg.setDistanceMeters(seg.getDistanceMeters());
+                    newSeg.setHasAirConditioning(seg.getHasAirConditioning());
+                    newSeg.setPrimSectionId(seg.getPrimSectionId());
+
+                    int pointSeq = 0;
+                    for (JourneyPoint point : seg.getPoints()) {
+                        JourneyPoint newPoint = new JourneyPoint(newSeg, pointSeq++, point.getPointType(),
+                                point.getName());
+                        newPoint.setPrimStopPointId(point.getPrimStopPointId());
+                        newPoint.setPrimStopAreaId(point.getPrimStopAreaId());
+                        newPoint.setCoordinates(point.getCoordinates());
+                        newPoint.setScheduledArrival(point.getScheduledArrival());
+                        newPoint.setScheduledDeparture(point.getScheduledDeparture());
+                        newPoint.setStatus(point.getStatus());
+                        newSeg.addPoint(newPoint);
+                    }
+                    allSegments.add(newSeg);
+                }
+            }
+        }
+
+        aggregated.replaceSegments(allSegments);
+        aggregated.setStatus(JourneyStatus.PLANNED);
+        return aggregated;
     }
 }
