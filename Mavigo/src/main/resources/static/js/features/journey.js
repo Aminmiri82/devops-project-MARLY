@@ -315,7 +315,9 @@ async function handleJourneySubmit(e) {
 
   const from = (document.getElementById("from")?.value || "").trim();
   const to = (document.getElementById("to")?.value || "").trim();
+  const via = (document.getElementById("via")?.value || "").trim();
   const departure = departureInput?.value || "";
+  const viaDeparture = document.getElementById("viaDeparture")?.value || "";
   const comfortSelection = journeyComfortSelection?.value || "disabled";
   const includeTask = !!journeyIncludeTask?.checked;
 
@@ -324,6 +326,15 @@ async function handleJourneySubmit(e) {
       resultsDiv.innerHTML =
         '<p class="error-message">Please select a departure time.</p>';
     return;
+  }
+
+  if (via && viaDeparture) {
+    if (new Date(viaDeparture) <= new Date(departure)) {
+      if (resultsDiv)
+        resultsDiv.innerHTML =
+          '<p class="error-message">Via departure time must be after the initial departure time.</p>';
+      return;
+    }
   }
 
   if (comfortSelection !== "disabled" && !validateComfortMode()) {
@@ -348,6 +359,13 @@ async function handleJourneySubmit(e) {
         comfortSelection !== "disabled" ? comfortSelection : null,
     },
   };
+
+  if (via) {
+    payload.journey.intermediateQuery = via;
+    if (viaDeparture) {
+      payload.journey.intermediateDepartureTime = viaDeparture;
+    }
+  }
 
   // Optionnel : inclure une tâche Google sur le chemin (optimisation côté backend)
   if (includeTask) {

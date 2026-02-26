@@ -25,6 +25,7 @@ import org.marly.mavigo.models.journey.JourneyStatus;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.repository.UserTaskRepository;
+import org.marly.mavigo.repository.JourneyRepository;
 import org.marly.mavigo.service.journey.JourneyManagementService;
 import org.marly.mavigo.service.journey.JourneyOptimizationService;
 import org.marly.mavigo.service.journey.JourneyOptimizationService.OptimizedJourneyResult;
@@ -80,6 +81,9 @@ class JourneyControllerAdvancedTest {
     private JourneyOptimizationService journeyOptimizationService;
 
     @MockitoBean
+    private JourneyRepository journeyRepository;
+
+    @MockitoBean
     private ClientRegistrationRepository clientRegistrationRepository;
 
     @MockitoBean
@@ -105,7 +109,8 @@ class JourneyControllerAdvancedTest {
             FilterChain chain = invocation.getArgument(2);
             chain.doFilter(request, response);
             return null;
-        }).when(jwtFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class), any(FilterChain.class));
+        }).when(jwtFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class),
+                any(FilterChain.class));
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
@@ -113,7 +118,8 @@ class JourneyControllerAdvancedTest {
             FilterChain chain = invocation.getArgument(2);
             chain.doFilter(request, response);
             return null;
-        }).when(jwtAuthenticationFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class), any(FilterChain.class));
+        }).when(jwtAuthenticationFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class),
+                any(FilterChain.class));
     }
 
     @Nested
@@ -249,10 +255,10 @@ class JourneyControllerAdvancedTest {
 
         @ParameterizedTest(name = "planJourney accepte le format: {0}")
         @ValueSource(strings = {
-            "2025-12-14T18:00:00+01:00",
-            "2025-12-14T18:00:00",
-            "2025-12-14T18:00",
-            "2025-12-14T17:00:00Z"
+                "2025-12-14T18:00:00+01:00",
+                "2025-12-14T18:00:00",
+                "2025-12-14T18:00",
+                "2025-12-14T17:00:00Z"
         })
         @WithMockUser
         void planJourney_acceptsVariousDateTimeFormats(String departureTime) throws Exception {

@@ -15,12 +15,16 @@ import org.marly.mavigo.controller.dto.JourneyResponse;
 import org.marly.mavigo.controller.dto.PlanJourneyCommand;
 import org.marly.mavigo.controller.dto.PlanJourneyRequest;
 import org.marly.mavigo.models.journey.Journey;
+import org.marly.mavigo.models.journey.JourneySegment;
+import org.marly.mavigo.models.journey.JourneyPoint;
+import org.marly.mavigo.models.journey.JourneyStatus;
 import org.marly.mavigo.models.shared.GeoPoint;
 import org.marly.mavigo.models.task.TaskSource;
 import org.marly.mavigo.models.task.UserTask;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.UserRepository;
 import org.marly.mavigo.repository.UserTaskRepository;
+import org.marly.mavigo.repository.JourneyRepository;
 import org.marly.mavigo.service.journey.JourneyOptimizationService;
 import org.marly.mavigo.service.journey.JourneyPlanningService;
 import org.marly.mavigo.service.journey.TaskOnRouteService;
@@ -54,6 +58,7 @@ public class JourneyController {
     private final TaskOnRouteService taskOnRouteService;
     private final JourneyManagementService journeyManagementService;
     private final JourneyOptimizationService journeyOptimizationService;
+    private final JourneyRepository journeyRepository;
 
     public JourneyController(
             JourneyPlanningService journeyPlanningService,
@@ -61,13 +66,15 @@ public class JourneyController {
             UserRepository userRepository,
             TaskOnRouteService taskOnRouteService,
             JourneyManagementService journeyManagementService,
-            JourneyOptimizationService journeyOptimizationService) {
+            JourneyOptimizationService journeyOptimizationService,
+            JourneyRepository journeyRepository) {
         this.journeyPlanningService = journeyPlanningService;
         this.userTaskRepository = userTaskRepository;
         this.userRepository = userRepository;
         this.taskOnRouteService = taskOnRouteService;
         this.journeyManagementService = journeyManagementService;
         this.journeyOptimizationService = journeyOptimizationService;
+        this.journeyRepository = journeyRepository;
     }
 
     @PostMapping
@@ -90,11 +97,22 @@ public class JourneyController {
         java.util.List<JourneyResponse> responses;
         boolean useTaskOptimization = (request.taskDetails() != null && !request.taskDetails().isEmpty())
                 || (request.taskIds() != null && !request.taskIds().isEmpty());
+        boolean useViaRouting = (request.intermediateQuery() != null && !request.intermediateQuery().isBlank());
 
-        if (useTaskOptimization) {
+        if (useViaRouting) {
+            LocalDateTime viaDeparture = null;
+            if (request.intermediateDepartureTime() != null && !request.intermediateDepartureTime().isBlank()) {
+                viaDeparture = parseDepartureTime(request.intermediateDepartureTime());
+            }
+            java.util.List<Journey> viaJourneys = planViaJourney(parameters, request.intermediateQuery(), viaDeparture);
+            responses = viaJourneys.stream()
+                    .map(journey -> JourneyResponse.from(journey, calculateTasksOnRoute(journey)))
+                    .toList();
+        } else if (useTaskOptimization) {
             java.util.List<org.marly.mavigo.service.journey.JourneyOptimizationService.OptimizedJourneyResult> optimizedResults;
             if (request.taskDetails() != null && !request.taskDetails().isEmpty()) {
-                optimizedResults = journeyOptimizationService.planOptimizedJourneyWithTaskDetails(parameters, request.taskDetails());
+                optimizedResults = journeyOptimizationService.planOptimizedJourneyWithTaskDetails(parameters,
+                        request.taskDetails());
             } else {
                 List<UUID> taskIds = request.taskIds() != null ? request.taskIds() : List.of();
                 optimizedResults = journeyOptimizationService.planOptimizedJourneyWithTasks(parameters, taskIds);
@@ -135,6 +153,92 @@ public class JourneyController {
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(responses);
+    }
+
+    private List<Journey> planViaJourney(JourneyPlanningParameters parameters, String intermediateQuery,
+            LocalDateTime intermediateDepartureTime) {
+        // Step 1: Origin -> Via
+        JourneyPlanningParameters leg1Params = new JourneyPlanningParameters(
+                parameters.userId(),
+                parameters.originQuery(),
+                intermediateQuery,
+                parameters.departureDateTime(),
+                parameters.preferences(),
+                parameters.ecoModeEnabled(),
+                parameters.wheelchairAccessible());
+
+        List<Journey> leg1Journeys = journeyPlanningService.planAndPersist(leg1Params);
+        if (leg1Journeys.isEmpty()) {
+            return List.of();
+        }
+        Journey leg1 = leg1Journeys.get(0);
+
+        // Step 2: Via -> Destination
+        LocalDateTime leg2DepartureTime = intermediateDepartureTime != null ? intermediateDepartureTime
+                : leg1.getPlannedArrival().toLocalDateTime();
+
+        JourneyPlanningParameters leg2Params = new JourneyPlanningParameters(
+                parameters.userId(),
+                intermediateQuery,
+                parameters.destinationQuery(),
+                leg2DepartureTime,
+                parameters.preferences(),
+                parameters.ecoModeEnabled(),
+                parameters.wheelchairAccessible());
+
+        List<Journey> leg2Journeys = journeyPlanningService.planAndPersist(leg2Params);
+        if (leg2Journeys.isEmpty()) {
+            return List.of();
+        }
+        Journey leg2 = leg2Journeys.get(0);
+
+        // Combine
+        Journey aggregated = new Journey(
+                leg1.getUser(),
+                leg1.getOriginLabel(),
+                leg2.getDestinationLabel(),
+                leg1.getPlannedDeparture(),
+                leg2.getPlannedArrival());
+
+        List<JourneySegment> allSegments = new java.util.ArrayList<>();
+        int sequenceOrder = 0;
+
+        for (Journey segment : List.of(leg1, leg2)) {
+            if (segment.getSegments() != null) {
+                for (JourneySegment seg : segment.getSegments()) {
+                    JourneySegment newSeg = new JourneySegment(aggregated, sequenceOrder++, seg.getSegmentType());
+                    newSeg.setTransitMode(seg.getTransitMode());
+                    newSeg.setLineCode(seg.getLineCode());
+                    newSeg.setLineName(seg.getLineName());
+                    newSeg.setLineColor(seg.getLineColor());
+                    newSeg.setNetworkName(seg.getNetworkName());
+                    newSeg.setScheduledDeparture(seg.getScheduledDeparture());
+                    newSeg.setScheduledArrival(seg.getScheduledArrival());
+                    newSeg.setDurationSeconds(seg.getDurationSeconds());
+                    newSeg.setDistanceMeters(seg.getDistanceMeters());
+                    newSeg.setHasAirConditioning(seg.getHasAirConditioning());
+                    newSeg.setPrimSectionId(seg.getPrimSectionId());
+
+                    int pointSeq = 0;
+                    for (JourneyPoint point : seg.getPoints()) {
+                        JourneyPoint newPoint = new JourneyPoint(newSeg, pointSeq++, point.getPointType(),
+                                point.getName());
+                        newPoint.setPrimStopPointId(point.getPrimStopPointId());
+                        newPoint.setPrimStopAreaId(point.getPrimStopAreaId());
+                        newPoint.setCoordinates(point.getCoordinates());
+                        newPoint.setScheduledArrival(point.getScheduledArrival());
+                        newPoint.setScheduledDeparture(point.getScheduledDeparture());
+                        newPoint.setStatus(point.getStatus());
+                        newSeg.addPoint(newPoint);
+                    }
+                    allSegments.add(newSeg);
+                }
+            }
+        }
+
+        aggregated.replaceSegments(allSegments);
+        aggregated.setStatus(JourneyStatus.PLANNED);
+        return List.of(journeyRepository.save(aggregated));
     }
 
     /**

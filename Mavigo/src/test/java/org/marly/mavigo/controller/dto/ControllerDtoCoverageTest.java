@@ -276,7 +276,7 @@ class ControllerDtoCoverageTest {
         PlanJourneyRequest req = new PlanJourneyRequest(
                 UUID.randomUUID(), "Paris", "Lyon", "2025-12-14T18:00",
                 true, false, List.of(UUID.randomUUID()),
-                List.of(new TaskDetailDto("t1", "Task", "query", 48.0, 2.0, false)));
+                List.of(new TaskDetailDto("t1", "Task", "query", 48.0, 2.0, false)), null, null);
 
         assertThat(req.originQuery()).isEqualTo("Paris");
         assertThat(req.ecoModeEnabled()).isTrue();
@@ -287,7 +287,7 @@ class ControllerDtoCoverageTest {
     void planJourneyCommand_coverage() {
         PlanJourneyRequest journeyReq = new PlanJourneyRequest(
                 UUID.randomUUID(), "O", "D", "2025-12-14T18:00",
-                null, null, null, null);
+                null, null, null, null, null, null);
         JourneyPreferencesRequest prefsReq = new JourneyPreferencesRequest(true, null);
         PlanJourneyCommand cmd = new PlanJourneyCommand(journeyReq, prefsReq);
         assertThat(cmd.journey().originQuery()).isEqualTo("O");
@@ -312,7 +312,8 @@ class ControllerDtoCoverageTest {
 
     @Test
     void ecoScoreResponse_coverage() {
-        EcoScoreResponse.BadgeResponse badge = new EcoScoreResponse.BadgeResponse("Eco", "desc", "🌿", OffsetDateTime.now());
+        EcoScoreResponse.BadgeResponse badge = new EcoScoreResponse.BadgeResponse("Eco", "desc", "🌿",
+                OffsetDateTime.now());
         EcoScoreResponse.AllBadgeInfo info = new EcoScoreResponse.AllBadgeInfo("All", "desc", "🏆");
         EcoScoreResponse.JourneyActivityResponse activity = new EcoScoreResponse.JourneyActivityResponse(
                 UUID.randomUUID(), "O", "D", 10.0, 5.0, OffsetDateTime.now());
