@@ -60,7 +60,8 @@ class StopAreaServiceImplDeepCoverageTest {
 
         StopArea result = service.findOrCreateByQuery(query);
 
-        assertThat(result.getExternalId()).isEqualTo("sa-nearest");
+        assertThat(result.getExternalId()).contains(";");
+        assertThat(result.getName()).isEqualTo(placeWithOnlyCoords.name());
         verify(stopAreaRepository, times(2)).save(any(StopArea.class));
     }
 
@@ -82,7 +83,8 @@ class StopAreaServiceImplDeepCoverageTest {
 
         StopArea result = service.findOrCreateByQuery(query);
 
-        assertThat(result.getExternalId()).isEqualTo("sa-15000");
+        assertThat(result.getExternalId()).startsWith("coord:");
+        assertThat(result.getName()).isEqualTo(query);
     }
 
     @Test

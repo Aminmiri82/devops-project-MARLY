@@ -94,12 +94,12 @@ class StopAreaServiceTest {
     }
 
     @Test
-    @DisplayName("findOrCreateByQuery devrait utiliser le géocodage si PRIM ne trouve rien")
-    void findOrCreateByQuery_shouldUseGeocodingWhenPrimFindsNothing() {
+    @DisplayName("findOrCreateByQuery devrait retourner une zone d'arrêt virtuelle (coord:) pour une adresse")
+    void findOrCreateByQuery_shouldReturnVirtualStopAreaForAddress() {
         // Given
         String query = "21 place Jean Charcot, Sarcelles";
         GeoPoint geocodedPoint = new GeoPoint(48.9845, 2.3775);
-        PrimPlace mockPlace = createMockPlaceWithStopArea("stop:789", "Sarcelles Gare", 48.9850, 2.3780);
+        PrimPlace mockNearbyStation = createMockPlaceWithStopArea("stop:789", "Sarcelles Gare", 48.9850, 2.3780);
 
         when(stopAreaRepository.findFirstByNameIgnoreCase(query)).thenReturn(Optional.empty());
         when(primApiClient.searchPlaces(query)).thenReturn(List.of());
@@ -107,8 +107,7 @@ class StopAreaServiceTest {
         when(geocodingService.geocode(query)).thenReturn(geocodedPoint);
         when(geocodingService.reverseGeocode(any(GeoPoint.class))).thenReturn("Sarcelles");
         when(primApiClient.searchPlacesNearby(anyDouble(), anyDouble(), anyInt(), any()))
-                .thenReturn(List.of(mockPlace));
-        when(stopAreaRepository.findByExternalId("stop:789")).thenReturn(Optional.empty());
+                .thenReturn(List.of(mockNearbyStation));
         when(stopAreaRepository.save(any(StopArea.class))).thenAnswer(i -> i.getArguments()[0]);
 
         // When
@@ -116,7 +115,13 @@ class StopAreaServiceTest {
 
         // Then
         assertNotNull(result);
-        verify(geocodingService).geocode(query);
+        assertTrue(result.getExternalId().contains(";"), "Should return a virtual coordinate-based ID");
+        assertEquals(query, result.getName());
+        assertEquals(geocodedPoint.getLatitude(), result.getCoordinates().getLatitude());
+        assertEquals(geocodedPoint.getLongitude(), result.getCoordinates().getLongitude());
+
+        // Verify that the nearby station was still saved to DB as per logic
+        verify(stopAreaRepository).findByExternalId("stop:789");
     }
 
     @Test

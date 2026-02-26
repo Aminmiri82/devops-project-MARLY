@@ -154,7 +154,7 @@ public class DisruptionReportingService {
         if (originId == null) {
             GeoPoint coords = newOrigin.getCoordinates();
             if (coords != null && coords.isComplete()) {
-                originId = String.format("coord:%.6f;%.6f", coords.getLongitude(), coords.getLatitude());
+                originId = String.format("%.6f;%.6f", coords.getLongitude(), coords.getLatitude());
             } else {
                 LOG.warn("New origin has no valid ID or coordinates");
                 return List.of();
