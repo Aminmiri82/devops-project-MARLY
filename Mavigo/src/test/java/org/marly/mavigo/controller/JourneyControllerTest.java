@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.marly.mavigo.models.task.UserTask;
 import org.marly.mavigo.models.task.TaskSource;
+import org.marly.mavigo.repository.JourneyRepository;
 import org.marly.mavigo.config.CustomUserDetailsService;
 import org.marly.mavigo.config.JwtUtils;
 import org.marly.mavigo.config.SecurityConfig;
@@ -79,6 +80,9 @@ class JourneyControllerTest {
     private JourneyOptimizationService journeyOptimizationService;
 
     @MockitoBean
+    private JourneyRepository journeyRepository;
+
+    @MockitoBean
     private ClientRegistrationRepository clientRegistrationRepository;
 
     @MockitoBean
@@ -104,7 +108,8 @@ class JourneyControllerTest {
             FilterChain chain = invocation.getArgument(2);
             chain.doFilter(request, response);
             return null;
-        }).when(jwtFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class), any(FilterChain.class));
+        }).when(jwtFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class),
+                any(FilterChain.class));
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
@@ -112,7 +117,8 @@ class JourneyControllerTest {
             FilterChain chain = invocation.getArgument(2);
             chain.doFilter(request, response);
             return null;
-        }).when(jwtAuthenticationFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class), any(FilterChain.class));
+        }).when(jwtAuthenticationFilter).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class),
+                any(FilterChain.class));
     }
 
     @Test
@@ -302,7 +308,7 @@ class JourneyControllerTest {
         UserTask task = new UserTask(user, "source-1", TaskSource.GOOGLE_TASKS, "Title");
         task.setLocationHint(new org.marly.mavigo.models.shared.GeoPoint(48.8, 2.3));
         ReflectionTestUtils.setField(task, "id", UUID.randomUUID());
-        
+
         when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of(task));
 
         // When/Then
@@ -321,7 +327,7 @@ class JourneyControllerTest {
         UUID userId = UUID.randomUUID();
         User user = new User("ext-123", "test@example.com", "Test User");
         user.setId(userId);
-        
+
         when(userRepository.findById(userId)).thenReturn(java.util.Optional.of(user));
         when(userTaskRepository.save(any(UserTask.class))).thenAnswer(i -> {
             UserTask t = i.getArgument(0);
@@ -353,7 +359,7 @@ class JourneyControllerTest {
         mockMvc.perform(delete("/api/journeys/all")
                 .with(SecurityMockMvcRequestPostProcessors.csrf()))
                 .andExpect(status().isNoContent());
-        
+
         verify(journeyManagementService).clearAllData();
     }
 
@@ -388,15 +394,17 @@ class JourneyControllerTest {
         User user = new User("ext-123", "test@example.com", "Test User");
         user.setId(userId);
         Journey mockJourney = createMockJourney(user);
-        
+
         UserTask task = new UserTask(user, "t1", TaskSource.GOOGLE_TASKS, "Task 1");
         task.setLocationHint(new org.marly.mavigo.models.shared.GeoPoint(48.8, 2.3));
         task.setCompleted(false);
 
         when(journeyPlanningService.planAndPersist(any())).thenReturn(List.of(mockJourney));
         when(userTaskRepository.findByUser_Id(any())).thenReturn(List.of(task));
-        when(taskOnRouteService.extractRoutePoints(any())).thenReturn(List.of(new org.marly.mavigo.models.shared.GeoPoint(48.8, 2.3)));
-        when(taskOnRouteService.densify(any(), anyInt())).thenReturn(List.of(new org.marly.mavigo.models.shared.GeoPoint(48.8, 2.3)));
+        when(taskOnRouteService.extractRoutePoints(any()))
+                .thenReturn(List.of(new org.marly.mavigo.models.shared.GeoPoint(48.8, 2.3)));
+        when(taskOnRouteService.densify(any(), anyInt()))
+                .thenReturn(List.of(new org.marly.mavigo.models.shared.GeoPoint(48.8, 2.3)));
         when(taskOnRouteService.minDistanceMetersToPolyline(any(), any())).thenReturn(10.0);
 
         String requestBody = """
