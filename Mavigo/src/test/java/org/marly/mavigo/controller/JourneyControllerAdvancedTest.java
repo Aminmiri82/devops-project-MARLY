@@ -292,6 +292,276 @@ class JourneyControllerAdvancedTest {
     }
 
     @Nested
+    @DisplayName("Tests multi-stop (Via routing)")
+    class MultiStopViaRoutingTests {
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney avec intermediateQuery utilise le via routing")
+        void planJourney_withIntermediateQuery_usesViaRouting() throws Exception {
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey leg1 = createMockJourney(user);
+            leg1.setOriginLabel("Gare de Lyon");
+            leg1.setDestinationLabel("Châtelet-Les Halles");
+            Journey leg2 = createMockJourney(user);
+            leg2.setOriginLabel("Châtelet-Les Halles");
+            leg2.setDestinationLabel("Opéra");
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(leg1))
+                    .thenReturn(List.of(leg2));
+            when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Opéra",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "intermediateQuery": "Châtelet-Les Halles"
+                        },
+                        "preferences": {
+                            "comfortMode": false
+                        }
+                    }
+                    """.formatted(userId);
+
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$[0].intermediateQuery").value("Châtelet-Les Halles"));
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney avec intermediateQuery et intermediateDepartureTime")
+        void planJourney_withIntermediateQueryAndDepartureTime() throws Exception {
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey leg1 = createMockJourney(user);
+            Journey leg2 = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(leg1))
+                    .thenReturn(List.of(leg2));
+            when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "A",
+                            "destinationQuery": "C",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "intermediateQuery": "B",
+                            "intermediateDepartureTime": "2025-12-14T19:00:00"
+                        }
+                    }
+                    """.formatted(userId);
+
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$[0].intermediateQuery").value("B"))
+                    .andExpect(jsonPath("$[0].intermediateDepartureTime").exists());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney avec intermediateQuery blank n'utilise pas le via routing")
+        void planJourney_withBlankIntermediateQuery_doesNotUseViaRouting() throws Exception {
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourney = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(mockJourney));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "intermediateQuery": "   "
+                        }
+                    }
+                    """.formatted(userId);
+
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful());
+
+            verify(journeyPlanningService).planAndPersist(any(JourneyPlanningParameters.class));
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney via routing retourne vide si leg1 vide")
+        void planJourney_viaRouting_returnsEmptyWhenLeg1Empty() throws Exception {
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of());
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Unknown Origin",
+                            "destinationQuery": "Opéra",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "intermediateQuery": "Châtelet"
+                        }
+                    }
+                    """.formatted(userId);
+
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(0));
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney via routing retourne vide si leg2 vide")
+        void planJourney_viaRouting_returnsEmptyWhenLeg2Empty() throws Exception {
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey leg1 = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(leg1))
+                    .thenReturn(List.of());
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Unknown Dest",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "intermediateQuery": "Châtelet"
+                        }
+                    }
+                    """.formatted(userId);
+
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(0));
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney via routing inclut tasksOnRoute dans la réponse")
+        void planJourney_viaRouting_includesTasksOnRoute() throws Exception {
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey leg1 = createMockJourney(user);
+            Journey leg2 = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(leg1))
+                    .thenReturn(List.of(leg2));
+            when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "A",
+                            "destinationQuery": "C",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "intermediateQuery": "B"
+                        }
+                    }
+                    """.formatted(userId);
+
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$[0].tasksOnRoute").isArray());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("intermediateQuery prioritaire sur taskIds pour le routing")
+        void planJourney_intermediateQueryTakesPrecedenceOverTaskIds() throws Exception {
+            UUID userId = UUID.randomUUID();
+            UUID taskId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey leg1 = createMockJourney(user);
+            Journey leg2 = createMockJourney(user);
+
+            when(journeyPlanningService.planAndPersist(any(JourneyPlanningParameters.class)))
+                    .thenReturn(List.of(leg1))
+                    .thenReturn(List.of(leg2));
+            when(journeyRepository.save(any(Journey.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "A",
+                            "destinationQuery": "C",
+                            "departureTime": "2025-12-14T18:00:00",
+                            "intermediateQuery": "B",
+                            "taskIds": ["%s"]
+                        }
+                    }
+                    """.formatted(userId, taskId);
+
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$[0].intermediateQuery").value("B"));
+
+            verify(journeyOptimizationService, never()).planOptimizedJourneyWithTasks(any(), anyList());
+        }
+    }
+
+    @Nested
     @DisplayName("Tests sans tâches (trajet normal)")
     class NormalJourneyTests {
 
