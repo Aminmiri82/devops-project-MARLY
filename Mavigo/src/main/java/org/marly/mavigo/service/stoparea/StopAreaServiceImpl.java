@@ -471,9 +471,11 @@ public class StopAreaServiceImpl implements StopAreaService {
         // Remove leading numbers (house numbers)
         simplified = simplified.replaceFirst("^\\d+\\s+", "");
 
-        // Remove common address suffixes that might not be in PRIM
-        simplified = simplified.replaceAll(",\\s*[^,]+$", ""); // Remove last comma-separated part (often postal
-                                                               // code/city)
+        // Remove common address suffixes that might not be in PRIM (avoids ReDoS-prone regex)
+        int lastComma = simplified.lastIndexOf(',');
+        if (lastComma >= 0) {
+            simplified = simplified.substring(0, lastComma).trim();
+        }
 
         return simplified.trim();
     }

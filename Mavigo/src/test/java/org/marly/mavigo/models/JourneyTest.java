@@ -203,6 +203,24 @@ class JourneyTest {
     }
 
     @Test
+    @DisplayName("intermediateQuery et intermediateDepartureTime devraient être persistés sur le Journey")
+    void intermediateQueryAndDepartureTime_shouldBeSettable() {
+        journey.setIntermediateQuery("Châtelet-Les Halles");
+        assertEquals("Châtelet-Les Halles", journey.getIntermediateQuery());
+
+        OffsetDateTime viaTime = OffsetDateTime.now().plusMinutes(30);
+        journey.setIntermediateDepartureTime(viaTime);
+        assertEquals(viaTime, journey.getIntermediateDepartureTime());
+    }
+
+    @Test
+    @DisplayName("intermediateQuery null par défaut")
+    void intermediateQuery_shouldBeNullByDefault() {
+        assertNull(journey.getIntermediateQuery());
+        assertNull(journey.getIntermediateDepartureTime());
+    }
+
+    @Test
     @DisplayName("recalculateDisruptionSummary devrait compter les points perturbés")
     void recalculateDisruptionSummary_shouldCountDisruptedPoints() {
         // Given
