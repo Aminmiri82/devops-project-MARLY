@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0beta] - 2026-02-27
+
+### Added
+- **Multi-stop journey planning (Via routing)**: Plan journeys with an intermediate stop, including optional departure time at the via station
+- **Disruption rerouting for multi-stop journeys**: When a disruption occurs on a journey with an intermediate stop, the rerouting engine now preserves the via stop and recalculates both legs accordingly
+- **Via stop UI**: Collapsible "Intermediate stop (Via)" accordion in the journey planner with via station and departure time inputs, including client-side validation
+- **Journey model**: New `intermediateQuery` and `intermediateDepartureTime` fields on the Journey entity, exposed through the API response DTO
+- **New tests**: `DisruptionIntermediateStopTest` covering station and line disruption scenarios with pending intermediate stops
+- **Branding**: Added Mavigo logo (`logo.png`) as favicon and on the landing page
+
+### Changed
+- **Google Tasks panel redesign**: Refreshed tasks UI with overview box layout, inline toolbar with refresh icon, and `#mavigo:[location]` tip card
+- **CI pipeline improvements**:
+  - Added concurrency group with `cancel-in-progress` to avoid redundant workflow runs
+  - Tightened permissions (`contents: read` by default, `contents: write` scoped to release job only)
+  - Improved cache keys for Sonar and Gradle (now includes `*.gradle.kts` and `gradle.properties`)
+  - Release job now depends on `ui-tests` in addition to `build` and `documentation`
+  - Fixed build date interpolation in GitHub Release body
+- **Security config**: Added `/images/**` to the public permit list
+- **PRIM API client**: Added support for `forbidden_id[]` query parameter (excluded lines) and minor formatting cleanup
+- **StopAreaServiceImpl**: Refactored query normalization and place-matching logic with improved formatting and locale handling
+
+### Fixed
+- **First leg origin for address-based journeys**: Corrected coordinate format from `coord:lon;lat` to `lon;lat` when building the origin ID for disruption rerouting from a non-station origin
+
+### Testing
+- Updated existing controller and service tests to accommodate the new `intermediateQuery`/`intermediateDepartureTime` fields and constructor changes
+
 ## [v1.0a] - 2026-02-24
 
 ### Changed

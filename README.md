@@ -57,8 +57,10 @@ Mavigo is a personal public transport assistant for the city of Paris. It helps 
 2. Configure environment variables in `Mavigo/local.env`:
    ```
    PRIM_API_KEY=your_prim_api_key
+   PRIM_API_ENDPOINT=https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
+   JWT_SECRET=your_jwt_secret
    ```
 
 ### Running the Application
@@ -89,34 +91,6 @@ The JAR will be created in `Mavigo/build/libs/`
 cd Mavigo
 ./gradlew test
 ```
-
-## Project Structure
-
-```
-devops-project-MARLY/
-├── Mavigo/                     # Main application
-│   ├── src/main/java/          # Java source code
-│   │   └── org/marly/mavigo/
-│   │       ├── controller/     # REST API controllers
-│   │       ├── service/        # Business logic
-│   │       ├── client/         # External API clients
-│   │       ├── models/         # JPA entities
-│   │       └── repository/     # Data repositories
-│   ├── src/main/resources/
-│   │   └── static/             # Frontend files
-│   └── src/test/               # Unit and integration tests
-├── docs/                       # Documentation
-└── README.md
-```
-
-## API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `/api/journey` | Journey planning |
-| `/api/user` | User management |
-| `/api/tasks` | Google Tasks integration |
-| `/api/perturbations` | Disruption information |
 
 ## Documentation
 
