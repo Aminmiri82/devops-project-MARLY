@@ -128,7 +128,7 @@ class StopAreaServiceImplAdvancedTest {
         StopArea result = service.findOrCreateByQuery(query);
 
         assertNotNull(result);
-        assertTrue(result.getExternalId().startsWith("coord:"));
+        assertTrue(result.getExternalId().contains(";"));
         assertEquals(query, result.getName());
     }
 
