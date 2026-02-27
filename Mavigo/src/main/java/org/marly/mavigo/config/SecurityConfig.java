@@ -71,11 +71,11 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                          OAuth2AuthorizationRequestResolver googleAuthRequestResolver) throws Exception {
+            OAuth2AuthorizationRequestResolver googleAuthRequestResolver) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/search", "/tasks", "/results", "/index.html", "/app.js", "/js/**",
-                                "/style.css", "/favicon.ico")
+                                "/style.css", "/favicon.ico", "/images/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users", "/api/users/login")
                         .permitAll()
