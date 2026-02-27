@@ -17,7 +17,7 @@ sonar {
 }
 
 group = 'org.marly'
-version = 'v1.0beta'
+version = '1.0.0'
 description = 'Mavigo'
 
 java {
