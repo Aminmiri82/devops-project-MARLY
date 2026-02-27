@@ -6,8 +6,12 @@ on:
   pull_request:
     branches: [ main, dev ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -33,14 +37,14 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.sonar/cache
-        key: ${{ runner.os }}-sonar
+        key: ${{ runner.os }}-sonar-${{ hashFiles('**/*.gradle') }}
         restore-keys: ${{ runner.os }}-sonar
 
     - name: Cache Gradle packages
       uses: actions/cache@v4
       with:
         path: ~/.gradle/caches
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', '**/gradle.properties') }}
         restore-keys: ${{ runner.os }}-gradle
 
     - name: Grant execute permission for gradlew
@@ -85,7 +89,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.gradle/caches
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', '**/gradle.properties') }}
         restore-keys: ${{ runner.os }}-gradle
 
     - name: Set up Chrome
@@ -130,8 +134,10 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: [build, documentation]
+    needs: [build, ui-tests, documentation]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'Release')
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout repository
@@ -157,8 +163,10 @@ jobs:
         # Extract version from build.gradle
         VERSION=$(grep "^version = " Mavigo/build.gradle | sed "s/version = '\(.*\)'/\1/" | sed 's/-SNAPSHOT//')
         RELEASE_TAG="v${VERSION}"
+        BUILD_DATE=$(date +%Y-%m-%d)
         echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
         echo "Generated release tag: ${RELEASE_TAG}"
 
     - name: Create GitHub Release
@@ -169,7 +177,7 @@ jobs:
         body: |
           ## Mavigo Release ${{ steps.version.outputs.version }}
           
-          **Build Date:** $(date +%Y-%m-%d)
+          **Build Date:** ${{ steps.version.outputs.build_date }}
           **Commit:** ${{ github.sha }}
           
           ### Artifacts
