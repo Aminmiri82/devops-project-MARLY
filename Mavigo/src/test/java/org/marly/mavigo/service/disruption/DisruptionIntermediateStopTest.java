@@ -22,6 +22,7 @@ import org.marly.mavigo.models.journey.JourneyPointType;
 import org.marly.mavigo.models.journey.JourneySegment;
 import org.marly.mavigo.models.journey.SegmentType;
 import org.marly.mavigo.models.stoparea.StopArea;
+import org.marly.mavigo.models.journey.TransitMode;
 import org.marly.mavigo.models.user.User;
 import org.marly.mavigo.repository.DisruptionRepository;
 import org.marly.mavigo.repository.JourneyRepository;
@@ -104,8 +105,22 @@ class DisruptionIntermediateStopTest {
 
                 // Mock assembly
                 Journey leg1J = new Journey(user, "E", "B", OffsetDateTime.now(), OffsetDateTime.now().plusMinutes(30));
+                JourneySegment leg1Seg = new JourneySegment(leg1J, 0, SegmentType.PUBLIC_TRANSPORT);
+                leg1Seg.setTransitMode(TransitMode.METRO);
+                leg1Seg.setLineCode("1");
+                leg1Seg.addPoint(new JourneyPoint(leg1Seg, 0, JourneyPointType.ORIGIN, "E"));
+                leg1Seg.addPoint(new JourneyPoint(leg1Seg, 1, JourneyPointType.DESTINATION, "B"));
+                leg1J.addSegment(leg1Seg);
+
                 Journey leg2J = new Journey(user, "B", "C", OffsetDateTime.now().plusMinutes(35),
                                 OffsetDateTime.now().plusHours(1));
+                JourneySegment leg2Seg = new JourneySegment(leg2J, 0, SegmentType.PUBLIC_TRANSPORT);
+                leg2Seg.setTransitMode(TransitMode.METRO);
+                leg2Seg.setLineCode("1");
+                leg2Seg.addPoint(new JourneyPoint(leg2Seg, 0, JourneyPointType.ORIGIN, "B"));
+                leg2Seg.addPoint(new JourneyPoint(leg2Seg, 1, JourneyPointType.DESTINATION, "C"));
+                leg2J.addSegment(leg2Seg);
+
                 when(journeyAssembler.assemble(any(), any(), any(), any(), any()))
                                 .thenReturn(leg1J)
                                 .thenReturn(leg2J);
@@ -152,8 +167,22 @@ class DisruptionIntermediateStopTest {
 
                 // Mock assembly
                 Journey leg1J = new Journey(user, "A", "B", OffsetDateTime.now(), OffsetDateTime.now().plusMinutes(30));
+                JourneySegment leg1Seg = new JourneySegment(leg1J, 0, SegmentType.PUBLIC_TRANSPORT);
+                leg1Seg.setTransitMode(TransitMode.METRO);
+                leg1Seg.setLineCode("2");
+                leg1Seg.addPoint(new JourneyPoint(leg1Seg, 0, JourneyPointType.ORIGIN, "A"));
+                leg1Seg.addPoint(new JourneyPoint(leg1Seg, 1, JourneyPointType.DESTINATION, "B"));
+                leg1J.addSegment(leg1Seg);
+
                 Journey leg2J = new Journey(user, "B", "C", OffsetDateTime.now().plusMinutes(35),
                                 OffsetDateTime.now().plusHours(1));
+                JourneySegment leg2Seg = new JourneySegment(leg2J, 0, SegmentType.PUBLIC_TRANSPORT);
+                leg2Seg.setTransitMode(TransitMode.METRO);
+                leg2Seg.setLineCode("2");
+                leg2Seg.addPoint(new JourneyPoint(leg2Seg, 0, JourneyPointType.ORIGIN, "B"));
+                leg2Seg.addPoint(new JourneyPoint(leg2Seg, 1, JourneyPointType.DESTINATION, "C"));
+                leg2J.addSegment(leg2Seg);
+
                 when(journeyAssembler.assemble(any(), any(), any(), any(), any()))
                                 .thenReturn(leg1J)
                                 .thenReturn(leg2J);

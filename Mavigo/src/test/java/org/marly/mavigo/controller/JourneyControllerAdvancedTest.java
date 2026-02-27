@@ -328,6 +328,149 @@ class JourneyControllerAdvancedTest {
                     .content(requestBody))
                     .andExpect(status().is2xxSuccessful());
         }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney avec etape intermediaire utilise planViaJourney")
+        void planJourney_withIntermediateQuery_usesViaRouting() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourneyLeg1 = createMockJourney(user);
+            mockJourneyLeg1.setOriginLabel("Gare de Lyon");
+            mockJourneyLeg1.setDestinationLabel("Châtelet");
+            org.marly.mavigo.models.journey.JourneySegment leg1Seg = new org.marly.mavigo.models.journey.JourneySegment(
+                    mockJourneyLeg1, 0, org.marly.mavigo.models.journey.SegmentType.PUBLIC_TRANSPORT);
+            leg1Seg.addPoint(new org.marly.mavigo.models.journey.JourneyPoint(leg1Seg, 0,
+                    org.marly.mavigo.models.journey.JourneyPointType.ORIGIN, "Gare de Lyon"));
+            mockJourneyLeg1.addSegment(leg1Seg);
+
+            Journey mockJourneyLeg2 = createMockJourney(user);
+            mockJourneyLeg2.setOriginLabel("Châtelet");
+            mockJourneyLeg2.setDestinationLabel("Gare du Nord");
+            org.marly.mavigo.models.journey.JourneySegment leg2Seg = new org.marly.mavigo.models.journey.JourneySegment(
+                    mockJourneyLeg2, 0, org.marly.mavigo.models.journey.SegmentType.PUBLIC_TRANSPORT);
+            leg2Seg.addPoint(new org.marly.mavigo.models.journey.JourneyPoint(leg2Seg, 0,
+                    org.marly.mavigo.models.journey.JourneyPointType.DESTINATION, "Gare du Nord"));
+            mockJourneyLeg2.addSegment(leg2Seg);
+
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            // Mock leg 1: Gare de Lyon -> Châtelet
+            when(journeyPlanningService.planAndPersist(argThat(p -> p != null && "Gare de Lyon".equals(p.originQuery())
+                    && "Châtelet".equals(p.destinationQuery())))).thenReturn(List.of(mockJourneyLeg1));
+
+            // Mock leg 2: Châtelet -> Gare du Nord
+            when(journeyPlanningService.planAndPersist(argThat(p -> p != null && "Châtelet".equals(p.originQuery())
+                    && "Gare du Nord".equals(p.destinationQuery())))).thenReturn(List.of(mockJourneyLeg2));
+
+            when(journeyRepository.save(any(Journey.class))).thenAnswer(i -> {
+                Journey j = i.getArgument(0);
+                org.springframework.test.util.ReflectionTestUtils.setField(j, "id", UUID.randomUUID());
+                return j;
+            });
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Gare du Nord",
+                            "intermediateQuery": "Châtelet",
+                            "intermediateDepartureTime": "2025-12-14T18:30:00",
+                            "departureTime": "2025-12-14T18:00:00"
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$[0].intermediateQuery").value("Châtelet"));
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney avec etape intermediaire echoue si etape 1 vide")
+        void planJourney_withIntermediateQuery_leg1Empty_returnsEmpty() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            when(journeyPlanningService.planAndPersist(any())).thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Gare du Nord",
+                            "intermediateQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00"
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$").isEmpty());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("planJourney avec etape intermediaire echoue si etape 2 vide")
+        void planJourney_withIntermediateQuery_leg2Empty_returnsEmpty() throws Exception {
+            // Given
+            UUID userId = UUID.randomUUID();
+            User user = new User("ext-123", "test@example.com", "Test User");
+            user.setId(userId);
+
+            Journey mockJourneyLeg1 = createMockJourney(user);
+
+            when(userTaskRepository.findByUser_Id(userId)).thenReturn(List.of());
+
+            // Mock leg 1 OK
+            when(journeyPlanningService
+                    .planAndPersist(argThat(p -> p != null && "Gare de Lyon".equals(p.originQuery()))))
+                    .thenReturn(List.of(mockJourneyLeg1));
+
+            // Mock leg 2 Empty
+            when(journeyPlanningService.planAndPersist(argThat(p -> p != null && "Châtelet".equals(p.originQuery()))))
+                    .thenReturn(List.of());
+
+            String requestBody = """
+                    {
+                        "journey": {
+                            "userId": "%s",
+                            "originQuery": "Gare de Lyon",
+                            "destinationQuery": "Gare du Nord",
+                            "intermediateQuery": "Châtelet",
+                            "departureTime": "2025-12-14T18:00:00"
+                        }
+                    }
+                    """.formatted(userId);
+
+            // When/Then
+            mockMvc.perform(post("/api/journeys")
+                    .with(SecurityMockMvcRequestPostProcessors.csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+                    .andExpect(status().is2xxSuccessful())
+                    .andExpect(jsonPath("$").isEmpty());
+        }
     }
 
     // Helper methods
