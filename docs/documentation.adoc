@@ -2175,10 +2175,7 @@ This enables direct URL access and browser back/forward navigation without full 
 git clone https://github.com/Aminmiri82/devops-project-MARLY.git
 cd devops-project-MARLY/Mavigo
 
-# Copy environment template
-cp local.env.example local.env
-
-# Edit local.env with your API keys (see Configuration section below)
+# Create and edit local.env with your API keys (see Configuration section below)
 nano local.env
 
 # Run the application
@@ -2197,23 +2194,15 @@ Create a `local.env` file in the `Mavigo/` directory with the following variable
 ----
 # PRIM API (Required)
 PRIM_API_KEY=your-prim-api-key-here
-PRIM_API_BASE_URL=https://prim.iledefrance-mobilites.fr/marketplace/v2
+PRIM_API_ENDPOINT=https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia
 
 # Google OAuth2 (Required for Google Tasks integration)
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 
 # JWT Secret Key (Required for authentication)
-APP_SECRET_KEY=your-secret-key-at-least-32-chars
+JWT_SECRET=your-secret-key-at-least-32-chars
 
-# Database (H2 in-memory - default)
-SPRING_DATASOURCE_URL=jdbc:h2:mem:mavigodb
-SPRING_DATASOURCE_USERNAME=sa
-SPRING_DATASOURCE_PASSWORD=
-
-# Application Server
-SERVER_PORT=8080
-SPRING_PROFILES_ACTIVE=dev
 ----
 
 ==== API Keys Setup
