@@ -97,6 +97,41 @@ class ControllerDtoCoverageTest {
     }
 
     @Test
+    void journeyResponse_fromJourney_withIntermediateStop() {
+        User user = new User("ext-1", "a@x.com", "User A");
+        user.setId(UUID.randomUUID());
+        Journey journey = new Journey();
+        journey.setUser(user);
+        journey.setOriginLabel("Gare de Lyon");
+        journey.setDestinationLabel("Opéra");
+        journey.setIntermediateQuery("Châtelet-Les Halles");
+        journey.setIntermediateDepartureTime(OffsetDateTime.now().plusMinutes(30));
+
+        JourneyResponse response = JourneyResponse.from(journey);
+
+        assertThat(response.intermediateQuery()).isEqualTo("Châtelet-Les Halles");
+        assertThat(response.intermediateDepartureTime()).isNotNull();
+    }
+
+    @Test
+    void journeyResponse_fromOptimized_preservesIntermediateFields() {
+        User user = new User("ext-1", "a@x.com", "User A");
+        user.setId(UUID.randomUUID());
+        Journey journey = new Journey();
+        journey.setUser(user);
+        journey.setOriginLabel("A");
+        journey.setDestinationLabel("C");
+        journey.setIntermediateQuery("B");
+        journey.setIntermediateDepartureTime(OffsetDateTime.now().plusMinutes(20));
+
+        JourneyResponse response = JourneyResponse.fromOptimized(journey, List.of(),
+                List.of(new JourneyResponse.IncludedTaskResponse(UUID.randomUUID(), "Task", "B", 300L, "t1")), 3600L);
+
+        assertThat(response.intermediateQuery()).isEqualTo("B");
+        assertThat(response.intermediateDepartureTime()).isNotNull();
+    }
+
+    @Test
     void journeyResponse_fromJourney_withNullBadges() {
         Journey journey = new Journey();
         journey.setOriginLabel("O");
@@ -281,6 +316,18 @@ class ControllerDtoCoverageTest {
         assertThat(req.originQuery()).isEqualTo("Paris");
         assertThat(req.ecoModeEnabled()).isTrue();
         assertThat(req.taskDetails()).hasSize(1);
+    }
+
+    @Test
+    void planJourneyRequest_withIntermediateFields() {
+        PlanJourneyRequest req = new PlanJourneyRequest(
+                UUID.randomUUID(), "A", "C", "2025-12-14T18:00",
+                false, false, null, null,
+                "Châtelet-Les Halles",
+                "2025-12-14T19:00:00");
+
+        assertThat(req.intermediateQuery()).isEqualTo("Châtelet-Les Halles");
+        assertThat(req.intermediateDepartureTime()).isEqualTo("2025-12-14T19:00:00");
     }
 
     @Test
